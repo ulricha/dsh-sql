@@ -16,7 +16,7 @@ import           Database.DSH.Backend.Sql.Opt.Properties.ICols
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 import           Database.DSH.Backend.Sql.Opt.Properties.Use
 import           Database.DSH.Common.Opt
-import           Database.DSH.Impossible
+import           Database.DSH.Common.Impossible
 
 
 seed :: TopDownProps

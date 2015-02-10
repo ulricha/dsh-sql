@@ -36,11 +36,11 @@ import qualified Database.Algebra.Table.Lang              as TA
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.VectorAlgebra   ()
+import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
 import qualified Database.DSH.Common.Type                 as T
 import           Database.DSH.Common.Vector
 import           Database.DSH.VL
-import           Database.DSH.Impossible
 
 --------------------------------------------------------------------------------
 
@@ -265,4 +265,4 @@ instance Row (BackendRow SqlBackend) where
     textVal (SqlScalar (H.SqlString t))     = textE (Txt.pack t)
     textVal (SqlScalar (H.SqlByteString s)) = textE (Txt.decodeUtf8 s)
     textVal _                               = $impossible
-    
+

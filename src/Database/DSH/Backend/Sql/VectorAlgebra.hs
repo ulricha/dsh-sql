@@ -20,7 +20,7 @@ import           Database.Algebra.Table.Lang
 
 import qualified Database.DSH.Common.Lang         as L
 import           Database.DSH.Common.Vector
-import           Database.DSH.Impossible
+import           Database.DSH.Common.Impossible
 import qualified Database.DSH.VL                  as VL
 
 --------------------------------------------------------------------------------

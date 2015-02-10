@@ -16,7 +16,7 @@ import qualified Data.Set.Monad                             as S
 import           Database.Algebra.Dag.Common
 import           Database.Algebra.Table.Lang                hiding (replace)
 
-import           Database.DSH.Impossible
+import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.Opt
 import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
 import           Database.DSH.Backend.Sql.Opt.Properties.Types

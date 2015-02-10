@@ -8,10 +8,9 @@ import           Database.Algebra.Dag
 import           Database.Algebra.Dag.Common
 import           Database.Algebra.Table.Lang
 
-import           Database.DSH.Impossible
+import           Database.DSH.Common.Impossible
 
 import           Database.DSH.Common.Opt
-
 
 import           Database.DSH.Backend.Sql.Opt.Properties.Card1
 import           Database.DSH.Backend.Sql.Opt.Properties.Cols

@@ -5,7 +5,7 @@ module Database.DSH.Backend.Sql.Opt.Properties.Types where
 
 import qualified Data.Set.Monad              as S
 import           Database.Algebra.Table.Lang
-import           Database.DSH.Impossible
+import           Database.DSH.Common.Impossible
 
 ----------------------------------------------------------------------------
 -- Property types
