@@ -3,14 +3,12 @@ module Database.DSH.Backend.Sql.Opt.Rewrite.Common where
 import qualified Data.IntMap                                   as M
 
 import           Database.Algebra.Dag.Common
-
-import           Database.DSH.Common.QueryPlan
-
-import           Database.DSH.Common.Opt
-
 import           Database.Algebra.Table.Lang
 
-import           Database.DSH.VL.Vector
+import           Database.DSH.Common.QueryPlan
+import           Database.DSH.Common.Opt
+
+import           Database.DSH.Common.Vector
 
 import           Database.DSH.Backend.Sql.Opt.Properties.BottomUp
 import           Database.DSH.Backend.Sql.Opt.Properties.TopDown

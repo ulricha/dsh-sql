@@ -6,7 +6,7 @@ import qualified Database.Algebra.Dag                              as Dag
 import           Database.Algebra.Table.Lang
 
 import           Database.DSH.Common.QueryPlan
-import           Database.DSH.VL.Vector
+import           Database.DSH.Common.Vector
 
 import           Database.DSH.Common.Opt
 import           Database.DSH.Backend.Sql.Opt.Rewrite.Basic

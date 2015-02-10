@@ -38,11 +38,9 @@ import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.VectorAlgebra   ()
 import           Database.DSH.Common.QueryPlan
 import qualified Database.DSH.Common.Type                 as T
-import           Database.DSH.Frontend.Internals
+import           Database.DSH.Common.Vector
+import           Database.DSH.VL
 import           Database.DSH.Impossible
-import           Database.DSH.Translate.VL2Algebra
-import qualified Database.DSH.VL.Lang                     as VL
-import           Database.DSH.VL.Vector
 
 --------------------------------------------------------------------------------
 
@@ -59,6 +57,7 @@ sqlBackend = SqlBackend
 -- into a separate SQL query.
 
 -- FIXME use materialization "prelude"
+-- FIXME use Functor instance
 generateSqlQueries :: QueryPlan TA.TableAlgebra NDVec -> Shape (BackendCode SqlBackend)
 generateSqlQueries taPlan = renderQueryCode $ queryShape taPlan
   where
@@ -146,7 +145,7 @@ insertSerialize g = g >>= traverseShape
     needRelPos = TA.RelPos ["pos"]
     noPos      = TA.NoPos
 
-implementVectorOps :: QueryPlan VL.VL VLDVec -> QueryPlan TA.TableAlgebra NDVec
+implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra NDVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
   where
     taPlan               = vl2Algebra (D.nodeMap $ queryDag vlPlan) (queryShape vlPlan)
@@ -202,7 +201,7 @@ instance Backend SqlBackend where
     generateCode :: BackendPlan SqlBackend -> Shape (BackendCode SqlBackend)
     generateCode (QP plan) = generateSqlQueries plan
 
-    generatePlan :: QueryPlan VL.VL VLDVec -> BackendPlan SqlBackend
+    generatePlan :: QueryPlan VL VLDVec -> BackendPlan SqlBackend
     generatePlan = QP . implementVectorOps
 
     dumpPlan :: String -> BackendPlan SqlBackend -> IO ()
@@ -228,31 +227,42 @@ instance Row (BackendRow SqlBackend) where
 
     descrVal (SqlScalar (H.SqlInt32 i))   = fromIntegral i
     descrVal (SqlScalar (H.SqlInteger i)) = fromIntegral i
-    descrVal _                          = $impossible
+    descrVal _                            = $impossible
 
-    scalarVal (SqlScalar H.SqlNull)           UnitT    = UnitE
-    scalarVal (SqlScalar (H.SqlInteger _))    UnitT    = UnitE
-    scalarVal (SqlScalar (H.SqlInteger i))    IntegerT = IntegerE i
-    scalarVal (SqlScalar (H.SqlInt32 i))      IntegerT = IntegerE $ fromIntegral i
-    scalarVal (SqlScalar (H.SqlInt64 i))      IntegerT = IntegerE $ fromIntegral i
-    scalarVal (SqlScalar (H.SqlWord32 i))     IntegerT = IntegerE $ fromIntegral i
-    scalarVal (SqlScalar (H.SqlWord64 i))     IntegerT = IntegerE $ fromIntegral i
-    scalarVal (SqlScalar (H.SqlDouble d))     DoubleT  = DoubleE d
-    scalarVal (SqlScalar (H.SqlRational d))   DoubleT  = DoubleE $ fromRational d
-    scalarVal (SqlScalar (H.SqlInteger d))    DoubleT  = DoubleE $ fromIntegral d
-    scalarVal (SqlScalar (H.SqlInt32 d))      DoubleT  = DoubleE $ fromIntegral d
-    scalarVal (SqlScalar (H.SqlInt64 d))      DoubleT  = DoubleE $ fromIntegral d
-    scalarVal (SqlScalar (H.SqlWord32 d))     DoubleT  = DoubleE $ fromIntegral d
-    scalarVal (SqlScalar (H.SqlWord64 d))     DoubleT  = DoubleE $ fromIntegral d
-    scalarVal (SqlScalar (H.SqlBool b))       BoolT    = BoolE b
-    scalarVal (SqlScalar (H.SqlInteger i))    BoolT    = BoolE (i /= 0)
-    scalarVal (SqlScalar (H.SqlInt32 i))      BoolT    = BoolE (i /= 0)
-    scalarVal (SqlScalar (H.SqlInt64 i))      BoolT    = BoolE (i /= 0)
-    scalarVal (SqlScalar (H.SqlWord32 i))     BoolT    = BoolE (i /= 0)
-    scalarVal (SqlScalar (H.SqlWord64 i))     BoolT    = BoolE (i /= 0)
-    scalarVal (SqlScalar (H.SqlChar c))       CharT    = CharE c
-    scalarVal (SqlScalar (H.SqlString (c:_))) CharT    = CharE c
-    scalarVal (SqlScalar (H.SqlByteString c)) CharT    = CharE (head $ Txt.unpack $ Txt.decodeUtf8 c)
-    scalarVal (SqlScalar (H.SqlString t))     TextT    = TextE (Txt.pack t)
-    scalarVal (SqlScalar (H.SqlByteString s)) TextT    = TextE (Txt.decodeUtf8 s)
-    scalarVal (SqlScalar sql)               _        = error $ "Unsupported SqlValue: "  ++ show sql
+    unitVal (SqlScalar H.SqlNull)        = unitE
+    unitVal (SqlScalar (H.SqlInteger _)) = unitE
+    unitVal _                            = $impossible
+
+    integerVal (SqlScalar (H.SqlInteger i)) = integerE i
+    integerVal (SqlScalar (H.SqlInt32 i))   = integerE $ fromIntegral i
+    integerVal (SqlScalar (H.SqlInt64 i))   = integerE $ fromIntegral i
+    integerVal (SqlScalar (H.SqlWord32 i))  = integerE $ fromIntegral i
+    integerVal (SqlScalar (H.SqlWord64 i))  = integerE $ fromIntegral i
+    integerVal _                            = $impossible
+
+    doubleVal (SqlScalar (H.SqlDouble d))   = doubleE d
+    doubleVal (SqlScalar (H.SqlRational d)) = doubleE $ fromRational d
+    doubleVal (SqlScalar (H.SqlInteger d))  = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt32 d))    = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt64 d))    = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord32 d))   = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord64 d))   = doubleE $ fromIntegral d
+    doubleVal _                             = $impossible
+
+    boolVal (SqlScalar (H.SqlBool b))    = boolE b
+    boolVal (SqlScalar (H.SqlInteger i)) = boolE (i /= 0)
+    boolVal (SqlScalar (H.SqlInt32 i))   = boolE (i /= 0)
+    boolVal (SqlScalar (H.SqlInt64 i))   = boolE (i /= 0)
+    boolVal (SqlScalar (H.SqlWord32 i))  = boolE (i /= 0)
+    boolVal (SqlScalar (H.SqlWord64 i))  = boolE (i /= 0)
+    boolVal _                            = $impossible
+
+    charVal (SqlScalar (H.SqlChar c))       = charE c
+    charVal (SqlScalar (H.SqlString (c:_))) = charE c
+    charVal (SqlScalar (H.SqlByteString c)) = charE (head $ Txt.unpack $ Txt.decodeUtf8 c)
+    charVal _                               = $impossible
+
+    textVal (SqlScalar (H.SqlString t))     = textE (Txt.pack t)
+    textVal (SqlScalar (H.SqlByteString s)) = textE (Txt.decodeUtf8 s)
+    textVal _                               = $impossible
+    

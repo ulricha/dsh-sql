@@ -1,9 +1,9 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ParallelListComp      #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Implementation of vector primitives in terms of table algebra
 -- operators.
@@ -19,11 +19,9 @@ import           Database.Algebra.Table.Construct
 import           Database.Algebra.Table.Lang
 
 import qualified Database.DSH.Common.Lang         as L
+import           Database.DSH.Common.Vector
 import           Database.DSH.Impossible
-import           Database.DSH.VL.Vector
-import qualified Database.DSH.VL.Lang             as VL
-import           Database.DSH.VL.VectorAlgebra
-
+import qualified Database.DSH.VL                  as VL
 
 --------------------------------------------------------------------------------
 -- Some general helpers
@@ -78,10 +76,10 @@ eP = (,)
 mP :: Attr -> Attr -> Proj
 mP n o = (n, ColE o)
 
-projAddCols :: [DBCol] -> [Proj] -> AlgNode -> Build TableAlgebra AlgNode
+projAddCols :: [VL.DBCol] -> [Proj] -> AlgNode -> Build TableAlgebra AlgNode
 projAddCols cols projs q = proj ([cP descr, cP pos] ++ map (cP . itemi) cols ++ projs) q
 
-itemProj :: [DBCol] -> [Proj] -> [Proj]
+itemProj :: [VL.DBCol] -> [Proj] -> [Proj]
 itemProj cols projs = projs ++ [ cP $ itemi i | i <- cols ]
 
 binOp :: L.ScalarBinOp -> BinFun
@@ -181,7 +179,7 @@ sumDefault VL.Int    = (AInt, int 0)
 sumDefault VL.Double = (ADouble, double 0)
 sumDefault _         = $impossible
 
-doZip :: (AlgNode, [DBCol]) -> (AlgNode, [DBCol]) -> Build TableAlgebra (AlgNode, [DBCol])
+doZip :: (AlgNode, [VL.DBCol]) -> (AlgNode, [VL.DBCol]) -> Build TableAlgebra (AlgNode, [VL.DBCol])
 doZip (q1, cols1) (q2, cols2) = do
   let offset = length cols1
   let cols' = cols1 ++ map (+offset) cols2
@@ -221,7 +219,7 @@ frameSpecification (VL.FNPreceding n) = ClosedFrame (FSValPrec n) FECurrRow
 
 -- The VectorAlgebra instance for TA algebra
 
-instance VectorAlgebra TableAlgebra where
+instance VL.VectorAlgebra TableAlgebra where
   type DVec TableAlgebra = NDVec
 
   vecAlign (ADVec q1 cols1) (ADVec q2 cols2) = do
@@ -233,7 +231,7 @@ instance VectorAlgebra TableAlgebra where
     return $ ADVec r cols'
 
   vecLit tys vs = do
-    qr <- litTable' (map (map algVal) vs) 
+    qr <- litTable' (map (map algVal) vs)
                     ((descr, natT):(pos, natT):[(itemi i, algTy t) | (i, t) <- zip [1..] tys])
     return $ ADVec qr [1..length tys]
 
@@ -252,7 +250,7 @@ instance VectorAlgebra TableAlgebra where
   -- For TA algebra, the filter and reorder cases are the same, since
   -- numbering to generate positions is done with a rownum and involves sorting.
   vecPropReorder (PVec q1) e2 = do
-    (p, (RVec r)) <- vecPropFilter (RVec q1) e2
+    (p, (RVec r)) <- VL.vecPropFilter (RVec q1) e2
     return (p, PVec r)
 
   vecUnboxNested (RVec qu) (ADVec qi cols) = do

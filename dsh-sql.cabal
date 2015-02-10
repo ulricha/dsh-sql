@@ -1,0 +1,92 @@
+Name:                dsh-sql
+Version:             0.1.0.0
+Synopsis:            SQL backend for Database Supported Haskell (DSH)
+Description:
+  This package provides an SQL backend for Database Supported Haskell
+  (DSH). It provides the ability to generate SQL code and execute DSH
+  queries on supported SQL database engines. Currently, only
+  PostgreSQL is supported.
+
+License:             BSD3
+License-file:        LICENSE
+Author:              George Giorgidze, Alexander Ulrich, Nils Schweinsberg and Jeroen Weijers
+Maintainer:          alex@etc-network.de
+Stability:           Experimental
+Category:            Database
+Build-type:          Simple
+
+Extra-source-files:  README.md
+
+Cabal-version:       >= 1.8
+
+Flag debuggraph
+  Description: Print debugging information for graph rewrites (TA)
+  Default:     False
+
+Library
+  Extensions:        CPP
+  Build-depends:     base               >= 4.7 && < 5,
+                     template-haskell   >= 2.9,
+                     containers         >= 0.5,
+                     mtl                >= 2.1,
+                     bytestring         >= 0.10,
+                     text               >= 1.1,
+                     HDBC               >= 2.3,
+                     HDBC-postgresql    >= 2.3,
+                     pretty             >= 1.1,
+                     aeson              >= 0.8,
+                     kure               >= 2.16,
+                     either             >= 4.0,
+                     semigroups         >= 0.16,
+                     ansi-wl-pprint     >= 0.6,
+                     set-monad          >= 0.1,
+                     dlist              >= 0.7,
+
+                     algebra-dag        >= 0.1,
+                     algebra-sql        >= 0.1,
+                     DSH                >= 0.10
+
+  Hs-source-dirs:    src
+
+  if flag(debuggraph)
+    CPP-Options:     -DDEBUGGRAPH
+
+  GHC-Options:       -Wall -fno-warn-orphans
+
+  Exposed-modules:   Database.DSH.Backend.Sql
+
+  Other-modules:     Database.DSH.Backend.Sql.Opt.Properties.BottomUp
+                     Database.DSH.Backend.Sql.Opt.Properties.TopDown
+                     Database.DSH.Backend.Sql.Opt.Properties.Types
+                     Database.DSH.Backend.Sql.Opt.Properties.Cols
+                     Database.DSH.Backend.Sql.Opt.Properties.ICols
+                     Database.DSH.Backend.Sql.Opt.Properties.Use
+                     Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
+                     Database.DSH.Backend.Sql.Opt.Properties.Empty
+                     Database.DSH.Backend.Sql.Opt.Properties.Card1
+                     Database.DSH.Backend.Sql.Opt.Properties.Keys
+                     Database.DSH.Backend.Sql.Opt.Properties.Order
+                     Database.DSH.Backend.Sql.Opt.Properties.Const
+                     Database.DSH.Backend.Sql.Opt.Rewrite.Basic
+                     Database.DSH.Backend.Sql.Opt.Rewrite.Common
+                     Database.DSH.Backend.Sql.Opt.OptimizeTA
+
+Test-Suite sqltests
+    type:       exitcode-stdio-1.0
+    Hs-Source-Dirs : testsuite
+    Main-is:       Main.hs
+    Build-depends: base                       >= 4.7 && < 5,
+                   QuickCheck                 >= 2.4,
+                   containers                 >= 0.5,
+                   text                       >= 1.1,
+                   HDBC-postgresql            >= 2.3,
+                   HDBC                       >= 2.3,
+                   test-framework-quickcheck2 >= 0.2,
+                   test-framework-hunit       >= 0.3,
+                   test-framework             >= 0.6,
+                   HUnit                      >= 1.2,
+
+                   DSH                        >= 0.10
+    cpp-options:   -DTESTSQL
+    GHC-Options: -Wall -fno-warn-orphans
+    Extensions: CPP
