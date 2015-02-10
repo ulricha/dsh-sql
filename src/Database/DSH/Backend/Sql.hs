@@ -59,25 +59,14 @@ sqlBackend = SqlBackend
 -- FIXME use materialization "prelude"
 -- FIXME use Functor instance
 generateSqlQueries :: QueryPlan TA.TableAlgebra NDVec -> Shape (BackendCode SqlBackend)
-generateSqlQueries taPlan = renderQueryCode $ queryShape taPlan
+generateSqlQueries taPlan = renderSql $ queryShape taPlan
   where
     roots = D.rootNodes $ queryDag taPlan
     (_sqlShared, sqlQueries) = renderOutputDSHWith PostgreSQL materialize (queryDag taPlan)
     nodeToQuery  = zip roots sqlQueries
     lookupNode n = maybe $impossible SqlCode $ lookup n nodeToQuery
 
-    renderQueryCode :: Shape NDVec -> Shape (BackendCode SqlBackend)
-    renderQueryCode shape =
-        case shape of
-            SShape (ADVec r _) lyt -> SShape (lookupNode r) (convertLayout lyt)
-            VShape (ADVec r _) lyt -> VShape (lookupNode r) (convertLayout lyt)
-
-    convertLayout :: Layout NDVec -> Layout (BackendCode SqlBackend)
-    convertLayout lyt =
-        case lyt of
-            LCol                   -> LCol
-            LNest (ADVec r _) clyt -> LNest (lookupNode r) (convertLayout clyt)
-            LTuple lyts            -> LTuple $ map convertLayout lyts
+    renderSql = fmap (\(ADVec r _) -> lookupNode r)
 
 --------------------------------------------------------------------------------
 
