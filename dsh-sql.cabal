@@ -70,6 +70,7 @@ Library
                      Database.DSH.Backend.Sql.Opt.Rewrite.Basic
                      Database.DSH.Backend.Sql.Opt.Rewrite.Common
                      Database.DSH.Backend.Sql.Opt.OptimizeTA
+                     Database.DSH.Backend.Sql.VectorAlgebra
 
 Test-Suite sqltests
     type:       exitcode-stdio-1.0
@@ -86,7 +87,8 @@ Test-Suite sqltests
                    test-framework             >= 0.6,
                    HUnit                      >= 1.2,
 
-                   DSH                        >= 0.10
+                   DSH                        >= 0.10,
+                   dsh-sql                    >= 0.1
     cpp-options:   -DTESTSQL
     GHC-Options: -Wall -fno-warn-orphans
     Extensions: CPP
