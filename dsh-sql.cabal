@@ -83,6 +83,5 @@ Test-Suite sqltests
 
                    DSH                        >= 0.10,
                    dsh-sql                    >= 0.1
-    cpp-options:   -DTESTSQL
     GHC-Options: -Wall -fno-warn-orphans
     Extensions: CPP
