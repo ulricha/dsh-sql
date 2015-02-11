@@ -204,6 +204,9 @@ instance Backend SqlBackend where
             []    -> error $ printf "Unknown table %s" tableName
             _ : _ -> return $ toTableDescr tableName info
 
+    transactionally (SqlBackend conn) ma =
+        H.withTransaction conn (\c -> ma (SqlBackend c))
+
 --------------------------------------------------------------------------------
 
 instance Row (BackendRow SqlBackend) where
