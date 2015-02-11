@@ -1,6 +1,6 @@
 #!/bin/bash
 
-./dist/build/vldot/vldot -i q_vl.plan | dot -Tpdf -o q_vl.pdf
-./dist/build/vldot/vldot -i q_opt_vl.plan | dot -Tpdf -o q_opt_vl.pdf
-.cabal-sandbox/bin/tadot -i q_ta.plan | dot -Tpdf -o q_ta.pdf
-.cabal-sandbox/bin/tadot -i q_opt_ta.plan | dot -Tpdf -o q_opt_ta.pdf
+${PWD}/.cabal-sandbox/bin/vldot -i ${1}_vl.plan | dot -Tpdf -o ${1}_vl.pdf
+${PWD}/.cabal-sandbox/bin/vldot -i ${1}_vl_opt.plan | dot -Tpdf -o ${1}_vl_opt.pdf
+${PWD}/.cabal-sandbox/bin/tadot -i ${1}_ta.plan | dot -Tpdf -o ${1}_ta.pdf
+${PWD}/.cabal-sandbox/bin/tadot -i ${1}_opt_ta.plan | dot -Tpdf -o ${1}_opt_ta.pdf
