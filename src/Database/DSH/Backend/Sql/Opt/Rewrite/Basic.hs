@@ -302,7 +302,7 @@ inlineSortColsRownum :: TARule AllProps
 inlineSortColsRownum q =
   $(dagPatMatch 'q "RowNum o (q1)"
     [| do
-        (resCol, sortCols@(_:_), []) <- return $(v "o")
+        (resCol, sortCols@(_:_), groupCols) <- return $(v "o")
 
         predicate $ all ((== Asc) . snd) sortCols
 
