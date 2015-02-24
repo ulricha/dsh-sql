@@ -53,7 +53,7 @@ inferKeysNullOp op =
     case op of
         -- FIXME check all combinations of columns for uniqueness
         LitTable (vals, schema)  -> S.fromList
-                                    $ map (ss . snd) 
+                                    $ map (ss . snd)
                                     $ filter (isUnique . fst)
                                     $ zip (transpose vals) (map fst schema)
           where
