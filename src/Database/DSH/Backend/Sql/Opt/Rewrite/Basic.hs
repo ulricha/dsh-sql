@@ -292,13 +292,14 @@ constWinOrderCol q =
 -- original sort column and @Right@ if there is a mapping from the
 -- original sort column to a list of columns that define the same
 -- order.
-lookupSortCol :: SortSpec -> Orders -> TAMatch AllProps (Either [SortSpec] [SortSpec])
+lookupSortCol :: SortSpec -> Orders -> Either [SortSpec] [SortSpec]
 lookupSortCol (ColE oldSortCol, Asc) os =
     case lookup oldSortCol os of
-        Nothing          -> return $ Left [(ColE oldSortCol, Asc)]
-        Just newSortCols -> return $ Right $ map (\c -> (ColE c, Asc)) newSortCols
-lookupSortCol (_, Asc)               _  = fail "only consider column expressions for now"
-lookupSortCol (_, Desc)              _  = fail "only consider ascending orders"
+        Nothing          -> Left [(ColE oldSortCol, Asc)]
+        Just newSortCols -> Right $ map (\c -> (ColE c, Asc)) newSortCols
+-- We do not inline into arbitrary expressions for now. Likewise, we
+-- do not consider non-ascending sorting.
+lookupSortCol (e, dir)               _  = Left [(e, dir)]
 
 inlineSortColsRownum :: TARule AllProps
 inlineSortColsRownum q =
@@ -310,9 +311,12 @@ inlineSortColsRownum q =
 
         orders@(_:_) <- pOrder <$> bu <$> properties $(v "q1")
 
+        trace (show resCol ++ "<-" ++ show sortCols) $ return ()
+        trace (show orders) $ return ()
+
         -- For each sorting column, try to find the original
         -- order-defining sorting columns.
-        mSortCols <- mapM (flip lookupSortCol orders) sortCols
+        let mSortCols = map (flip lookupSortCol orders) sortCols
 
         -- The rewrite should only fire if something actually changes
         predicate $ any isRight mSortCols
@@ -347,7 +351,7 @@ inlineSortColsWinFun q =
 
         -- For each sorting column, try to find the original
         -- order-defining sorting columns.
-        mSortCols <- mapM (flip lookupSortCol orders) sortCols
+        let mSortCols = map (flip lookupSortCol orders) sortCols
 
         -- The rewrite should only fire if something actually changes
         predicate $ any isRight mSortCols
@@ -375,7 +379,7 @@ keyPrefixOrdering q =
         keys                   <- pKeys <$> bu <$> properties $(v "q1")
 
         predicate $ not $ null sortCols
-       
+
         -- All non-empty and incomplete prefixes of the ordering
         -- columns
         let ordPrefixes = init $ drop 1 (inits sortCols)
@@ -406,7 +410,7 @@ duplicateSortingCriteriaWin q =
   $(dagPatMatch 'q "WinFun args (q1)"
     [| do
         let (winFuns, part, sortCols, mFrameBounds) = $(v "args")
-        
+
         let sortCols' = nub sortCols
 
         predicate $ length sortCols' < length sortCols
