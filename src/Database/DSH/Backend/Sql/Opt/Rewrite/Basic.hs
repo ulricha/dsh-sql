@@ -37,6 +37,7 @@ cleanupRules = [ stackedProject
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
                , duplicateSortingCriteriaSerialize
+               , bypassRownumProject
                ]
 
 cleanupRulesTopDown :: TARuleSet AllProps
@@ -428,7 +429,24 @@ duplicateSortingCriteriaSerialize q =
             logRewrite "Basic.SimplifyOrder.Duplicates.Serialize" q
             let args' = (mDescr, RelPos sortCols', payload)
             void $ replaceWithNew q $ UnOp (Serialize args') $(v "q1") |])
-        
+
+-- | If a rownum output is not refererenced by a parent projection,
+-- discard it. This handles the case of a multi-parent rownum that is
+-- not required by a specific parent but is required by other parents
+-- and therefore can't be eliminated globally.
+--
+-- FIXME It would be more elegant and general to make the ICols
+-- analysis parent-aware so that we can tell for an operator wether it
+-- is required by a specific parent.
+bypassRownumProject :: TARule ()
+bypassRownumProject q =
+  $(dagPatMatch 'q "Project p (RowNum s (q1))"
+    [| do
+          let (resCol, _, _) = $(v "s")
+          predicate $ not $ S.member resCol (S.unions $ map (exprCols . snd) $(v "p"))
+          return $ do
+              logRewrite "Basic.SimplifyOrder.BypassRownum" q
+              void $ replaceWithNew q $ UnOp (Project $(v "p")) $(v "q1") |])
 
 ----------------------------------------------------------------------------------
 -- Serialize rewrites
