@@ -594,17 +594,15 @@ instance VL.VectorAlgebra TableAlgebra where
         shiftProj2 = zipWith mP (map itemi cols2') (map itemi cols2)
         itemProj2  = map (cP . itemi) cols2'
 
-    q <- projM ([cP pos, cP pos', cP pos''] ++ itemProj1 ++ itemProj2)
-           $ rownumM pos [pos', pos''] []
+    q <- projM ([cP pos, cP pos', cP posnew] ++ itemProj1 ++ itemProj2)
+           $ rownumM posnew [pos, pos'] []
            $ thetaJoinM (joinPredicate (length cols1) joinPred)
-             (proj ([ mP pos' pos
-                    ] ++ itemProj1) q1)
-             (proj ([ mP pos'' pos
-                    ] ++ shiftProj2) q2)
+                 (return q1)
+                 (proj ([ mP pos' pos] ++ shiftProj2) q2)
 
-    qv <- tagM "eqjoin/1" $ proj ([mP descr pos', cP pos] ++ itemProj1 ++ itemProj2) q
-    qp1 <- proj [mP posold pos', mP posnew pos] q
-    qp2 <- proj [mP posold pos'', mP posnew pos] q
+    qv  <- proj ([mP descr pos, mP pos posnew] ++ itemProj1 ++ itemProj2) q
+    qp1 <- proj [mP posold pos, cP posnew] q
+    qp2 <- proj [mP posold pos', cP posnew] q
     return (ADVec qv (cols1 ++ cols2'), PVec qp1, PVec qp2)
 
   vecThetaJoinS joinPred (ADVec q1 cols1) (ADVec q2 cols2) = do
@@ -937,7 +935,13 @@ instance VL.VectorAlgebra TableAlgebra where
           $ aggrM [(aggrFun a, itemi acol)] groupCols
           $ thetaJoinM (joinPredicate (length cols1) p)
               (return q1)
-              (proj shiftProj2 q2)
+              -- Including positions here is a bit of a hack. The
+              -- GroupJoin implementation itself does not need
+              -- it. However, this allows to reuse the TA join
+              -- produced by an equivalent NestJoin (or the other way
+              -- round). Both operator implementations produce the
+              -- same projections on the join inputs.
+              (proj ([mP pos' pos] ++ shiftProj2) q2)
 
     qd <- case a of
               VL.AggrSum t _ -> groupJoinDefault q1 qa cols1 (snd $ sumDefault t)
