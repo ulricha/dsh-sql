@@ -66,7 +66,6 @@ valType (VStr _)    = AStr
 valType (VBool _)   = ABool
 valType (VDouble _) = ADouble
 valType (VDec _)    = ADec
-valType (VNat _)    = ANat
 
 exprTy :: S.Set TypedAttr -> Expr -> ATy
 exprTy childCols expr =
@@ -83,10 +82,8 @@ exprTy childCols expr =
 numAggr :: ATy -> ATy
 numAggr AInt    = AInt
 numAggr ADec    = ADec
-numAggr ANat    = ANat
 numAggr ADouble = ADouble
 numAggr _       = $impossible
-
 
 aggrTy :: S.Set TypedAttr -> (AggrType, Attr) -> TypedAttr
 aggrTy childCols (aggr, resCol) = (resCol, resType)

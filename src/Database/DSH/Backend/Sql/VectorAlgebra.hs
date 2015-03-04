@@ -178,8 +178,8 @@ segAggrDefault qo qa dv =
 aggrDefault :: AlgNode -> AlgNode -> AVal -> Build TableAlgebra AlgNode
 aggrDefault q qa dv = do
     -- If the input is empty, produce a tuple with the default value.
-    qd <- projM [eP descr (ConstE $ nat 2), eP pos (ConstE $ nat 1), eP item (ConstE dv)]
-          $ (litTable (nat 1) descr ANat)
+    qd <- projM [eP descr (ConstE $ int 2), eP pos (ConstE $ int 1), eP item (ConstE dv)]
+          $ (litTable (int 1) descr AInt)
             `differenceM`
             (proj [cP descr] q)
 
@@ -191,7 +191,7 @@ aggrDefault q qa dv = do
     -- Perform an argmax on the descriptor to get either
     -- the sum output (for a non-empty input) or the
     -- default value (which has a higher descriptor).
-    projM [eP descr (ConstE $ nat 1), cP pos, cP item]
+    projM [eP descr (ConstE $ int 1), cP pos, cP item]
        $ eqJoinM descr' descr
             (aggr [(Max $ ColE descr, descr')] [] qu)
             (return qu)
@@ -257,7 +257,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
   vecLit tys vs = do
     qr <- litTable' (map (map algVal) vs)
-                    ((descr, natT):(pos, natT):[(itemi i, algTy t) | (i, t) <- zip [1..] tys])
+                    ((descr, intT):(pos, intT):[(itemi i, algTy t) | (i, t) <- zip [1..] tys])
     return $ ADVec qr [1..length tys]
 
   vecPropRename (RVec q1) (ADVec q2 cols) = do
@@ -318,7 +318,7 @@ instance VL.VectorAlgebra TableAlgebra where
   vecSegment (ADVec q cols) = ADVec <$> proj (itemProj cols [mP descr pos, cP pos]) q <*> pure cols
 
   vecUnsegment (ADVec q cols) = do
-    qr <- proj (itemProj cols [cP pos, eP descr (ConstE $ nat 1)]) q
+    qr <- proj (itemProj cols [cP pos, eP descr (ConstE $ int 1)]) q
     return $ ADVec qr cols
 
   vecDistLift (ADVec q1 cols1) (ADVec q2 cols2) = do
@@ -342,7 +342,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
   vecAggr a (ADVec q _) = do
     -- The aggr operator itself
-    qa <- projM [eP descr (ConstE $ nat 1), eP pos (ConstE $ nat 1), cP item]
+    qa <- projM [eP descr (ConstE $ int 1), eP pos (ConstE $ int 1), cP item]
           $ aggr [(aggrFun a, item)] [] q
     -- For sum, add the default value for empty inputs
     qd <- case a of
@@ -361,7 +361,7 @@ instance VL.VectorAlgebra TableAlgebra where
                    | i <- resCols
                    ]
 
-    qa <- projM (itemProj resCols [eP descr (ConstE $ nat 1), eP pos (ConstE $ nat 1)])
+    qa <- projM (itemProj resCols [eP descr (ConstE $ int 1), eP pos (ConstE $ int 1)])
           $ aggr aggrFuns [] q
 
     return $ ADVec qa resCols
@@ -417,35 +417,35 @@ instance VL.VectorAlgebra TableAlgebra where
   descToRename (ADVec q1 _) = RVec <$> proj [mP posnew descr, mP posold pos] q1
 
   singletonDescr = do
-    q <- litTable' [[nat 1, nat 1]] [(descr, natT), (pos, natT)]
+    q <- litTable' [[int 1, int 1]] [(descr, intT), (pos, intT)]
     return $ ADVec q []
 
   vecAppend (ADVec q1 cols) (ADVec q2 _) = do
     q <- rownumM posnew [ordCol, pos] []
-           $ projAddCols cols [eP ordCol (ConstE (nat 1))] q1
+           $ projAddCols cols [eP ordCol (ConstE (int 1))] q1
              `unionM`
-             projAddCols cols [eP ordCol (ConstE (nat 2))] q2
+             projAddCols cols [eP ordCol (ConstE (int 2))] q2
     qv <- tagM "append r" (proj (itemProj cols [mP pos posnew, cP descr]) q)
     qp1 <- tagM "append r1"
            $ projM [mP posold pos, cP posnew]
-           $ select (BinAppE Eq (ColE ordCol) (ConstE $ nat 1)) q
+           $ select (BinAppE Eq (ColE ordCol) (ConstE $ int 1)) q
     qp2 <- tagM "append r2"
            $ projM [mP posold pos, cP posnew]
-           $ select (BinAppE Eq (ColE ordCol) (ConstE $ nat 2)) q
+           $ select (BinAppE Eq (ColE ordCol) (ConstE $ int 2)) q
     return $ (ADVec qv cols, RVec qp1, RVec qp2)
 
   vecAppendS (ADVec q1 cols) (ADVec q2 _) = do
     q <- rownumM posnew [descr, ordCol, pos] []
-           $ projAddCols cols [eP ordCol (ConstE (nat 1))] q1
+           $ projAddCols cols [eP ordCol (ConstE (int 1))] q1
              `unionM`
-             projAddCols cols [eP ordCol (ConstE (nat 2))] q2
+             projAddCols cols [eP ordCol (ConstE (int 2))] q2
     qv <- tagM "append r" (proj (itemProj cols [mP pos posnew, cP descr]) q)
     qp1 <- tagM "append r1"
            $ projM [mP posold pos, cP posnew]
-           $ select (BinAppE Eq (ColE ordCol) (ConstE $ nat 1)) q
+           $ select (BinAppE Eq (ColE ordCol) (ConstE $ int 1)) q
     qp2 <- tagM "append r2"
            $ projM [mP posold pos, cP posnew]
-           $ select (BinAppE Eq (ColE ordCol) (ConstE $ nat 2)) q
+           $ select (BinAppE Eq (ColE ordCol) (ConstE $ int 2)) q
     return $ (ADVec qv cols, RVec qp1, RVec qp2)
 
   vecSelect expr (ADVec q cols) = do
@@ -459,7 +459,7 @@ instance VL.VectorAlgebra TableAlgebra where
     q <- -- generate the pos column
          rownumM pos orderCols []
          -- map table columns to item columns, add constant descriptor
-         $ projM (eP descr (ConstE (nat 1)) : [ mP (itemi i) c | (c, i) <- numberedColNames ])
+         $ projM (eP descr (ConstE (int 1)) : [ mP (itemi i) c | (c, i) <- numberedColNames ])
          $ dbTable tableName taColumns (map Key taKeys)
     return $ ADVec q (map snd numberedColNames)
 
@@ -668,7 +668,7 @@ instance VL.VectorAlgebra TableAlgebra where
     return $ ADVec qu (colso ++ colsi')
 
   vecSelectPos (ADVec qe cols) op (ADVec qi _) = do
-    qs <- selectM (binOp op (ColE pos) (UnAppE (Cast natT) (ColE item')))
+    qs <- selectM (binOp op (ColE pos) (ColE item'))
           $ crossM
               (return qe)
               (proj [mP item' item] qi)
@@ -691,7 +691,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
   vecSelectPosS (ADVec qe cols) op (ADVec qi _) = do
     qs <- rownumM posnew [pos] []
-          $ selectM (binOp op (ColE absPos) (UnAppE (Cast natT) (ColE item')))
+          $ selectM (binOp op (ColE absPos) (ColE item'))
           $ eqJoinM descr pos'
               (rownum absPos [pos] [ColE descr] qe)
               (proj [mP pos' pos, mP item' item] qi)
@@ -702,7 +702,7 @@ instance VL.VectorAlgebra TableAlgebra where
     return $ (ADVec qr cols, RVec qp, RVec qu)
 
   vecSelectPos1 (ADVec qe cols) op posConst = do
-    let posConst' = VNat $ fromIntegral posConst
+    let posConst' = VInt $ fromIntegral posConst
     qs <- select (binOp op (ColE pos) (ConstE posConst')) qe
 
     q' <- case op of
@@ -722,7 +722,7 @@ instance VL.VectorAlgebra TableAlgebra where
   -- If we select positions in a lifted way, we need to recompute
   -- positions in any case.
   vecSelectPos1S (ADVec qe cols) op posConst = do
-    let posConst' = VNat $ fromIntegral posConst
+    let posConst' = VInt $ fromIntegral posConst
     qs <- rownumM posnew [pos] []
           $ selectM (binOp op (ColE absPos) (ConstE posConst'))
           $ rownum absPos [pos] [ColE descr] qe
@@ -779,7 +779,7 @@ instance VL.VectorAlgebra TableAlgebra where
   vecNumber (ADVec q cols) = do
     let nrIndex = length cols + 1
         nrItem = itemi nrIndex
-    qr <- projAddCols cols [eP nrItem (UnAppE (Cast natT) (ColE pos))] q
+    qr <- projAddCols cols [eP nrItem (ColE pos)] q
     return $ ADVec qr (cols ++ [nrIndex])
 
   -- The TA implementation of lifted number does not come for
@@ -860,7 +860,7 @@ instance VL.VectorAlgebra TableAlgebra where
   vecReshape n (ADVec q cols) = do
     let dExpr = BinAppE Div (BinAppE Minus (ColE pos) (ConstE $ int 1)) (ConstE $ int $ n + 1)
     qi <- proj (itemProj cols [cP pos, eP descr dExpr]) q
-    qo <- projM [eP descr (ConstE $ nat 1), cP pos]
+    qo <- projM [eP descr (ConstE $ int 1), cP pos]
           $ distinctM
           $ proj [mP pos descr] qi
     return (ADVec qo [], ADVec qi cols)
@@ -894,7 +894,7 @@ instance VL.VectorAlgebra TableAlgebra where
           -- Generate absolute positions for the inner lists
           $ rownum descr' [pos] [ColE descr] q
 
-    qo <- projM [eP descr (ConstE $ nat 1), cP pos]
+    qo <- projM [eP descr (ConstE $ int 1), cP pos]
           $ distinctM
           $ proj [mP pos descr] qi
 
