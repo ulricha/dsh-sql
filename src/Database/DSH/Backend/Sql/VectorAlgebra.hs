@@ -54,18 +54,20 @@ itemi' :: Int -> Attr
 itemi' i = "itemtmp" ++ show i
 
 algVal :: VL.VLVal -> AVal
-algVal (VL.VLInt i) = int (fromIntegral i)
-algVal (VL.VLBool t) = bool t
-algVal VL.VLUnit = int (-1)
+algVal (VL.VLInt i)    = int (fromIntegral i)
+algVal (VL.VLBool t)   = bool t
+algVal VL.VLUnit       = int (-1)
 algVal (VL.VLString s) = string s
 algVal (VL.VLDouble d) = double d
+algVal (VL.VLDate d)   = date d
 
 algTy :: VL.ScalarType -> ATy
-algTy (VL.Int)    = intT
-algTy (VL.Double) = doubleT
-algTy (VL.Bool)   = boolT
-algTy (VL.String) = stringT
-algTy (VL.Unit)   = intT
+algTy VL.Int    = intT
+algTy VL.Double = doubleT
+algTy VL.Bool   = boolT
+algTy VL.String = stringT
+algTy VL.Unit   = intT
+algTy VL.Date   = dateT
 
 cP :: Attr -> Proj
 cP a = (a, ColE a)
@@ -82,21 +84,23 @@ projAddCols cols projs q = proj ([cP descr, cP pos] ++ map (cP . itemi) cols ++ 
 itemProj :: [VL.DBCol] -> [Proj] -> [Proj]
 itemProj cols projs = projs ++ [ cP $ itemi i | i <- cols ]
 
-binOp :: L.ScalarBinOp -> BinFun
-binOp (L.SBNumOp L.Add)     = Plus
-binOp (L.SBNumOp L.Sub)     = Minus
-binOp (L.SBNumOp L.Div)     = Div
-binOp (L.SBNumOp L.Mul)     = Times
-binOp (L.SBNumOp L.Mod)     = Modulo
-binOp (L.SBRelOp L.Eq)      = Eq
-binOp (L.SBRelOp L.NEq)     = NEq
-binOp (L.SBRelOp L.Gt)      = Gt
-binOp (L.SBRelOp L.GtE)     = GtE
-binOp (L.SBRelOp L.Lt)      = Lt
-binOp (L.SBRelOp L.LtE)     = LtE
-binOp (L.SBBoolOp L.Conj)   = And
-binOp (L.SBBoolOp L.Disj)   = Or
-binOp (L.SBStringOp L.Like) = Like
+binOp :: L.ScalarBinOp -> Expr -> Expr -> Expr
+binOp (L.SBNumOp L.Add)       = BinAppE Plus
+binOp (L.SBNumOp L.Sub)       = BinAppE Minus
+binOp (L.SBNumOp L.Div)       = BinAppE Div
+binOp (L.SBNumOp L.Mul)       = BinAppE Times
+binOp (L.SBNumOp L.Mod)       = BinAppE Modulo
+binOp (L.SBRelOp L.Eq)        = BinAppE Eq
+binOp (L.SBRelOp L.NEq)       = BinAppE NEq
+binOp (L.SBRelOp L.Gt)        = BinAppE Gt
+binOp (L.SBRelOp L.GtE)       = BinAppE GtE
+binOp (L.SBRelOp L.Lt)        = BinAppE Lt
+binOp (L.SBRelOp L.LtE)       = BinAppE LtE
+binOp (L.SBBoolOp L.Conj)     = BinAppE And
+binOp (L.SBBoolOp L.Disj)     = BinAppE Or
+binOp (L.SBStringOp L.Like)   = BinAppE Like
+binOp (L.SBDateOp L.AddDays)  = \e1 e2 -> BinAppE Plus e2 e1
+binOp (L.SBDateOp L.DiffDays) = \e1 e2 -> BinAppE Minus e2 e1
 
 unOp :: L.ScalarUnOp -> UnFun
 unOp (L.SUBoolOp L.Not)             = Not
@@ -111,10 +115,12 @@ unOp (L.SUNumOp L.Sqrt)             = Sqrt
 unOp (L.SUNumOp L.Exp)              = Exp
 unOp (L.SUNumOp L.Log)              = Log
 unOp (L.SUTextOp (L.SubString f t)) = SubString f t
-unOp L.SUDateOp                     = $unimplemented
+unOp (L.SUDateOp L.DateDay)         = DateDay
+unOp (L.SUDateOp L.DateMonth)       = DateMonth
+unOp (L.SUDateOp L.DateYear)        = DateYear
 
 taExprOffset :: Int -> VL.Expr -> Expr
-taExprOffset o (VL.BinApp op e1 e2) = BinAppE (binOp op) (taExprOffset o e1) (taExprOffset o e2)
+taExprOffset o (VL.BinApp op e1 e2) = binOp op (taExprOffset o e1) (taExprOffset o e2)
 taExprOffset o (VL.UnApp op e)      = UnAppE (unOp op) (taExprOffset o e)
 taExprOffset o (VL.Column c)        = ColE $ itemi $ c + o
 taExprOffset _ (VL.Constant v)      = ConstE $ algVal v
@@ -662,7 +668,7 @@ instance VL.VectorAlgebra TableAlgebra where
     return $ ADVec qu (colso ++ colsi')
 
   vecSelectPos (ADVec qe cols) op (ADVec qi _) = do
-    qs <- selectM (BinAppE (binOp op) (ColE pos) (UnAppE (Cast natT) (ColE item')))
+    qs <- selectM (binOp op (ColE pos) (UnAppE (Cast natT) (ColE item')))
           $ crossM
               (return qe)
               (proj [mP item' item] qi)
@@ -685,7 +691,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
   vecSelectPosS (ADVec qe cols) op (ADVec qi _) = do
     qs <- rownumM posnew [pos] []
-          $ selectM (BinAppE (binOp op) (ColE absPos) (UnAppE (Cast natT) (ColE item')))
+          $ selectM (binOp op (ColE absPos) (UnAppE (Cast natT) (ColE item')))
           $ eqJoinM descr pos'
               (rownum absPos [pos] [ColE descr] qe)
               (proj [mP pos' pos, mP item' item] qi)
@@ -697,7 +703,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
   vecSelectPos1 (ADVec qe cols) op posConst = do
     let posConst' = VNat $ fromIntegral posConst
-    qs <- select (BinAppE (binOp op) (ColE pos) (ConstE posConst')) qe
+    qs <- select (binOp op (ColE pos) (ConstE posConst')) qe
 
     q' <- case op of
             -- If we select positions from the beginning, we can re-use the old
@@ -718,7 +724,7 @@ instance VL.VectorAlgebra TableAlgebra where
   vecSelectPos1S (ADVec qe cols) op posConst = do
     let posConst' = VNat $ fromIntegral posConst
     qs <- rownumM posnew [pos] []
-          $ selectM (BinAppE (binOp op) (ColE absPos) (ConstE posConst'))
+          $ selectM (binOp op (ColE absPos) (ConstE posConst'))
           $ rownum absPos [pos] [ColE descr] qe
 
     qr <- proj (itemProj cols [cP descr, mP pos posnew]) qs
