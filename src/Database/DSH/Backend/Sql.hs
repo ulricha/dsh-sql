@@ -19,6 +19,7 @@ import           Database.HDBC.PostgreSQL
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.State
+import           Data.Decimal
 import qualified Data.Map                                 as M
 import           Data.Maybe
 import qualified Data.Text                                as Txt
@@ -257,4 +258,14 @@ instance Row (BackendRow SqlBackend) where
     textVal (SqlScalar (H.SqlString t))     = textE (Txt.pack t)
     textVal (SqlScalar (H.SqlByteString s)) = textE (Txt.decodeUtf8 s)
     textVal _                               = $impossible
+
+    -- FIXME this is an incredibly crude method to convert HDBC's
+    -- rationals to decimals. Implement this reasonably or - even
+    -- better - replace HDBC completely. Rationals do not make sense
+    -- here.
+    decimalVal (SqlScalar (H.SqlRational d)) = decimalE $ realFracToDecimal 5 d
+    decimalVal _                             = $impossible
+
+    dayVal (SqlScalar (H.SqlLocalDate d)) = dayE d
+    dayVal _                              = $impossible
 

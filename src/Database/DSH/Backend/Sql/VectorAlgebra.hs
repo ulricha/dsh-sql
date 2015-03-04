@@ -60,14 +60,16 @@ algVal VL.VLUnit       = int (-1)
 algVal (VL.VLString s) = string s
 algVal (VL.VLDouble d) = double d
 algVal (VL.VLDate d)   = date d
+algVal (VL.VLDecimal d) = dec d
 
 algTy :: VL.ScalarType -> ATy
-algTy VL.Int    = intT
-algTy VL.Double = doubleT
-algTy VL.Bool   = boolT
-algTy VL.String = stringT
-algTy VL.Unit   = intT
-algTy VL.Date   = dateT
+algTy VL.Int     = intT
+algTy VL.Double  = doubleT
+algTy VL.Bool    = boolT
+algTy VL.String  = stringT
+algTy VL.Unit    = intT
+algTy VL.Date    = dateT
+algTy VL.Decimal = decT
 
 cP :: Attr -> Proj
 cP a = (a, ColE a)

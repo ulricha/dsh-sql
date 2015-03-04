@@ -35,6 +35,7 @@ Library
                      either             >= 4.0,
                      semigroups         >= 0.16,
                      set-monad          >= 0.1,
+                     Decimal            >= 0.4,
 
                      algebra-dag        >= 0.1,
                      algebra-sql        >= 0.1,
