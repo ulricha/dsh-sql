@@ -59,6 +59,9 @@ unAppTy Log         = ADouble
 unAppTy Sqrt        = ADouble
 unAppTy Exp         = ADouble
 unAppTy SubString{} = AStr
+unAppTy DateDay     = AInt
+unAppTy DateMonth   = AInt
+unAppTy DateYear    = AInt
 
 valType :: AVal -> ATy
 valType (VInt _)    = AInt
@@ -66,6 +69,7 @@ valType (VStr _)    = AStr
 valType (VBool _)   = ABool
 valType (VDouble _) = ADouble
 valType (VDec _)    = ADec
+valType (VDate _)   = ADate
 
 exprTy :: S.Set TypedAttr -> Expr -> ATy
 exprTy childCols expr =
