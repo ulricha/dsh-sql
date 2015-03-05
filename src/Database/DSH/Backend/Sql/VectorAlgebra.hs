@@ -107,6 +107,7 @@ binOp (L.SBDateOp L.DiffDays) = \e1 e2 -> BinAppE Minus e2 e1
 unOp :: L.ScalarUnOp -> UnFun
 unOp (L.SUBoolOp L.Not)             = Not
 unOp (L.SUCastOp (L.CastDouble))    = Cast doubleT
+unOp (L.SUCastOp (L.CastDecimal))   = Cast decT
 unOp (L.SUNumOp L.Sin)              = Sin
 unOp (L.SUNumOp L.Cos)              = Cos
 unOp (L.SUNumOp L.Tan)              = Tan
