@@ -203,9 +203,10 @@ aggrDefault q qa dv = do
 -- | The default value for sums over empty lists for all possible
 -- numeric input types.
 sumDefault :: VL.ScalarType -> (ATy, AVal)
-sumDefault VL.Int    = (AInt, int 0)
-sumDefault VL.Double = (ADouble, double 0)
-sumDefault _         = $impossible
+sumDefault VL.Int     = (AInt, int 0)
+sumDefault VL.Double  = (ADouble, double 0)
+sumDefault VL.Decimal = (ADec, dec 0)
+sumDefault _          = $impossible
 
 doZip :: (AlgNode, [VL.DBCol]) -> (AlgNode, [VL.DBCol]) -> Build TableAlgebra (AlgNode, [VL.DBCol])
 doZip (q1, cols1) (q2, cols2) = do

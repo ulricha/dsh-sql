@@ -311,9 +311,6 @@ inlineSortColsRownum q =
 
         orders@(_:_) <- pOrder <$> bu <$> properties $(v "q1")
 
-        trace (show resCol ++ "<-" ++ show sortCols) $ return ()
-        trace (show orders) $ return ()
-
         -- For each sorting column, try to find the original
         -- order-defining sorting columns.
         let mSortCols = map (flip lookupSortCol orders) sortCols
