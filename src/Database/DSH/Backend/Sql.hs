@@ -158,23 +158,31 @@ toTableDescr tableName cols = sortWith (\(n, _, _) -> n)
 compatibleType :: String -> H.SqlTypeId -> T.Type -> Bool
 compatibleType tableName dbT hsT =
     case hsT of
-        T.UnitT   -> True
-        T.BoolT   -> elem dbT [H.SqlSmallIntT, H.SqlIntegerT, H.SqlBitT]
-        T.StringT -> elem dbT [H.SqlCharT, H.SqlWCharT, H.SqlVarCharT]
-        T.IntT    -> elem dbT [ H.SqlSmallIntT
-                              , H.SqlIntegerT
-                              , H.SqlTinyIntT
-                              , H.SqlBigIntT
-                              , H.SqlNumericT
-                              ]
-        T.DoubleT -> elem dbT [ H.SqlDecimalT
-                              , H.SqlRealT
-                              , H.SqlFloatT
-                              , H.SqlDoubleT
-                              ]
-        t         -> error $ printf "Unsupported column type %s for table %s"
-                                    (show t)
-                                    (show tableName)
+        T.UnitT    -> True
+        -- FIXME should only map to the PostgreSQL bool type
+        T.BoolT    -> elem dbT [H.SqlSmallIntT, H.SqlIntegerT, H.SqlBitT]
+        T.StringT  -> elem dbT [H.SqlCharT, H.SqlWCharT, H.SqlVarCharT]
+        T.IntT     -> elem dbT [ H.SqlSmallIntT
+                               , H.SqlIntegerT
+                               , H.SqlTinyIntT
+                               , H.SqlBigIntT
+                               ]
+        T.DoubleT  -> elem dbT [ H.SqlRealT
+                               , H.SqlFloatT
+                               , H.SqlDoubleT
+                               ]
+
+        T.DateT    -> elem dbT [ H.SqlDateT ]
+        T.DecimalT -> elem dbT [ H.SqlDecimalT
+                               , H.SqlNumericT
+                               , H.SqlSmallIntT
+                               , H.SqlIntegerT
+                               , H.SqlRealT
+                               , H.SqlDoubleT
+                               ]
+        t          -> error $ printf "Unsupported column type %s for table %s"
+                                     (show t)
+                                     (show tableName)
 
 --------------------------------------------------------------------------------
 
