@@ -24,7 +24,6 @@ import qualified Data.Map                                 as M
 import           Data.Maybe
 import qualified Data.Text                                as Txt
 import qualified Data.Text.Encoding                       as Txt
-import           GHC.Exts
 
 import qualified Database.Algebra.Dag                     as D
 import qualified Database.Algebra.Dag.Build               as B
@@ -39,7 +38,6 @@ import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.VectorAlgebra   ()
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
-import qualified Database.DSH.Common.Type                 as T
 import           Database.DSH.Common.Vector
 import           Database.DSH.VL
 
@@ -143,48 +141,6 @@ implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
     (dag, shape, tagMap) = runVecBuild serializedPlan
 
 --------------------------------------------------------------------------------
--- Utility functions for schema queries
-
--- | Translate an HDBC table description into the DSH schema format.
-toTableDescr :: String -> [(String, H.SqlColDesc)] -> TableInfo
-toTableDescr tableName cols = sortWith (\(n, _, _) -> n)
-                    [ (name, show colTy, compatibleType tableName colTy)
-                    | (name, props) <- cols
-                    , let colTy = H.colType props
-                    ]
-
--- | Determine if the DSH type and the attribute type in the backend
--- table are compatible.
-compatibleType :: String -> H.SqlTypeId -> T.Type -> Bool
-compatibleType tableName dbT hsT =
-    case hsT of
-        T.UnitT    -> True
-        -- FIXME should only map to the PostgreSQL bool type
-        T.BoolT    -> elem dbT [H.SqlSmallIntT, H.SqlIntegerT, H.SqlBitT]
-        T.StringT  -> elem dbT [H.SqlCharT, H.SqlWCharT, H.SqlVarCharT]
-        T.IntT     -> elem dbT [ H.SqlSmallIntT
-                               , H.SqlIntegerT
-                               , H.SqlTinyIntT
-                               , H.SqlBigIntT
-                               ]
-        T.DoubleT  -> elem dbT [ H.SqlRealT
-                               , H.SqlFloatT
-                               , H.SqlDoubleT
-                               ]
-
-        T.DateT    -> elem dbT [ H.SqlDateT ]
-        T.DecimalT -> elem dbT [ H.SqlDecimalT
-                               , H.SqlNumericT
-                               , H.SqlSmallIntT
-                               , H.SqlIntegerT
-                               , H.SqlRealT
-                               , H.SqlDoubleT
-                               ]
-        t          -> error $ printf "Unsupported column type %s for table %s"
-                                     (show t)
-                                     (show tableName)
-
---------------------------------------------------------------------------------
 
 instance Backend SqlBackend where
     data BackendRow SqlBackend  = SqlRow (M.Map String H.SqlValue)
@@ -206,12 +162,6 @@ instance Backend SqlBackend where
     dumpPlan prefix (QP plan) = do
         exportPlan (prefix ++ "_ta") plan
         exportPlan (prefix ++ "_opt_ta") $ optimizeTA plan
-
-    querySchema (SqlBackend conn) tableName = do
-        info <- H.describeTable conn tableName
-        case info of
-            []    -> error $ printf "Unknown table %s" tableName
-            _ : _ -> return $ toTableDescr tableName info
 
     transactionally (SqlBackend conn) ma =
         H.withTransaction conn (\c -> ma (SqlBackend c))
