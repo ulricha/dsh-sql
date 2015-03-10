@@ -19,6 +19,7 @@ import           Database.Algebra.Table.Construct
 import           Database.Algebra.Table.Lang
 
 import qualified Database.DSH.Common.Lang         as L
+import qualified Database.DSH.Common.Type         as T
 import           Database.DSH.Common.Vector
 import           Database.DSH.Common.Impossible
 import qualified Database.DSH.VL                  as VL
@@ -53,23 +54,23 @@ itemi i = "item" ++ show i
 itemi' :: Int -> Attr
 itemi' i = "itemtmp" ++ show i
 
-algVal :: VL.VLVal -> AVal
-algVal (VL.VLInt i)    = int (fromIntegral i)
-algVal (VL.VLBool t)   = bool t
-algVal VL.VLUnit       = int (-1)
-algVal (VL.VLString s) = string s
-algVal (VL.VLDouble d) = double d
-algVal (VL.VLDate d)   = date d
-algVal (VL.VLDecimal d) = dec d
+algVal :: L.ScalarVal -> AVal
+algVal (L.IntV i)     = int (fromIntegral i)
+algVal (L.BoolV t)    = bool t
+algVal L.UnitV        = int (-1)
+algVal (L.StringV s)  = string s
+algVal (L.DoubleV d)  = double d
+algVal (L.DateV d)    = date d
+algVal (L.DecimalV d) = dec d
 
-algTy :: VL.ScalarType -> ATy
-algTy VL.Int     = intT
-algTy VL.Double  = doubleT
-algTy VL.Bool    = boolT
-algTy VL.String  = stringT
-algTy VL.Unit    = intT
-algTy VL.Date    = dateT
-algTy VL.Decimal = decT
+algTy :: T.ScalarType -> ATy
+algTy T.IntT     = intT
+algTy T.DoubleT  = doubleT
+algTy T.BoolT    = boolT
+algTy T.StringT  = stringT
+algTy T.UnitT    = intT
+algTy T.DateT    = dateT
+algTy T.DecimalT = decT
 
 cP :: Attr -> Proj
 cP a = (a, ColE a)
@@ -202,10 +203,10 @@ aggrDefault q qa dv = do
 
 -- | The default value for sums over empty lists for all possible
 -- numeric input types.
-sumDefault :: VL.ScalarType -> (ATy, AVal)
-sumDefault VL.Int     = (AInt, int 0)
-sumDefault VL.Double  = (ADouble, double 0)
-sumDefault VL.Decimal = (ADec, dec 0)
+sumDefault :: T.ScalarType -> (ATy, AVal)
+sumDefault T.IntT     = (AInt, int 0)
+sumDefault T.DoubleT  = (ADouble, double 0)
+sumDefault T.DecimalT = (ADec, dec 0)
 sumDefault _          = $impossible
 
 doZip :: (AlgNode, [VL.DBCol]) -> (AlgNode, [VL.DBCol]) -> Build TableAlgebra (AlgNode, [VL.DBCol])
