@@ -180,13 +180,13 @@ unreferencedLiteralCols q =
          predicate (not $ null tuples)
 
          predicate $ S.size neededCols < length schema
-    
+
          return $ do
 
              let columns = transpose tuples
-             let (reqCols, reqSchema) = 
-                  unzip 
-                  $ filter (\(_, (colName, _)) -> colName `S.member` neededCols) 
+             let (reqCols, reqSchema) =
+                  unzip
+                  $ filter (\(_, (colName, _)) -> colName `S.member` neededCols)
                   $ zip columns schema
              let reqTuples = transpose reqCols
 
@@ -225,7 +225,7 @@ constAggrKey q =
                                  map (\(c, _) -> (c, ColE c)) keyCols'
                                  ++
                                  constProjs
-                                 
+
 
              aggrNode <- insert $ UnOp (Aggr ($(v "aggrFuns"), keyCols')) $(v "q1")
              void $ replaceWithNew q $ UnOp (Project proj) aggrNode |])
@@ -239,7 +239,7 @@ constRownumCol q =
          (resCol, sortCols, partExprs) <- return $(v "args")
          let sortCols' = filter (\(e, _) -> not $ isConstExpr constCols e) sortCols
          predicate $ length sortCols' < length sortCols
-         
+
          return $ do
              logRewrite "Basic.Const.RowNum" q
              void $ replaceWithNew q $ UnOp (RowNum (resCol, sortCols', partExprs)) $(v "q1") |])
@@ -252,7 +252,7 @@ constRowRankCol q =
          (resCol, sortCols) <- return $(v "args")
          let sortCols' = filter (\(e, _) -> not $ isConstExpr constCols e) sortCols
          predicate $ length sortCols' < length sortCols
-         
+
          return $ do
              logRewrite "Basic.Const.RowRank" q
              void $ replaceWithNew q $ UnOp (RowRank (resCol, sortCols')) $(v "q1") |])
@@ -266,7 +266,7 @@ constSerializeCol q =
 
          let sortCols' = filter (\c -> c `notElem` constCols) sortCols
          predicate $ length sortCols' < length sortCols
-         
+
          return $ do
              logRewrite "Basic.Const.Serialize" q
              void $ replaceWithNew q $ UnOp (Serialize (mDescr, RelPos sortCols', payload)) $(v "q1") |])

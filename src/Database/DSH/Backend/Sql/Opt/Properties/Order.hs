@@ -70,7 +70,7 @@ inferOrderUnOp childOrder op =
     case op of
         WinFun _                          -> childOrder
         RowNum (oc, scs, [])
-             | not (null scs) 
+             | not (null scs)
                -- Only consider ascending sorting
                && all ((== Asc) . snd) scs
                -- Avoid circular references

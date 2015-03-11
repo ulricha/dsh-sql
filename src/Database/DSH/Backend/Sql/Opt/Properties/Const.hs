@@ -41,7 +41,7 @@ inferConstSelect (BinAppE And e1 e2)              = inferConstSelect e1 ++ infer
 inferConstSelect _                                = []
 
 inferConstUnOp :: [ConstCol] -> UnOp -> [ConstCol]
-inferConstUnOp childConst op = 
+inferConstUnOp childConst op =
     case op of
         WinFun _          -> childConst
         RowNum (_, _, _)  -> childConst

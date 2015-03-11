@@ -32,10 +32,10 @@ type RewriteClass = Rewrite TableAlgebra (Shape NDVec) Bool
 defaultPipeline :: [RewriteClass]
 defaultPipeline = [cleanup]
 
-runPipeline :: Dag.AlgebraDag TableAlgebra 
+runPipeline :: Dag.AlgebraDag TableAlgebra
             -> (Shape NDVec)
-            -> [RewriteClass] 
-            -> Bool 
+            -> [RewriteClass]
+            -> Bool
             -> (Dag.AlgebraDag TableAlgebra, Log, Shape NDVec)
 runPipeline d sh pipeline debug = (d', rewriteLog, sh')
   where (d', sh', _, rewriteLog) = runRewrite (sequence_ pipeline) d sh debug

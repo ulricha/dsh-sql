@@ -14,7 +14,7 @@ import           Database.Algebra.Table.Lang
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
-                 
+
 subsetsOfSize :: Ord a => Int -> S.Set a -> S.Set (S.Set a)
 subsetsOfSize n s
     | n == 0                    = S.singleton S.empty
@@ -82,7 +82,7 @@ inferKeysUnOp childKeys childCard1 childCols op =
         -- whose columns survive the projection and update to the new
         -- attr names. We could consider all expressions, but need to
         -- be careful here as not all operators might be injective.
-        Project projs           -> -- all sets A of a's s.t. |A| = |k| and 
+        Project projs           -> -- all sets A of a's s.t. |A| = |k| and
                                    -- associated bs = k
                                    S.foldr S.union S.empty
                                    [ [ as
@@ -101,10 +101,10 @@ inferKeysUnOp childKeys childCard1 childCols op =
                                    ]
 
         Select _                 -> childKeys
-        Distinct _               -> S.insert childCols childKeys 
+        Distinct _               -> S.insert childCols childKeys
         Aggr (_, [])             -> S.empty
         Aggr (_, pexprs@(_ : _)) -> S.singleton $ S.fromList $ map fst pexprs
-        Serialize _              -> S.empty 
+        Serialize _              -> S.empty
 
 inferKeysBinOp :: S.Set PKey -> S.Set PKey -> Card1 -> Card1 -> BinOp -> S.Set PKey
 inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
@@ -135,12 +135,12 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                          ]
                          ∪
                          [ k1 ∪ k2 | k1 <- leftKeys, k2 <- rightKeys ]
-                         
+
         ThetaJoin preds -> [ k | k <- leftKeys, rightCard1 ]
                            ∪
                            [ k | k <- rightKeys, leftCard1 ]
                            ∪
-                           [ k 
+                           [ k
                            | k <- leftKeys
                            , (_, be, p) <- S.fromList preds
                            , p == EqJ
@@ -148,7 +148,7 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                            , (ss b) ∈ rightKeys
                            ]
                            ∪
-                           [ k 
+                           [ k
                            | k <- rightKeys
                            , (ae, _, p) <- S.fromList preds
                            , p == EqJ
@@ -157,7 +157,7 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                            ]
                            ∪
                            [ k1 ∪ k2 | k1 <- leftKeys, k2 <- rightKeys ]
-                  
+
         SemiJoin _    -> leftKeys
         AntiJoin _    -> leftKeys
         DisjUnion _   -> S.empty -- FIXME need domain property.
