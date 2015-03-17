@@ -29,11 +29,12 @@ inferCard1UnOp childCard1 childEmpty op =
 inferCard1BinOp :: Card1 -> Card1 -> BinOp -> Card1
 inferCard1BinOp leftCard1 rightCard1 op =
     case op of
-        Cross _      -> leftCard1 && rightCard1
-        EqJoin _     -> False
-        ThetaJoin _  -> False
-        SemiJoin _   -> False
-        AntiJoin _   -> False
-        DisjUnion _  -> False
-        Difference _ -> False
+        Cross _         -> leftCard1 && rightCard1
+        EqJoin _        -> False
+        ThetaJoin _     -> False
+        LeftOuterJoin _ -> False
+        SemiJoin _      -> False
+        AntiJoin _      -> False
+        DisjUnion _     -> False
+        Difference _    -> False
 

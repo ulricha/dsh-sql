@@ -144,24 +144,33 @@ aggrFun VL.AggrCount     = Count
 
 -- Common building blocks
 
--- | Add default values for empty groups produced by a groupjoin.
-groupJoinDefault :: AlgNode
-                 -> AlgNode
-                 -> [DBCol]
-                 -> AVal
-                 -> Build TableAlgebra AlgNode
-groupJoinDefault qo qa ocols defaultVal =
-    (projM ([cP descr, cP pos] ++ items
-            ++
-            [eP (itemi acol) (ConstE defaultVal)])
-     $ (return qo)
-       `differenceM`
-       (proj ([cP descr, cP pos] ++ items) qa))
-    `unionM`
-    (return qa)
+groupJoinDefault :: AlgNode -> [DBCol] -> AVal -> Build TableAlgebra AlgNode
+groupJoinDefault qa ocols defaultVal =
+    proj ([cP descr, cP pos]
+          ++ map (cP . itemi) ocols
+          ++ [eP acol (BinAppE Coalesce (ColE acol) (ConstE defaultVal))])
+         qa
   where
-    items = map (cP . itemi) ocols
-    acol  = length ocols + 1
+    acol  = itemi $ length ocols + 1
+
+-- -- | Add default values for empty groups produced by a groupjoin.
+-- groupJoinDefault :: AlgNode
+--                  -> AlgNode
+--                  -> [DBCol]
+--                  -> AVal
+--                  -> Build TableAlgebra AlgNode
+-- groupJoinDefault qo qa ocols defaultVal =
+--     (projM ([cP descr, cP pos] ++ items
+--             ++
+--             [eP (itemi acol) (ConstE defaultVal)])
+--      $ (return qo)
+--        `differenceM`
+--        (proj ([cP descr, cP pos] ++ items) qa))
+--     `unionM`
+--     (return qa)
+--   where
+--     items = map (cP . itemi) ocols
+--     acol  = length ocols + 1
 
 -- | For a segmented aggregate operator, apply the aggregate
 -- function's default value for the empty segments. The first argument
@@ -944,21 +953,15 @@ instance VL.VectorAlgebra TableAlgebra where
 
     qa <- projM ([cP descr, cP pos] ++ itemProj1 ++ [cP $ itemi acol])
           $ aggrM [(aggrFun a, itemi acol)] groupCols
-          $ thetaJoinM (joinPredicate (length cols1) p)
+          $ leftOuterJoinM (joinPredicate (length cols1) p)
               (return q1)
-              -- Including positions here is a bit of a hack. The
-              -- GroupJoin implementation itself does not need
-              -- it. However, this allows to reuse the TA join
-              -- produced by an equivalent NestJoin (or the other way
-              -- round). Both operator implementations produce the
-              -- same projections on the join inputs.
-              (proj ([mP pos' pos] ++ shiftProj2) q2)
+              (proj shiftProj2 q2)
 
     qd <- case a of
-              VL.AggrSum t _ -> groupJoinDefault q1 qa cols1 (snd $ sumDefault t)
-              VL.AggrAny _   -> groupJoinDefault q1 qa cols1 (bool False)
-              VL.AggrAll _   -> groupJoinDefault q1 qa cols1 (bool True)
-              VL.AggrCount   -> groupJoinDefault q1 qa cols1 (int 0)
-              _              -> return qa
+              VL.AggrSum t _ -> groupJoinDefault qa cols1 (snd $ sumDefault t)
+              VL.AggrAny _   -> groupJoinDefault qa cols1 (bool False)
+              VL.AggrAll _   -> groupJoinDefault qa cols1 (bool True)
+              VL.AggrCount   -> groupJoinDefault qa cols1 (int 0)
+              _              -> select (UnAppE Not (UnAppE IsNull (ColE $ itemi acol))) qa
 
     return $ ADVec qd (cols1 ++ [acol])

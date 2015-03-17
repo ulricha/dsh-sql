@@ -158,6 +158,19 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                            ∪
                            [ k1 ∪ k2 | k1 <- leftKeys, k2 <- rightKeys ]
 
+        -- For a left outer join, only consider keys from the
+        -- left input. For the right input, columns might end up
+        -- containing NULLs which we do not want to deal with here.
+        LeftOuterJoin preds -> [ k | k <- leftKeys, rightCard1 ]
+                               ∪
+                               [ k
+                               | k <- leftKeys
+                               , (_, be, p) <- S.fromList preds
+                               , p == EqJ
+                               , b            <- singleCol be
+                               , (ss b) ∈ rightKeys
+                               ]
+
         SemiJoin _    -> leftKeys
         AntiJoin _    -> leftKeys
         DisjUnion _   -> S.empty -- FIXME need domain property.

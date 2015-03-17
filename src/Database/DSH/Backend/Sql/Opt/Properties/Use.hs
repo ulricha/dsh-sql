@@ -40,6 +40,19 @@ inferUseBinOp ownUse leftUse rightUse leftCols rightCols op =
                            ∪
                            [ c | c <- rightCols, c ∈ ownUse ]
                          )
+
+         -- FIXME recheck
+         LeftOuterJoin ps -> ( leftUse
+                           ∪
+                           flatten [ exprCols a | (a, _, _) <- S.fromList ps ]
+                           ∪
+                           [ c | c <- leftCols, c ∈ ownUse ]
+                         , rightUse
+                           ∪
+                           flatten [ exprCols b | (_, b, _) <- S.fromList ps ]
+                           ∪
+                           [ c | c <- rightCols, c ∈ ownUse ]
+                         )
          SemiJoin ps  -> ( leftUse
                            ∪
                            flatten [ exprCols a | (a, _, _) <- S.fromList ps ]

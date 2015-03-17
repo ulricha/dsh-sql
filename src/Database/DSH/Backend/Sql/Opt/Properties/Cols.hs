@@ -45,6 +45,7 @@ binAppTy f t1 _t2 =
         Div       -> t1
         Modulo    -> AInt
         Concat    -> AStr
+        Coalesce  -> t1
 
 unAppTy :: UnFun -> ATy
 unAppTy Not         = ABool
@@ -62,6 +63,7 @@ unAppTy SubString{} = AStr
 unAppTy DateDay     = AInt
 unAppTy DateMonth   = AInt
 unAppTy DateYear    = AInt
+unAppTy IsNull      = ABool
 
 valType :: AVal -> ATy
 valType (VInt _)    = AInt
@@ -146,13 +148,14 @@ inferColsUnOp childCols op =
 inferColsBinOp :: S.Set TypedAttr -> S.Set TypedAttr -> BinOp -> S.Set TypedAttr
 inferColsBinOp leftCols rightCols op =
     case op of
-        Cross _      -> S.union leftCols rightCols
-        EqJoin _     -> S.union leftCols rightCols
-        ThetaJoin _  -> S.union leftCols rightCols
-        SemiJoin _   -> S.union leftCols rightCols
-        AntiJoin _   -> S.union leftCols rightCols
-        DisjUnion _  -> leftCols
-        Difference _ -> leftCols
+        Cross _         -> S.union leftCols rightCols
+        EqJoin _        -> S.union leftCols rightCols
+        ThetaJoin _     -> S.union leftCols rightCols
+        LeftOuterJoin _ -> S.union leftCols rightCols
+        SemiJoin _      -> S.union leftCols rightCols
+        AntiJoin _      -> S.union leftCols rightCols
+        DisjUnion _     -> leftCols
+        Difference _    -> leftCols
 
 
 

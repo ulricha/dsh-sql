@@ -59,6 +59,10 @@ inferConstBinOp leftChildConst rightChildConst op =
         Cross _      -> leftChildConst ++ rightChildConst
         EqJoin _     -> leftChildConst ++ rightChildConst
         ThetaJoin _  -> leftChildConst ++ rightChildConst
+        -- For a left outer join, only consider constants from the
+        -- left input. For the right input, columns might end up
+        -- containing NULLs which we do not want to deal with here.
+        LeftOuterJoin _  -> leftChildConst
         SemiJoin _   -> leftChildConst
         AntiJoin _   -> leftChildConst
         DisjUnion _  -> [ (c1, v1)

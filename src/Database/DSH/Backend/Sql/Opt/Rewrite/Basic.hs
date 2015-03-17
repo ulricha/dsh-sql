@@ -46,6 +46,7 @@ cleanupRulesTopDown = [ unreferencedRownum
                       , unreferencedProjectCols
                       , unreferencedAggrCols
                       , unreferencedLiteralCols
+                      , unreferencedGroupingCols
                       , postFilterRownum
                       , inlineSortColsRownum
                       , inlineSortColsSerialize
@@ -157,7 +158,7 @@ unreferencedAggrCols q =
               -- required, we can replace it with a distinct operator
               -- on the grouping columns.
               [] -> do
-                  logRewrite "Basic.ICols.Aggr.Prune" q
+                  logRewrite "Basic.ICols.Aggr.PruneAggr" q
                   projectNode <- insert $ UnOp (Project partCols) $(v "q1")
                   void $ replaceWithNew q $ UnOp (Distinct ()) projectNode
 
@@ -166,6 +167,33 @@ unreferencedAggrCols q =
                   logRewrite "Basic.ICols.Aggr.Narrow" q
                   void $ replaceWithNew q $ UnOp (Aggr (neededAggrs, partCols)) $(v "q1") |])
 
+-- FIXME to be actually useful, this rewrite should consider general
+-- FDs instead of just keys.
+unreferencedGroupingCols :: TARule AllProps
+unreferencedGroupingCols q =
+  $(dagPatMatch 'q "Aggr args (q1)"
+    [| do
+        neededCols        <- pICols <$> td <$> properties q
+        keys              <- pKeys <$> bu <$> properties $(v "q1")
+        (aggrs, partCols) <- return $(v "args")
+
+        -- All non-empty and incomplete prefixes of the partitioning
+        -- columns
+        let partPrefixes   = init $ drop 1 (inits $ map fst partCols)
+            isKey        p = S.fromList p `S.member` keys
+        -- Find the smallest prefix that is a key
+        Just prefix <- return $ find isKey partPrefixes
+
+        -- The suffix of non-key columns that are functionally
+        -- determined by the key.
+        let nonKeyCols    = drop (length prefix) partCols
+            reqNonKeyCols = filter (\(c, _) -> c `S.member` neededCols) nonKeyCols
+
+        predicate $ length reqNonKeyCols /= length nonKeyCols
+        return $ do
+          logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
+          let reqPartCols = take (length prefix) partCols ++ reqNonKeyCols
+          void $ replaceWithNew q $ UnOp (Aggr (aggrs, reqPartCols)) $(v "q1") |])
 
 unreferencedLiteralCols :: TARule AllProps
 unreferencedLiteralCols q =

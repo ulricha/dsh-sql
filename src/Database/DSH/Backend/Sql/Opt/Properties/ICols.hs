@@ -36,6 +36,15 @@ inferIColsBinOp ownICols leftICols leftCols rightICols rightCols op =
                  rightICols' = rightICols ∪ (ownICols ∩ rightCols) ∪ rightExprCols
              in (leftICols', rightICols')
 
+         -- FIXME recheck
+         LeftOuterJoin cs ->
+             let leftExprCols = S.unions $ map (\(l, _, _) -> exprCols l) cs
+                 rightExprCols = S.unions $ map (\(_, r, _) -> exprCols r) cs
+
+                 leftICols' = leftICols ∪ (ownICols ∩ leftCols) ∪ leftExprCols
+                 rightICols' = rightICols ∪ (ownICols ∩ rightCols) ∪ rightExprCols
+             in (leftICols', rightICols')
+
          -- From the left, we require all columns required by us, in addition to
          -- the left join columns.
          SemiJoin cs ->

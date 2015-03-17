@@ -28,10 +28,11 @@ inferEmptyUnOp childEmpty op =
 inferEmptyBinOp :: Empty -> Empty -> BinOp -> Empty
 inferEmptyBinOp leftEmpty rightEmpty op =
     case op of
-        Cross _      -> leftEmpty || rightEmpty
-        EqJoin _     -> leftEmpty || rightEmpty
-        ThetaJoin _  -> leftEmpty || rightEmpty
-        SemiJoin _   -> leftEmpty
-        AntiJoin _   -> False
-        DisjUnion _  -> False
-        Difference _ -> False
+        Cross _         -> leftEmpty || rightEmpty
+        EqJoin _        -> leftEmpty || rightEmpty
+        ThetaJoin _     -> leftEmpty || rightEmpty
+        LeftOuterJoin _ -> leftEmpty || rightEmpty
+        SemiJoin _      -> leftEmpty
+        AntiJoin _      -> False
+        DisjUnion _     -> False
+        Difference _    -> False
