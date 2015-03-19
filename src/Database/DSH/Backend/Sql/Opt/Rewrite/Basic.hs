@@ -6,7 +6,6 @@ module Database.DSH.Backend.Sql.Opt.Rewrite.Basic where
 import           Debug.Trace
 import           Text.Printf
 
-import           Control.Applicative
 import           Control.Monad
 import           Data.Either.Combinators
 import           Data.List                                  hiding (insert)

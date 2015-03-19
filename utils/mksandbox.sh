@@ -3,6 +3,9 @@
 cabal sandbox delete
 cabal sandbox init
 
+cabal sandbox add-source $HOME/repositories/ansi-wl-pprint
+cabal sandbox add-source $HOME/work/dev/hdbc-postgresql
+cabal sandbox add-source $HOME/repositories/hdbc
 cabal sandbox add-source $HOME/work/dev/algebra-dag
 cabal sandbox add-source $HOME/work/dev/algebra-sql
 cabal sandbox add-source $HOME/work/dev/dsh

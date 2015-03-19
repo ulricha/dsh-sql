@@ -28,13 +28,14 @@ type Orders = [(Attr, [Attr])]
 
 type ConstCol = (Attr, AVal)
 
-data BottomUpProps = BUProps { pCols  :: S.Set TypedAttr
-     		     	     , pKeys  :: S.Set PKey
-                             , pCard1 :: Card1
-                             , pEmpty :: Empty
-                             , pOrder :: Orders
-                             , pConst :: [ConstCol]
-     		     	     } deriving (Show)
+data BottomUpProps = BUProps
+    { pCols  :: S.Set TypedAttr
+    , pKeys  :: S.Set PKey
+    , pCard1 :: Card1
+    , pEmpty :: Empty
+    , pOrder :: Orders
+    , pConst :: [ConstCol]
+    } deriving (Show)
 
 data AllProps = AllProps { bu :: BottomUpProps, td :: TopDownProps } deriving (Show)
 

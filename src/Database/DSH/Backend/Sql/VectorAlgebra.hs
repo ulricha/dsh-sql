@@ -9,7 +9,6 @@
 -- operators.
 module Database.DSH.Backend.Sql.VectorAlgebra () where
 
-import           Control.Applicative              hiding (Const)
 import qualified Data.List.NonEmpty               as N
 import           GHC.Exts
 
