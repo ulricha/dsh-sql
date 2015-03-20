@@ -103,6 +103,7 @@ binOp (L.SBBoolOp L.Conj)     = BinAppE And
 binOp (L.SBBoolOp L.Disj)     = BinAppE Or
 binOp (L.SBStringOp L.Like)   = BinAppE Like
 binOp (L.SBDateOp L.AddDays)  = \e1 e2 -> BinAppE Plus e2 e1
+binOp (L.SBDateOp L.SubDays)  = \e1 e2 -> BinAppE Minus e2 e1
 binOp (L.SBDateOp L.DiffDays) = \e1 e2 -> BinAppE Minus e2 e1
 
 unOp :: L.ScalarUnOp -> UnFun
@@ -523,6 +524,30 @@ instance VL.VectorAlgebra TableAlgebra where
 
       return (ADVec qo [1 .. length groupExprs], ADVec qi cols1, PVec qprop)
 
+  vecGroup groupExprs (ADVec q1 cols1) = do
+      -- apply the grouping expressions and compute surrogate values
+      -- from the grouping values
+      let groupProjs = [ eP (itemi' i) (taExpr e) | e <- groupExprs | i <- [1..] ]
+          groupCols = map fst groupProjs
+      qg <- rowrankM resCol [ (ColE c, Asc) | c <- groupCols ]
+            $ proj (itemProj cols1 ([cP descr, cP pos] ++ groupProjs)) q1
+
+      -- Create the outer vector, containing surrogate values and the
+      -- grouping values
+      qo <- distinctM
+            $ proj ([cP descr, mP pos resCol]
+                    ++ [ mP (itemi i) c | c <- groupCols | i <- [1..] ]) qg
+
+      -- Create new positions for the inner vector
+      qp <- rownum posnew [resCol, pos] [] qg
+
+      -- Create the inner vector, containing the actual groups
+      qi <- proj (itemProj cols1 [mP descr resCol, mP pos posnew]) qp
+
+      qprop <- proj [mP posold pos, cP posnew] qp
+
+      return (ADVec qo [1 .. length groupExprs], ADVec qi cols1, PVec qprop)
+
   vecCartProduct (ADVec q1 cols1) (ADVec q2 cols2) = do
     let itemProj1  = map (cP . itemi) cols1
         cols2'     = [((length cols1) + 1) .. ((length cols1) + (length cols2))]
@@ -858,9 +883,20 @@ instance VL.VectorAlgebra TableAlgebra where
     r  <- proj [cP posold, mP posold posnew] q
     return $ (ADVec qj cols1, RVec r)
 
+  vecSort sortExprs (ADVec q1 cols1) = do
+    let sortProjs = zipWith (\i e -> (itemi' i, taExpr e)) [1..] sortExprs
+    -- Including positions implements stable sorting
+    qs <- rownumM pos' (map fst sortProjs ++ [pos]) []
+          $ projAddCols cols1 sortProjs q1
+
+    qr1 <- proj (itemProj cols1 [cP descr, mP pos pos']) qs
+    qr2 <- proj [mP posold pos, mP posnew pos'] qs
+
+    return (ADVec qr1 cols1, PVec qr2)
+
   vecSortS sortExprs (ADVec q1 cols1) = do
     let sortProjs = zipWith (\i e -> (itemi' i, taExpr e)) [1..] sortExprs
-    -- Including positions de facto implements stable sorting
+    -- Including positions implements stable sorting
     qs <- rownumM pos' ([descr] ++ map fst sortProjs ++ [pos]) []
           $ projAddCols cols1 sortProjs q1
 
