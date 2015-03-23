@@ -9,29 +9,37 @@
 -- operators.
 module Database.DSH.Backend.Sql.VectorAlgebra () where
 
-import           Control.Applicative              hiding (Const)
+-- import           Control.Applicative              hiding (Const)
+import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as N
 import           GHC.Exts
 
-import           Database.Algebra.Dag.Build
-import           Database.Algebra.Dag.Common
+-- import           Database.Algebra.Dag.Build
+-- import           Database.Algebra.Dag.Common
 import           Database.Algebra.Table.Construct
 import           Database.Algebra.Table.Lang
 
 import qualified Database.DSH.Common.Lang         as L
 import qualified Database.DSH.Common.Type         as T
-import           Database.DSH.Common.Vector
+
+import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.Impossible
 import qualified Database.DSH.VL                  as VL
 
 --------------------------------------------------------------------------------
 -- Column names
 
-itemi :: Int -> Attr
-itemi i = "item" ++ show i
+ic :: Int -> Attr
+ic i = "i" ++ show i
 
-itemi' :: Int -> Attr
-itemi' i = "itemtmp" ++ show i
+kc :: Int -> Attr
+kc i = "k" ++ show i
+
+oc :: Int -> Attr
+oc i = "o" ++ show i
+
+rc :: Int -> Attr
+rc i = "r" ++ show i
 
 --------------------------------------------------------------------------------
 -- Projection
@@ -44,6 +52,31 @@ eP = (,)
 
 mP :: Attr -> Attr -> Proj
 mP n o = (n, ColE o)
+
+keyProj :: VecKey -> [Proj]
+keyProj (VecKey i) = map (cP . kc) $ [1..i]
+
+ordProj :: VecOrder -> [Proj]
+ordProj (VecOrder ds) = zipWith (\_ i -> cP (oc i)) (N.toList ds) [1..]
+
+itemProj :: VecItems -> [Proj]
+itemProj (VecItems (Just i)) = map (cP . ic) [1..i]
+itemProj (VecItems Nothing)  = []
+
+refProj :: VecRef -> [Proj]
+refProj (VecRef (Just i)) = map (cP . ic) [1..i]
+refProj (VecRef Nothing)  = []
+
+vecTopProj :: VecOrder -> VecKey -> VecRef -> VecItems -> [Proj]
+vecTopProj order key ref items = ordProj order
+                                 ++ keyProj key
+                                 ++ refProj ref
+                                 ++ itemProj items
+
+chooseBaseKey :: N.NonEmpty L.Key -> NonEmpty Attr
+chooseBaseKey keys = case sortWith (\(L.Key k) -> N.length k) $ N.toList keys of
+    L.Key k : _ -> fmap (\(L.ColName c) -> c) k
+    _         -> $impossible
 
 --------------------------------------------------------------------------------
 -- Expressions
@@ -97,7 +130,7 @@ unOp (L.SUDateOp L.DateYear)        = DateYear
 taExprOffset :: Int -> VL.Expr -> Expr
 taExprOffset o (VL.BinApp op e1 e2) = binOp op (taExprOffset o e1) (taExprOffset o e2)
 taExprOffset o (VL.UnApp op e)      = UnAppE (unOp op) (taExprOffset o e)
-taExprOffset o (VL.Column c)        = ColE $ itemi $ c + o
+taExprOffset o (VL.Column c)        = ColE $ ic $ c + o
 taExprOffset _ (VL.Constant v)      = ConstE $ algVal v
 taExprOffset o (VL.If c t e)        = IfE (taExprOffset o c) (taExprOffset o t) (taExprOffset o e)
 
@@ -163,5 +196,40 @@ frameSpecification (VL.FNPreceding n) = ClosedFrame (FSValPrec n) FECurrRow
 -- The VectorAlgebra instance for TA algebra
 
 instance VL.VectorAlgebra TableAlgebra where
-  type DVec TableAlgebra = NDVec
+    type DVec TableAlgebra = TADVec
+    type PVec TableAlgebra = TAPVec
 
+    vecSelect expr (TADVec q o k r i) = do
+        qs <- select (taExpr expr) q
+        undefined
+
+
+    vecTableRef tableName schema = do
+        q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj)
+             $ dbTable tableName taColumns taKeys
+        return $ TADVec q order key ref items
+
+      where
+        -- Columns and keys for the TA table operator
+        taColumns = [ (c, algTy t)
+                    | (L.ColName c, t) <- N.toList $ L.tableCols schema
+                    ]
+
+        taKeys =    [ Key [ c | L.ColName c <- N.toList k ]
+                    | L.Key k <- N.toList $ L.tableKeys schema
+                    ]
+
+
+        -- We choose one key heuristically and use it to induce order.
+        baseKeyCols  = chooseBaseKey (L.tableKeys schema)
+        (baseKeyProj, baseOrdProj)
+                     = unzip [ (mP (kc i) c, mP (oc i) c)
+                             | i <- [1..]
+                             | c <- N.toList baseKeyCols
+                             ]
+        baseItemProj = [ mP (ic i) c | i <- [1..] | c <- N.toList baseKeyCols ]
+
+        items = VecItems $ Just $ N.length $ L.tableCols schema
+        order = VecOrder $ fmap (const Asc) baseKeyCols
+        key   = VecKey $ N.length baseKeyCols
+        ref   = VecRef Nothing

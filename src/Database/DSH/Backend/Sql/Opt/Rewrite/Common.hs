@@ -5,9 +5,9 @@ import qualified Data.IntMap                                   as M
 import           Database.Algebra.Dag.Common
 import           Database.Algebra.Table.Lang
 
+import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Opt
-
 import           Database.DSH.Common.Vector
 
 import           Database.DSH.Backend.Sql.Opt.Properties.BottomUp
@@ -15,10 +15,10 @@ import           Database.DSH.Backend.Sql.Opt.Properties.TopDown
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 
   -- Type abbreviations for convenience
-type TARewrite p = Rewrite TableAlgebra (Shape NDVec) p
-type TARule p = Rule TableAlgebra p (Shape NDVec)
-type TARuleSet p = RuleSet TableAlgebra  p (Shape NDVec)
-type TAMatch p = Match TableAlgebra p (Shape NDVec)
+type TARewrite p = Rewrite TableAlgebra (Shape TADVec) p
+type TARule p = Rule TableAlgebra p (Shape TADVec)
+type TARuleSet p = RuleSet TableAlgebra  p (Shape TADVec)
+type TAMatch p = Match TableAlgebra p (Shape TADVec)
 
 inferBottomUp :: TARewrite (NodeMap BottomUpProps)
 inferBottomUp = do

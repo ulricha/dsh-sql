@@ -5,31 +5,50 @@ module Database.DSH.Backend.Sql.Vector where
 import qualified Data.List.NonEmpty          as N
 import           Data.Aeson.TH
 
+
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
 import           Database.DSH.Common.Vector
 
-newtype OrdCol  = OrdCol (TA.Attr, TA.SortDir)
-newtype KeyCol  = KeyCol TA.Attr
-newtype ItemCol = ItemCol TA.Attr
+-- | The ordering columns of a data vector
+newtype VecOrder    = VecOrder (N.NonEmpty TA.SortDir)
 
-type VecOrder = N.NonEmpty OrdCol
-type VecKey   = N.NonEmpty KeyCol
-type VecRef   = Maybe (N.NonEmpty KeyCol)
-type VecItems = [ItemCol]
+-- | The natural key of a data vector
+newtype VecKey      = VecKey Int
 
-data TAVec = TAVec AlgNode VecOrder VecKey VecRef VecItems
+-- | Outer key reference columns
+newtype VecRef      = VecRef (Maybe Int)
 
-instance DagVector TAVec where
-    vectorNodes (TAVec n _ _ _ _) = [n]
+-- | Payload columns of a data vector
+newtype VecItems    = VecItems (Maybe Int)
 
-    updateVector n1 n2 (TAVec q o k r i)
-        | q == n1   = TAVec n2 o k r i
-        | otherwise = TAVec q o k r i
+-- | Source columns of a transformation vector
+newtype VecTransSrc = VecTransSrc Int
 
-$(deriveJSON defaultOptions ''OrdCol)
-$(deriveJSON defaultOptions ''KeyCol)
-$(deriveJSON defaultOptions ''ItemCol)
-$(deriveJSON defaultOptions ''TAVec)
+-- | Destination columns of a transformation vector
+newtype VecTransDst = VecTransDst Int
+
+data TADVec = TADVec AlgNode VecOrder VecKey VecRef VecItems
+
+data TARVec = TARVec AlgNode VecTransSrc VecTransDst
+
+data TAPVec = TAPVec AlgNode VecTransSrc VecTransDst
+
+instance DagVector TADVec where
+    vectorNodes (TADVec n _ _ _ _) = [n]
+
+    updateVector n1 n2 (TADVec q o k r i)
+        | q == n1   = TADVec n2 o k r i
+        | otherwise = TADVec q o k r i
+
+$(deriveJSON defaultOptions ''VecOrder)
+$(deriveJSON defaultOptions ''VecKey)
+$(deriveJSON defaultOptions ''VecRef)
+$(deriveJSON defaultOptions ''VecItems)
+$(deriveJSON defaultOptions ''VecTransSrc)
+$(deriveJSON defaultOptions ''VecTransDst)
+$(deriveJSON defaultOptions ''TADVec)
+$(deriveJSON defaultOptions ''TARVec)
+$(deriveJSON defaultOptions ''TAPVec)
 
 --------------------------------------------------------------------------------

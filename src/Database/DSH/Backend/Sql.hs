@@ -35,6 +35,7 @@ import qualified Database.Algebra.Table.Lang              as TA
 
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Opt.OptimizeTA
+import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Backend.Sql.VectorAlgebra   ()
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
@@ -57,7 +58,7 @@ sqlBackend = SqlBackend
 
 -- FIXME use materialization "prelude"
 -- FIXME use Functor instance
-generateSqlQueries :: QueryPlan TA.TableAlgebra NDVec -> Shape (BackendCode SqlBackend)
+generateSqlQueries :: QueryPlan TA.TableAlgebra TADVec -> Shape (BackendCode SqlBackend)
 generateSqlQueries taPlan = renderSql $ queryShape taPlan
   where
     roots = D.rootNodes $ queryDag taPlan
@@ -65,20 +66,24 @@ generateSqlQueries taPlan = renderSql $ queryShape taPlan
     nodeToQuery  = zip roots sqlQueries
     lookupNode n = maybe $impossible SqlCode $ lookup n nodeToQuery
 
-    renderSql = fmap (\(ADVec r _) -> lookupNode r)
+    renderSql = fmap (\(TADVec r _ _ _ _) -> lookupNode r)
 
 --------------------------------------------------------------------------------
+
+type TAVecBuild a = VecBuild TA.TableAlgebra (DVec TA.TableAlgebra) (PVec TA.TableAlgebra) (RVec TA.TableAlgebra) a 
 
 -- | Insert SerializeRel operators in TA.TableAlgebra plans to define
 -- descr and order columns as well as the required payload columns.
 -- FIXME: once we are a bit more flexible wrt surrogates, determine the
 -- surrogate (i.e. descr) columns from information in NDVec.
-insertSerialize :: VecBuild TA.TableAlgebra NDVec (Shape NDVec)
-                -> VecBuild TA.TableAlgebra NDVec (Shape NDVec)
+insertSerialize :: TAVecBuild (Shape (DVec TA.TableAlgebra))
+                -> TAVecBuild (Shape (DVec TA.TableAlgebra))
+insertSerialize = $unimplemented
+{-
 insertSerialize g = g >>= traverseShape
 
   where
-    traverseShape :: Shape NDVec -> VecBuild TA.TableAlgebra NDVec (Shape NDVec)
+    traverseShape :: Shape TADVec -> TAVecBuild (Shape TADVec)
     traverseShape (VShape dvec lyt) = do
         mLyt' <- traverseLayout lyt
         case mLyt' of
@@ -99,7 +104,7 @@ insertSerialize g = g >>= traverseShape
                 dvec' <- insertOp dvec noDescr noPos
                 return $ SShape dvec' lyt
 
-    traverseLayout :: (Layout NDVec) -> VecBuild TA.TableAlgebra NDVec (Maybe (Layout NDVec))
+    traverseLayout :: (Layout TADVec) -> TAVecBuild (Maybe (Layout TADVec))
     traverseLayout LCol          = return Nothing
     traverseLayout (LTuple lyts) = do
         mLyts <- mapM traverseLayout lyts
@@ -118,13 +123,13 @@ insertSerialize g = g >>= traverseShape
 
 
     -- | Insert a Serialize node for the given vector
-    insertOp :: NDVec -> Maybe TA.DescrCol -> TA.SerializeOrder -> VecBuild TA.TableAlgebra NDVec NDVec
-    insertOp (ADVec q cols) descr pos = do
+    insertOp :: TADVec -> Maybe TA.DescrCol -> TA.SerializeOrder -> TAVecBuild TADVec
+    insertOp (TADVec q o k r i) descr pos = do
         let cs = map (TA.PayloadCol . ("item" ++) . show) cols
             op = TA.Serialize (descr, pos, cs)
 
         qp   <- lift $ B.insert $ UnOp op q
-        return $ ADVec qp cols
+        return $ ADVec qp o k r i
 
     needDescr = Just (TA.DescrCol "descr")
     noDescr   = Nothing
@@ -132,8 +137,9 @@ insertSerialize g = g >>= traverseShape
     needAbsPos = TA.AbsPos "pos"
     needRelPos = TA.RelPos ["pos"]
     noPos      = TA.NoPos
+-}
 
-implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra NDVec
+implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
   where
     taPlan               = vl2Algebra (D.nodeMap $ queryDag vlPlan) (queryShape vlPlan)
@@ -145,7 +151,7 @@ implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
 instance Backend SqlBackend where
     data BackendRow SqlBackend  = SqlRow (M.Map String H.SqlValue)
     data BackendCode SqlBackend = SqlCode String
-    data BackendPlan SqlBackend = QP (QueryPlan TA.TableAlgebra NDVec)
+    data BackendPlan SqlBackend = QP (QueryPlan TA.TableAlgebra TADVec)
 
     execFlatQuery (SqlBackend conn) (SqlCode q) = do
         stmt  <- H.prepare conn q
