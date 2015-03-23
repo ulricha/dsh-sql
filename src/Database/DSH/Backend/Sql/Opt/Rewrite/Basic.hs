@@ -30,13 +30,13 @@ cleanup = iteratively $ sequenceRewrites [ applyToAll noProps cleanupRules
 
 cleanupRules :: TARuleSet ()
 cleanupRules = [ stackedProject
-               , serializeProject
+               -- , serializeProject
                , pullProjectWinFun
                , pullProjectSelect
                , pullProjectRownum
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
-               , duplicateSortingCriteriaSerialize
+               -- , duplicateSortingCriteriaSerialize
                , bypassRownumProject
                ]
 
@@ -49,13 +49,13 @@ cleanupRulesTopDown = [ unreferencedRownum
                       , unreferencedGroupingCols
                       , postFilterRownum
                       , inlineSortColsRownum
-                      , inlineSortColsSerialize
+                      -- , inlineSortColsSerialize
                       , inlineSortColsWinFun
                       , keyPrefixOrdering
                       , constAggrKey
                       , constRownumCol
                       , constRowRankCol
-                      , constSerializeCol
+                      -- , constSerializeCol
                       , constWinOrderCol
                       ]
 
@@ -287,19 +287,19 @@ constRowRankCol q =
              logRewrite "Basic.Const.RowRank" q
              void $ replaceWithNew q $ UnOp (RowRank (resCol, sortCols')) $(v "q1") |])
 
-constSerializeCol :: TARule AllProps
-constSerializeCol q =
-  $(dagPatMatch 'q "Serialize args (q1)"
-    [| do
-         (mDescr, RelPos sortCols, payload) <- return $(v "args")
-         constCols                          <- map fst <$> pConst <$> bu <$> properties $(v "q1")
+-- constSerializeCol :: TARule AllProps
+-- constSerializeCol q =
+--   $(dagPatMatch 'q "Serialize args (q1)"
+--     [| do
+--          (mDescr, RelPos sortCols, payload) <- return $(v "args")
+--          constCols                          <- map fst <$> pConst <$> bu <$> properties $(v "q1")
 
-         let sortCols' = filter (\c -> c `notElem` constCols) sortCols
-         predicate $ length sortCols' < length sortCols
+--          let sortCols' = filter (\c -> c `notElem` constCols) sortCols
+--          predicate $ length sortCols' < length sortCols
 
-         return $ do
-             logRewrite "Basic.Const.Serialize" q
-             void $ replaceWithNew q $ UnOp (Serialize (mDescr, RelPos sortCols', payload)) $(v "q1") |])
+--          return $ do
+--              logRewrite "Basic.Const.Serialize" q
+--              void $ replaceWithNew q $ UnOp (Serialize (mDescr, RelPos sortCols', payload)) $(v "q1") |])
 
 constWinOrderCol :: TARule AllProps
 constWinOrderCol q =
@@ -354,19 +354,19 @@ inlineSortColsRownum q =
           logRewrite "Basic.InlineOrder.RowNum" q
           void $ replaceWithNew q $ UnOp (RowNum (resCol, sortCols', groupCols)) $(v "q1") |])
 
-inlineSortColsSerialize :: TARule AllProps
-inlineSortColsSerialize q =
-  $(dagPatMatch 'q "Serialize scols (q1)"
-    [| do
-        (d, RelPos cs, reqCols) <- return $(v "scols")
-        orders@(_:_) <- pOrder <$> bu <$> properties $(v "q1")
+-- inlineSortColsSerialize :: TARule AllProps
+-- inlineSortColsSerialize q =
+--   $(dagPatMatch 'q "Serialize scols (q1)"
+--     [| do
+--         (d, RelPos cs, reqCols) <- return $(v "scols")
+--         orders@(_:_) <- pOrder <$> bu <$> properties $(v "q1")
 
-        let cs' = nub $ concatMap (\c -> maybe [c] id $ lookup c orders) cs
-        predicate $ cs /= cs'
+--         let cs' = nub $ concatMap (\c -> maybe [c] id $ lookup c orders) cs
+--         predicate $ cs /= cs'
 
-        return $ do
-            logRewrite "Basic.InlineOrder.Serialize" q
-            void $ replaceWithNew q $ UnOp (Serialize (d, RelPos cs', reqCols)) $(v "q1") |])
+--         return $ do
+--             logRewrite "Basic.InlineOrder.Serialize" q
+--             void $ replaceWithNew q $ UnOp (Serialize (d, RelPos cs', reqCols)) $(v "q1") |])
 
 inlineSortColsWinFun :: TARule AllProps
 inlineSortColsWinFun q =
@@ -447,19 +447,19 @@ duplicateSortingCriteriaWin q =
             let args' = (winFuns, part, sortCols', mFrameBounds)
             void $ replaceWithNew q $ UnOp (WinFun args') $(v "q1") |])
 
-duplicateSortingCriteriaSerialize :: TARule ()
-duplicateSortingCriteriaSerialize q =
-  $(dagPatMatch 'q "Serialize args (q1)"
-    [| do
-        (mDescr, RelPos sortCols, payload) <- return $(v "args")
-        let sortCols' = nub sortCols
+-- duplicateSortingCriteriaSerialize :: TARule ()
+-- duplicateSortingCriteriaSerialize q =
+--   $(dagPatMatch 'q "Serialize args (q1)"
+--     [| do
+--         (mDescr, RelPos sortCols, payload) <- return $(v "args")
+--         let sortCols' = nub sortCols
 
-        predicate $ length sortCols' < length sortCols
+--         predicate $ length sortCols' < length sortCols
 
-        return $ do
-            logRewrite "Basic.SimplifyOrder.Duplicates.Serialize" q
-            let args' = (mDescr, RelPos sortCols', payload)
-            void $ replaceWithNew q $ UnOp (Serialize args') $(v "q1") |])
+--         return $ do
+--             logRewrite "Basic.SimplifyOrder.Duplicates.Serialize" q
+--             let args' = (mDescr, RelPos sortCols', payload)
+--             void $ replaceWithNew q $ UnOp (Serialize args') $(v "q1") |])
 
 -- | If a rownum output is not refererenced by a parent projection,
 -- discard it. This handles the case of a multi-parent rownum that is
@@ -482,39 +482,39 @@ bypassRownumProject q =
 ----------------------------------------------------------------------------------
 -- Serialize rewrites
 
--- | Merge a projection which only maps columns into a Serialize operator.
-serializeProject :: TARule ()
-serializeProject q =
-    $(dagPatMatch 'q "Serialize scols (Project projs (q1))"
-      [| do
-          (d, p, reqCols) <- return $(v "scols")
+-- -- | Merge a projection which only maps columns into a Serialize operator.
+-- serializeProject :: TARule ()
+-- serializeProject q =
+--     $(dagPatMatch 'q "Serialize scols (Project projs (q1))"
+--       [| do
+--           (d, p, reqCols) <- return $(v "scols")
 
-          let projCol (c', ColE c) = return (c', c)
-              projCol _            = fail "no match"
+--           let projCol (c', ColE c) = return (c', c)
+--               projCol _            = fail "no match"
 
-              lookupFail x xys = case lookup x xys of
-                  Just y  -> return y
-                  Nothing -> fail "no match"
+--               lookupFail x xys = case lookup x xys of
+--                   Just y  -> return y
+--                   Nothing -> fail "no match"
 
-          colMap <- mapM projCol $(v "projs")
+--           colMap <- mapM projCol $(v "projs")
 
-          -- find new names for all required columns
-          reqCols' <- mapM (\(PayloadCol c) -> PayloadCol <$> lookupFail c colMap) reqCols
+--           -- find new names for all required columns
+--           reqCols' <- mapM (\(PayloadCol c) -> PayloadCol <$> lookupFail c colMap) reqCols
 
-          -- find new name for the descriptor column (if required)
-          d' <- case d of
-              Just (DescrCol c)  -> Just <$> DescrCol <$> lookupFail c colMap
-              Nothing            -> return Nothing
+--           -- find new name for the descriptor column (if required)
+--           d' <- case d of
+--               Just (DescrCol c)  -> Just <$> DescrCol <$> lookupFail c colMap
+--               Nothing            -> return Nothing
 
-          -- find new name for the pos column (if required)
-          p' <- case p of
-              AbsPos c  -> AbsPos <$> lookupFail c colMap
-              RelPos cs -> RelPos <$> mapM (flip lookupFail colMap) cs
-              NoPos     -> return NoPos
+--           -- find new name for the pos column (if required)
+--           p' <- case p of
+--               AbsPos c  -> AbsPos <$> lookupFail c colMap
+--               RelPos cs -> RelPos <$> mapM (flip lookupFail colMap) cs
+--               NoPos     -> return NoPos
 
-          return $ do
-              logRewrite "Basic.Serialize.Project" q
-              void $ replaceWithNew q $ UnOp (Serialize (d', p', reqCols')) $(v "q1") |])
+--           return $ do
+--               logRewrite "Basic.Serialize.Project" q
+--               void $ replaceWithNew q $ UnOp (Serialize (d', p', reqCols')) $(v "q1") |])
 
 --------------------------------------------------------------------------------
 -- Pulling projections through other operators and merging them into

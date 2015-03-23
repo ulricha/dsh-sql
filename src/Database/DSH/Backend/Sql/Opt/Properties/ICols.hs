@@ -109,8 +109,9 @@ inferIColsUnOp ownICols childICols op =
                                  (S.foldr (∪) S.empty $ S.fromList $ map (exprCols . snd) pexprs)
 
         Serialize cs          ->
-            let (mDescr, mPos, cols) = cs
+            let (ref, key, ord, items) = cs
             in childICols
-               ∪ (S.fromList $ map (\(PayloadCol c) -> c) cols)
-               ∪ (maybe S.empty (\(DescrCol c) -> S.singleton c) mDescr)
-               ∪ posCol mPos
+               ∪ (S.fromList $ map (\(RefCol c) -> c) ref)
+               ∪ (S.fromList $ map (\(KeyCol c) -> c) key)
+               ∪ (S.fromList $ map (\(OrdCol c) -> c) ord)
+               ∪ (S.fromList $ map (\(PayloadCol c) -> c) items)

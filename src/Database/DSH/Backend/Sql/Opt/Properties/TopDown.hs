@@ -14,7 +14,7 @@ import           Database.Algebra.Table.Lang
 
 import           Database.DSH.Backend.Sql.Opt.Properties.ICols
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
-import           Database.DSH.Backend.Sql.Opt.Properties.Use
+-- import           Database.DSH.Backend.Sql.Opt.Properties.Use
 import           Database.DSH.Common.Opt
 import           Database.DSH.Common.Impossible
 
@@ -37,7 +37,8 @@ replaceProps n p = modify (M.insert n p)
 inferUnOp :: TopDownProps -> TopDownProps -> UnOp -> TopDownProps
 inferUnOp ownProps cp op =
     TDProps { pICols = inferIColsUnOp (pICols ownProps) (pICols cp) op
-            , pUse   = inferUseUnOp (pUse ownProps) (pUse cp) op }
+            -- , pUse   = inferUseUnOp (pUse ownProps) (pUse cp) op
+            }
 
 inferBinOp :: BottomUpProps
            -> BottomUpProps
@@ -53,14 +54,14 @@ inferBinOp childBUProps1 childBUProps2 ownProps cp1 cp2 op =
                                        (pICols cp2)
                                        (S.map fst $ pCols childBUProps2)
                                        op
-      (urc1', urc2') = inferUseBinOp (pUse ownProps)
-                                     (pUse cp1)
-                                     (pUse cp2)
-                                     (S.map fst $ pCols childBUProps1)
-                                     (S.map fst $ pCols childBUProps2)
-                                     op
-      cp1' = TDProps { pICols = crc1', pUse = urc1' }
-      cp2' = TDProps { pICols = crc2', pUse = urc2' }
+      -- (urc1', urc2') = inferUseBinOp (pUse ownProps)
+      --                                (pUse cp1)
+      --                                (pUse cp2)
+      --                                (S.map fst $ pCols childBUProps1)
+      --                                (S.map fst $ pCols childBUProps2)
+      --                                op
+      cp1' = TDProps { pICols = crc1' {-, pUse = urc1' -} }
+      cp2' = TDProps { pICols = crc2' {-, pUse = urc2' -} }
   in (cp1', cp2')
 
 inferChildProperties :: NodeMap BottomUpProps

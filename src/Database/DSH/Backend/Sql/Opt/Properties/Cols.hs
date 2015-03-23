@@ -139,10 +139,11 @@ inferColsUnOp childCols op =
         Aggr (afuns, pexprs)  -> (S.fromList $ map (aggrTy childCols) afuns)
                                  ∪
                                  [ (c, exprTy childCols e) | (c, e) <- S.fromList pexprs ]
-        Serialize (md, mp, cs) ->
-            let cols = (S.fromList $ map (\(PayloadCol c) -> c) cs)
-                       ∪ (maybe S.empty (\(DescrCol c) -> S.singleton c) md)
-                       ∪ posCol mp
+        Serialize (ref, key, ord, items) ->
+            let cols = (S.fromList $ map (\(PayloadCol c) -> c) items)
+                       ∪ (S.fromList $ map (\(RefCol c) -> c) ref)
+                       ∪ (S.fromList $ map (\(OrdCol c) -> c) ord)
+                       ∪ (S.fromList $ map (\(KeyCol c) -> c) key)
             in S.map (\c -> (c, typeOf c childCols)) cols
 
 inferColsBinOp :: S.Set TypedAttr -> S.Set TypedAttr -> BinOp -> S.Set TypedAttr
