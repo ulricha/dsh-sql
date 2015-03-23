@@ -113,5 +113,5 @@ inferIColsUnOp ownICols childICols op =
             in childICols
                ∪ (S.fromList $ map (\(RefCol c) -> c) ref)
                ∪ (S.fromList $ map (\(KeyCol c) -> c) key)
-               ∪ (S.fromList $ map (\(OrdCol c) -> c) ord)
+               ∪ (S.fromList $ map (\(OrdCol (c, _)) -> c) ord)
                ∪ (S.fromList $ map (\(PayloadCol c) -> c) items)

@@ -142,7 +142,7 @@ inferColsUnOp childCols op =
         Serialize (ref, key, ord, items) ->
             let cols = (S.fromList $ map (\(PayloadCol c) -> c) items)
                        ∪ (S.fromList $ map (\(RefCol c) -> c) ref)
-                       ∪ (S.fromList $ map (\(OrdCol c) -> c) ord)
+                       ∪ (S.fromList $ map (\(OrdCol (c, _)) -> c) ord)
                        ∪ (S.fromList $ map (\(KeyCol c) -> c) key)
             in S.map (\c -> (c, typeOf c childCols)) cols
 
