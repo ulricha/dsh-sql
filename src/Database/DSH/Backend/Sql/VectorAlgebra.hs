@@ -470,7 +470,7 @@ instance VL.VectorAlgebra TableAlgebra where
     qr <- proj [mP posold pos, cP posnew] qs
     return (ADVec qv cols, RVec qr)
 
-  vecTableRef tableName columns hints = do
+  vecTableRef tableName schema = do
     q <- -- generate the pos column
          rownumM pos orderCols []
          -- map table columns to item columns, add constant descriptor
@@ -479,11 +479,17 @@ instance VL.VectorAlgebra TableAlgebra where
     return $ ADVec q (map snd numberedColNames)
 
     where
-      numberedColNames = zipWith (\((L.ColName c), _) i -> (c, i)) columns [1..]
+      numberedColNames = zipWith (\((L.ColName c), _) i -> (c, i))
+                                 (N.toList $ L.tableCols schema)
+                                 [1..]
 
-      taColumns = [ (c, algTy t) | (L.ColName c, t) <- columns ]
+      taColumns = [ (c, algTy t)
+                  | (L.ColName c, t) <- N.toList $ L.tableCols schema
+                  ]
 
-      taKeys =    [ [ itemi $ colIndex c | L.ColName c <- k ] | L.Key k <- L.keysHint hints ]
+      taKeys =    [ [ itemi $ colIndex c | L.ColName c <- N.toList k ]
+                  | L.Key k <- N.toList $ L.tableKeys schema
+                  ]
 
       colIndex :: Attr -> Int
       colIndex n =
