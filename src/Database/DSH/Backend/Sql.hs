@@ -3,6 +3,7 @@
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE ParallelListComp  #-}
 
 -- | This module implements the execution of SQL query bundles and the
 -- construction of nested values from the resulting vector bundle.
@@ -24,6 +25,7 @@ import qualified Data.Map                                 as M
 import           Data.Maybe
 import qualified Data.Text                                as Txt
 import qualified Data.Text.Encoding                       as Txt
+import qualified Data.List.NonEmpty                       as N
 
 import qualified Database.Algebra.Dag                     as D
 import qualified Database.Algebra.Dag.Build               as B
@@ -36,7 +38,7 @@ import qualified Database.Algebra.Table.Lang              as TA
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.Vector
-import           Database.DSH.Backend.Sql.VectorAlgebra   ()
+import           Database.DSH.Backend.Sql.VectorAlgebra
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Vector
@@ -78,8 +80,6 @@ type TAVecBuild a = VecBuild TA.TableAlgebra (DVec TA.TableAlgebra) (PVec TA.Tab
 -- surrogate (i.e. descr) columns from information in NDVec.
 insertSerialize :: TAVecBuild (Shape (DVec TA.TableAlgebra))
                 -> TAVecBuild (Shape (DVec TA.TableAlgebra))
-insertSerialize = $unimplemented
-{-
 insertSerialize g = g >>= traverseShape
 
   where
@@ -88,20 +88,20 @@ insertSerialize g = g >>= traverseShape
         mLyt' <- traverseLayout lyt
         case mLyt' of
             Just lyt' -> do
-                dvec' <- insertOp dvec noDescr needAbsPos
+                dvec' <- insertOp dvec noRef needKey needOrd
                 return $ VShape dvec' lyt'
             Nothing   -> do
-                dvec' <- insertOp dvec noDescr needRelPos
+                dvec' <- insertOp dvec noRef noKey needOrd
                 return $ VShape dvec' lyt
 
     traverseShape (SShape dvec lyt)     = do
         mLyt' <- traverseLayout lyt
         case mLyt' of
             Just lyt' -> do
-                dvec' <- insertOp dvec noDescr needAbsPos
+                dvec' <- insertOp dvec noRef needKey noOrd
                 return $ SShape dvec' lyt'
             Nothing   -> do
-                dvec' <- insertOp dvec noDescr noPos
+                dvec' <- insertOp dvec noRef noKey noOrd
                 return $ SShape dvec' lyt
 
     traverseLayout :: (Layout TADVec) -> TAVecBuild (Maybe (Layout TADVec))
@@ -115,29 +115,46 @@ insertSerialize g = g >>= traverseShape
         mLyt' <- traverseLayout lyt
         case mLyt' of
             Just lyt' -> do
-                dvec' <- insertOp dvec needDescr needAbsPos
+                dvec' <- insertOp dvec needRef needKey needOrd
                 return $ Just $ LNest dvec' lyt'
             Nothing   -> do
-                dvec' <- insertOp dvec needDescr needRelPos
+                dvec' <- insertOp dvec needRef noKey needOrd
                 return $ Just $ LNest dvec' lyt
 
-
     -- | Insert a Serialize node for the given vector
-    insertOp :: TADVec -> Maybe TA.DescrCol -> TA.SerializeOrder -> TAVecBuild TADVec
-    insertOp (TADVec q o k r i) descr pos = do
-        let cs = map (TA.PayloadCol . ("item" ++) . show) cols
-            op = TA.Serialize (descr, pos, cs)
+    insertOp :: TADVec
+             -> (VecRef -> [TA.RefCol])
+             -> (VecKey -> [TA.KeyCol])
+             -> (VecOrder -> [TA.OrdCol])
+             -> TAVecBuild TADVec
+    insertOp (TADVec q o k r i) mkRef mkKey mkOrd = do
+        let op = TA.Serialize (mkRef r, mkKey k, mkOrd o, itemCols i)
 
         qp   <- lift $ B.insert $ UnOp op q
-        return $ ADVec qp o k r i
+        return $ TADVec qp o k r i
 
-    needDescr = Just (TA.DescrCol "descr")
-    noDescr   = Nothing
+    needRef :: VecRef -> [TA.RefCol]
+    needRef (VecRef (Just i)) = [ TA.RefCol $ rc i | i <- [1..i] ]
+    needRef (VecRef Nothing)  = []
 
-    needAbsPos = TA.AbsPos "pos"
-    needRelPos = TA.RelPos ["pos"]
-    noPos      = TA.NoPos
--}
+    noRef :: VecRef -> [TA.RefCol]
+    noRef = const []
+
+    needOrd :: VecOrder -> [TA.OrdCol]
+    needOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) | i <- [1..] | d <- N.toList ds ]
+
+    noOrd :: VecOrder -> [TA.OrdCol]
+    noOrd = const []
+
+    needKey :: VecKey -> [TA.KeyCol]
+    needKey (VecKey i) = [ TA.KeyCol $ kc i | i <- [1..i] ]
+
+    noKey :: VecKey -> [TA.KeyCol]
+    noKey = const []
+
+    itemCols :: VecItems -> [TA.PayloadCol]
+    itemCols (VecItems (Just i)) = [ TA.PayloadCol $ ic i | i <- [1..i] ]
+    itemCols (VecItems Nothing ) = []
 
 implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap

@@ -7,7 +7,9 @@
 
 -- | Implementation of vector primitives in terms of table algebra
 -- operators.
-module Database.DSH.Backend.Sql.VectorAlgebra () where
+module Database.DSH.Backend.Sql.VectorAlgebra
+    ( ic, kc, oc, rc
+    ) where
 
 -- import           Control.Applicative              hiding (Const)
 import           Data.List.NonEmpty               (NonEmpty)
