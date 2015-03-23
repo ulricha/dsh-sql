@@ -11,22 +11,6 @@ import           Database.DSH.Common.Vector
 import           Database.DSH.Common.Opt
 import           Database.DSH.Backend.Sql.Opt.Rewrite.Basic
 
-{-
-
-rough plan/first goals:
-
-merge projections: no properties, leads to basic infrastructure
-
-prune unreferenced rownums: icols prop
-
-simplify rownums, e.g. key-based: key prop, maybe fd (not sure if necessary)
-
-merge sorting criteria into rownums:  track sorting criteria
-
-remove rownums if concrete values not required: use prop, key prop, ?
-
--}
-
 type RewriteClass = Rewrite TableAlgebra (Shape NDVec) Bool
 
 defaultPipeline :: [RewriteClass]
