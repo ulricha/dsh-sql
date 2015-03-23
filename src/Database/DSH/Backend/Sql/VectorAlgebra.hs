@@ -41,6 +41,12 @@ oc i = "o" ++ show i
 rc :: Int -> Attr
 rc i = "r" ++ show i
 
+sc :: Int -> Attr
+sc i = "s" ++ show i
+
+dc :: Int -> Attr
+dc i = "d" ++ show i
+
 --------------------------------------------------------------------------------
 -- Projection
 
@@ -67,6 +73,14 @@ refProj :: VecRef -> [Proj]
 refProj (VecRef (Just i)) = map (cP . ic) [1..i]
 refProj (VecRef Nothing)  = []
 
+-- | Create the relational representation of a transformation vector
+-- from a single data vector. The key is duplicated into source and
+-- destination columns.
+transProj :: VecKey -> [Proj]
+transProj (VecKey i) = [ mP (sc c) (kc c) | c <- [1..i] ]
+                       ++
+                       [ mP (dc c) (kc c) | c <- [1..i] ]
+
 vecTopProj :: VecOrder -> VecKey -> VecRef -> VecItems -> [Proj]
 vecTopProj order key ref items = ordProj order
                                  ++ keyProj key
@@ -76,7 +90,7 @@ vecTopProj order key ref items = ordProj order
 chooseBaseKey :: N.NonEmpty L.Key -> NonEmpty Attr
 chooseBaseKey keys = case sortWith (\(L.Key k) -> N.length k) $ N.toList keys of
     L.Key k : _ -> fmap (\(L.ColName c) -> c) k
-    _         -> $impossible
+    _           -> $impossible
 
 --------------------------------------------------------------------------------
 -- Expressions
@@ -193,16 +207,19 @@ frameSpecification :: VL.FrameSpec -> FrameBounds
 frameSpecification VL.FAllPreceding   = ClosedFrame FSUnboundPrec FECurrRow
 frameSpecification (VL.FNPreceding n) = ClosedFrame (FSValPrec n) FECurrRow
 
--- The VectorAlgebra instance for TA algebra
-
+-- | The VectorAlgebra instance for TA algebra, implemented using
+-- natural keys.
 instance VL.VectorAlgebra TableAlgebra where
     type DVec TableAlgebra = TADVec
     type PVec TableAlgebra = TAPVec
+    type RVec TableAlgebra = TARVec
 
-    vecSelect expr (TADVec q o k r i) = do
+    vecSelect expr (TADVec q o (VecKey k) r i) = do
         qs <- select (taExpr expr) q
-        undefined
-
+        qr <- proj (transProj (VecKey k)) q
+        return ( TADVec qs o (VecKey k) r i
+               , TARVec qr (VecTransSrc k) (VecTransDst k)
+               )
 
     vecTableRef tableName schema = do
         q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj)
