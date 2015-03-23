@@ -36,6 +36,7 @@ Library
                      semigroups         >= 0.16,
                      set-monad          >= 0.1,
                      Decimal            >= 0.4,
+                     aeson              >= 0.8,
 
                      algebra-dag        >= 0.1,
                      algebra-sql        >= 0.1,
@@ -66,6 +67,7 @@ Library
                      Database.DSH.Backend.Sql.Opt.Rewrite.Common
                      Database.DSH.Backend.Sql.Opt.OptimizeTA
                      Database.DSH.Backend.Sql.VectorAlgebra
+                     Database.DSH.Backend.Sql.Vector
 
 Test-Suite sqltests
     type:       exitcode-stdio-1.0
