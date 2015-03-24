@@ -347,7 +347,7 @@ instance VL.VectorAlgebra TableAlgebra where
                              | i <- [1..]
                              | c <- N.toList baseKeyCols
                              ]
-        baseItemProj = [ mP (ic i) c | i <- [1..] | c <- N.toList baseKeyCols ]
+        baseItemProj = [ mP (ic i) c | i <- [1..] | (c, _) <- taColumns ]
 
         items = VecItems $ N.length $ L.tableCols schema
         order = VecOrder $ fmap (const Asc) $ N.toList baseKeyCols
