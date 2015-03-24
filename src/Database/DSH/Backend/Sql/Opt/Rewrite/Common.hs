@@ -8,7 +8,6 @@ import           Database.Algebra.Table.Lang
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Opt
-import           Database.DSH.Common.Vector
 
 import           Database.DSH.Backend.Sql.Opt.Properties.BottomUp
 import           Database.DSH.Backend.Sql.Opt.Properties.TopDown

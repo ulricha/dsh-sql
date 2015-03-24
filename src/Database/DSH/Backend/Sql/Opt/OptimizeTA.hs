@@ -8,7 +8,7 @@ import           Database.Algebra.Table.Lang
 import           Database.DSH.Backend.Sql.Opt.Rewrite.Basic
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.QueryPlan
-import           Database.DSH.Common.Vector
+
 import           Database.DSH.Common.Opt
 
 type RewriteClass = Rewrite TableAlgebra (Shape TADVec) Bool

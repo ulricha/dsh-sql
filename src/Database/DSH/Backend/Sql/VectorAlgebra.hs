@@ -223,6 +223,11 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qr (VecTransSrc k) (VecTransDst k)
                )
 
+    vecProject exprs (TADVec q o k r i) = do
+        let projs = zipWith (\i e -> eP (ic i) (taExpr e)) [1..] exprs
+        qp <- proj projs q
+        return $ TADVec qp o k r i
+
     vecTableRef tableName schema = do
         q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj)
              $ dbTable tableName taColumns taKeys
@@ -237,7 +242,6 @@ instance VL.VectorAlgebra TableAlgebra where
         taKeys =    [ Key [ c | L.ColName c <- N.toList k ]
                     | L.Key k <- N.toList $ L.tableKeys schema
                     ]
-
 
         -- We choose one key heuristically and use it to induce order.
         baseKeyCols  = chooseBaseKey (L.tableKeys schema)
