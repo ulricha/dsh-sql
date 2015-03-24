@@ -77,6 +77,9 @@ itemProj :: VecItems -> [Proj]
 itemProj (VecItems 0) = []
 itemProj (VecItems i) = map (cP . ic) [1..i]
 
+srcProj :: VecTransSrc -> [Proj]
+srcProj (VecTransSrc i) = map (cP . sc) [1..i]
+
 -- | Generate a projection that shifts item names of a right input
 -- vector to avoid collision with the items in the left input vector.
 shiftItems :: VecItems -> VecItems -> [Proj]
@@ -115,9 +118,6 @@ shiftAll (TADVec _ o1 k1 r1 i1) (TADVec _ o2 k2 r2 i2) =
 keyJoin :: VecKey -> VecKey -> [(Expr, Expr, JoinRel)]
 keyJoin (VecKey k1) (VecKey k2) = assert (k1 == k2) $
     [ (ColE (kc c), ColE (kc (c + k1)), EqJ) | c <- [1..k1]]
-
-
-
 
 -- | Create the relational representation of a transformation vector
 -- from a single data vector. The key is duplicated into source and
@@ -271,6 +271,20 @@ instance VL.VectorAlgebra TableAlgebra where
     type PVec TableAlgebra = TAPVec
     type RVec TableAlgebra = TARVec
 
+    vecSort sortExprs (TADVec q o k r i) = do
+        let o'       = VecOrder $ map (const Asc) sortExprs
+            sortCols = [ eP (oc c) (taExpr e) | c <- [1..] | e <- sortExprs ]
+            srcCols  = [ mP (sc c) (oc c) | c <- [1..unOrd o] ]
+            s        = VecTransSrc (unOrd o)
+            d        = VecTransDst (unOrd o')
+
+        qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i ++ srcCols) q
+        qs <- proj (vecProj o' k r i) qe
+        qp <- proj (srcProj s ++ [ mP (dc c) (oc c) | c <- [1..unOrd o'] ]) qe
+        return ( TADVec qs o' k r i
+               , TAPVec qp s d
+               )
+
     vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
@@ -307,8 +321,8 @@ instance VL.VectorAlgebra TableAlgebra where
                )
 
     vecProject exprs (TADVec q o k r i) = do
-        let projs = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs
-        qp <- proj projs q
+        let items = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs
+        qp <- proj (ordProj o ++ keyProj k ++ refProj r ++ items) q
         return $ TADVec qp o k r i
 
     vecTableRef tableName schema = do

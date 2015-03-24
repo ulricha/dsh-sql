@@ -14,6 +14,9 @@ import           Database.DSH.Common.Vector
 -- | The ordering columns of a data vector
 newtype VecOrder    = VecOrder [TA.SortDir]
 
+unOrd :: VecOrder -> Int
+unOrd (VecOrder os) = length os
+
 instance Monoid VecOrder where
     mempty = VecOrder []
     mappend (VecOrder o1) (VecOrder o2) = VecOrder (o1 ++ o2)
