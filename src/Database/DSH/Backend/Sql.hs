@@ -25,7 +25,7 @@ import qualified Data.Map                                 as M
 import           Data.Maybe
 import qualified Data.Text                                as Txt
 import qualified Data.Text.Encoding                       as Txt
-import qualified Data.List.NonEmpty                       as N
+
 
 import qualified Database.Algebra.Dag                     as D
 import qualified Database.Algebra.Dag.Build               as B
@@ -134,27 +134,27 @@ insertSerialize g = g >>= traverseShape
         return $ TADVec qp o k r i
 
     needRef :: VecRef -> [TA.RefCol]
-    needRef (VecRef (Just i)) = [ TA.RefCol $ rc i | i <- [1..i] ]
-    needRef (VecRef Nothing)  = []
+    needRef (VecRef 0) = []
+    needRef (VecRef i) = [ TA.RefCol $ rc c | c <- [1..i] ]
 
     noRef :: VecRef -> [TA.RefCol]
     noRef = const []
 
     needOrd :: VecOrder -> [TA.OrdCol]
-    needOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) | i <- [1..] | d <- N.toList ds ]
+    needOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) | i <- [1..] | d <- ds ]
 
     noOrd :: VecOrder -> [TA.OrdCol]
     noOrd = const []
 
     needKey :: VecKey -> [TA.KeyCol]
-    needKey (VecKey i) = [ TA.KeyCol $ kc i | i <- [1..i] ]
+    needKey (VecKey i) = [ TA.KeyCol $ kc c | c <- [1..i] ]
 
     noKey :: VecKey -> [TA.KeyCol]
     noKey = const []
 
     itemCols :: VecItems -> [TA.PayloadCol]
-    itemCols (VecItems (Just i)) = [ TA.PayloadCol $ ic i | i <- [1..i] ]
-    itemCols (VecItems Nothing ) = []
+    itemCols (VecItems 0) = []
+    itemCols (VecItems i) = [ TA.PayloadCol $ ic c | c <- [1..i] ]
 
 implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap

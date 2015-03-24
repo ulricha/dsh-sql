@@ -12,8 +12,10 @@ module Database.DSH.Backend.Sql.VectorAlgebra
     ) where
 
 -- import           Control.Applicative              hiding (Const)
+import           Control.Exception.Base
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as N
+import           Data.Monoid                      hiding (Sum, Any, All)
 import           GHC.Exts
 
 -- import           Database.Algebra.Dag.Build
@@ -65,15 +67,57 @@ keyProj :: VecKey -> [Proj]
 keyProj (VecKey i) = map (cP . kc) $ [1..i]
 
 ordProj :: VecOrder -> [Proj]
-ordProj (VecOrder ds) = zipWith (\_ i -> cP (oc i)) (N.toList ds) [1..]
-
-itemProj :: VecItems -> [Proj]
-itemProj (VecItems (Just i)) = map (cP . ic) [1..i]
-itemProj (VecItems Nothing)  = []
+ordProj (VecOrder ds) = zipWith (\_ i -> cP (oc i)) ds [1..]
 
 refProj :: VecRef -> [Proj]
-refProj (VecRef (Just i)) = map (cP . ic) [1..i]
-refProj (VecRef Nothing)  = []
+refProj (VecRef 0) = []
+refProj (VecRef i) = map (cP . ic) [1..i]
+
+itemProj :: VecItems -> [Proj]
+itemProj (VecItems 0) = []
+itemProj (VecItems i) = map (cP . ic) [1..i]
+
+-- | Generate a projection that shifts item names of a right input
+-- vector to avoid collision with the items in the left input vector.
+shiftItems :: VecItems -> VecItems -> [Proj]
+shiftItems (VecItems li) (VecItems ri) =
+    [ mP (ic (c + li)) (ic c) | c <- [1..ri] ]
+
+-- | Generate a projection that shifts key columns of a right input
+-- vector to avoid collision with the key columns in the left input
+-- vector.
+shiftKey :: VecKey -> VecKey -> [Proj]
+shiftKey (VecKey lk) (VecKey rk) =
+    [ mP (kc (c + lk)) (kc c) | c <- [1..rk] ]
+
+-- | Generate a projection that shifts key columns of a right input
+-- vector to avoid collision with the key columns in the left input
+-- vector.
+shiftRef :: VecRef -> VecRef -> [Proj]
+shiftRef (VecRef lr) (VecRef rr) =
+    [ mP (rc (c + lr)) (rc c) | c <- [1..rr] ]
+
+-- | Generate a projection that shifts key columns of a right input
+-- vector to avoid collision with the key columns in the left input
+-- vector.
+shiftOrd :: VecOrder -> VecOrder -> [Proj]
+shiftOrd (VecOrder lo) (VecOrder ro) =
+    [ mP (oc (c + length lo)) (oc c) | c <- [1..] | _ <- ro ]
+
+shiftAll :: TADVec -> TADVec -> [Proj]
+shiftAll (TADVec _ o1 k1 r1 i1) (TADVec _ o2 k2 r2 i2) =
+    shiftOrd o1 o2 ++
+    shiftKey k1 k2 ++
+    shiftRef r1 r2 ++
+    shiftItems i1 i2
+
+-- | Generate a join predicate that joins two vectors by their keys.
+keyJoin :: VecKey -> VecKey -> [(Expr, Expr, JoinRel)]
+keyJoin (VecKey k1) (VecKey k2) = assert (k1 == k2) $
+    [ (ColE (kc c), ColE (kc (c + k1)), EqJ) | c <- [1..k1]]
+
+
+
 
 -- | Create the relational representation of a transformation vector
 -- from a single data vector. The key is duplicated into source and
@@ -83,11 +127,26 @@ transProj (VecKey i) = [ mP (sc c) (kc c) | c <- [1..i] ]
                        ++
                        [ mP (dc c) (kc c) | c <- [1..i] ]
 
-vecTopProj :: VecOrder -> VecKey -> VecRef -> VecItems -> [Proj]
-vecTopProj order key ref items = ordProj order
-                                 ++ keyProj key
-                                 ++ refProj ref
-                                 ++ itemProj items
+-- | Generate the left propagation vector for a product-like operator.
+prodTransProjLeft :: VecKey -> VecKey -> [Proj]
+prodTransProjLeft k1 k2 =
+    [ mP (sc c) (kc c) | c <- [1..unKey k1] ]
+    ++
+    [ mP (dc c) (kc c) | c <- [1..unKey (k1 <> k2)] ]
+
+-- | Generate the right propagation vector for a product-like operator.
+prodTransProjRight :: VecKey -> VecKey -> [Proj]
+prodTransProjRight k1 k2 =
+    [ mP (sc c) (kc c) | c <- [unKey k1 + 1..unKey k1 + unKey k2] ]
+    ++
+    [ mP (dc c) (kc c) | c <- [1..unKey (k1 <> k2)] ]
+
+-- | Generate a projection that keeps all required columns of a vector
+vecProj :: VecOrder -> VecKey -> VecRef -> VecItems -> [Proj]
+vecProj order key ref items = ordProj order
+                              ++ keyProj key
+                              ++ refProj ref
+                              ++ itemProj items
 
 chooseBaseKey :: N.NonEmpty L.Key -> NonEmpty Attr
 chooseBaseKey keys = case sortWith (\(L.Key k) -> N.length k) $ N.toList keys of
@@ -164,14 +223,6 @@ algTy T.UnitT    = intT
 algTy T.DateT    = dateT
 algTy T.DecimalT = decT
 
-
--- projAddCols :: [VL.DBCol] -> [Proj] -> AlgNode -> Build TableAlgebra AlgNode
--- projAddCols cols projs q = proj ([cP descr, cP pos] ++ map (cP . itemi) cols ++ projs) q
-
--- itemProj :: [VL.DBCol] -> [Proj] -> [Proj]
--- itemProj cols projs = projs ++ [ cP $ itemi i | i <- cols ]
-
-
 aggrFun :: VL.AggrFun -> AggrType
 aggrFun (VL.AggrSum _ e) = Sum $ taExpr e
 aggrFun (VL.AggrMin e)   = Min $ taExpr e
@@ -181,19 +232,23 @@ aggrFun (VL.AggrAll e)   = All $ taExpr e
 aggrFun (VL.AggrAny e)   = Any $ taExpr e
 aggrFun VL.AggrCount     = Count
 
-joinPredicate :: Int -> L.JoinPredicate VL.Expr -> [(Expr, Expr, JoinRel)]
-joinPredicate o (L.JoinPred conjs) = N.toList $ fmap joinConjunct conjs
-  where
-    joinConjunct :: L.JoinConjunct VL.Expr -> (Expr, Expr, JoinRel)
-    joinConjunct (L.JoinConjunct e1 op e2) = (taExpr e1, taExprOffset o e2, joinOp op)
+-- | Transform a VL join predicate into a TA predicate. Items of the
+-- left input are necessary to account for the pre-join item column
+-- shift in the right input.
+joinPredicate :: VecItems -> L.JoinPredicate VL.Expr -> [(Expr, Expr, JoinRel)]
+joinPredicate (VecItems o) (L.JoinPred conjs) =
+    N.toList $ fmap (joinConjunct o) conjs
 
-    joinOp :: L.BinRelOp -> JoinRel
-    joinOp L.Eq  = EqJ
-    joinOp L.Gt  = GtJ
-    joinOp L.GtE = GeJ
-    joinOp L.Lt  = LtJ
-    joinOp L.LtE = LeJ
-    joinOp L.NEq = NeJ
+joinConjunct :: Int -> L.JoinConjunct VL.Expr -> (Expr, Expr, JoinRel)
+joinConjunct o (L.JoinConjunct e1 op e2) = (taExpr e1, taExprOffset o e2, joinOp op)
+
+joinOp :: L.BinRelOp -> JoinRel
+joinOp L.Eq  = EqJ
+joinOp L.Gt  = GtJ
+joinOp L.GtE = GeJ
+joinOp L.Lt  = LtJ
+joinOp L.LtE = LeJ
+joinOp L.NEq = NeJ
 
 windowFunction :: VL.WinFun -> WinFun
 windowFunction (VL.WinSum e)        = WinSum $ taExpr e
@@ -216,6 +271,34 @@ instance VL.VectorAlgebra TableAlgebra where
     type PVec TableAlgebra = TAPVec
     type RVec TableAlgebra = TARVec
 
+    vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+        let o = o1 <> o2   -- New order is defined by both left and right
+            k = k1 <> k2   -- New key is defined by both left and right
+            r = r1         -- The left vector defines the reference
+            i = i1 <> i2   -- We need items from left and right
+
+        qj  <- projM (vecProj o k r i)
+               $ thetaJoinM (joinPredicate i1 p)
+                     (return q1)
+                     (proj (shiftAll v1 v2) q2)
+
+        qp1 <- proj (prodTransProjLeft k1 k2) qj
+        qp2 <- proj (prodTransProjRight k1 k2) qj
+
+        return ( TADVec qj o k r i
+               , TAPVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+               , TAPVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
+               )
+
+    vecAlign (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
+        -- Join both vectors by their keys. Because this is a
+        -- 1:1-join, we can discard order and ref of the right input.
+        qa <- projM (ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj (i1 <> i2))
+              $ thetaJoinM (keyJoin k1 k2)
+                    (return q1)
+                    (proj (shiftKey k1 k2 ++ shiftItems i1 i2) q2)
+        return $ TADVec qa o1 k1 r1 (i1 <> i2)
+
     vecSelect expr (TADVec q o (VecKey k) r i) = do
         qs <- select (taExpr expr) q
         qr <- proj (transProj (VecKey k)) q
@@ -224,7 +307,7 @@ instance VL.VectorAlgebra TableAlgebra where
                )
 
     vecProject exprs (TADVec q o k r i) = do
-        let projs = zipWith (\i e -> eP (ic i) (taExpr e)) [1..] exprs
+        let projs = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs
         qp <- proj projs q
         return $ TADVec qp o k r i
 
@@ -252,7 +335,7 @@ instance VL.VectorAlgebra TableAlgebra where
                              ]
         baseItemProj = [ mP (ic i) c | i <- [1..] | c <- N.toList baseKeyCols ]
 
-        items = VecItems $ Just $ N.length $ L.tableCols schema
-        order = VecOrder $ fmap (const Asc) baseKeyCols
+        items = VecItems $ N.length $ L.tableCols schema
+        order = VecOrder $ fmap (const Asc) $ N.toList baseKeyCols
         key   = VecKey $ N.length baseKeyCols
-        ref   = VecRef Nothing
+        ref   = VecRef 0
