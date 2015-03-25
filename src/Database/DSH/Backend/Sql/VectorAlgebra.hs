@@ -51,6 +51,9 @@ sc i = "s" ++ show i
 dc :: Int -> Attr
 dc i = "d" ++ show i
 
+gc :: Int -> Attr
+gc i = "g" ++ show i
+
 keyCols :: VecKey -> [Attr]
 keyCols (VecKey i) = [ kc c | c <- [1..i] ]
 
@@ -441,6 +444,65 @@ instance VL.VectorAlgebra TableAlgebra where
                   _              -> return qa
 
         return $ TADVec qd (VecOrder [Asc]) (VecKey 1) r2 (VecItems 1)
+
+    -- vecGroupAggr groupExprs aggrFuns (TADVec q o k r i) = do
+    --     let parts = [ (ic c, eP (ic c) (taExpr e))
+    --                 | e <- groupExprs
+    --                 | i <- [i..]
+    --                 ]
+
+    --         gl    = length groupExprs
+
+    --         aggrs = [ (aggrFun a, ic i) | a <- N.toList aggrFuns | i <- [gl+1..] ]
+
+    --     -- qa <- aggr aggrs groups q
+    --     undefined
+
+    vecGroup groupExprs (TADVec q o k r i) = do
+        let gl = length groupExprs
+        let o1 = VecOrder (map (const Asc) groupExprs)
+            k1 = VecKey gl
+            r1 = VecRef 0
+            i1 = VecItems gl
+
+        let o2 = VecOrder (replicate (gl + unOrd o) Asc)
+            k2 = k
+            r2 = VecRef gl
+            i2 = i
+
+        -- Apply the grouping expressions
+        let groupCols  = [ gc (c + unItems i) | c <- [1..] | _ <- groupExprs ]
+            groupProj  = [ eP g (taExpr ge) | g <- groupCols | ge <- groupExprs ]
+
+        qg <- proj (vecProj o k r i ++ groupProj) q
+
+        -- Generate the outer vector: one tuple per distinct values of
+        -- the grouping columns.
+        let outerKeyProj = [ mP (kc c) g | c <- [1..] | g <- groupCols ]
+            outerOrdProj = [ mP (oc c) g | c <- [1..] | g <- groupCols ]
+            outerItemProj = [ mP (ic c) g | c <- [1..] | g <- groupCols ]
+
+        qo <- projM (outerOrdProj ++ outerKeyProj ++ outerItemProj)
+              $ distinctM
+              $ proj [ cP g | g <- groupCols ] qg
+
+        -- Generate the inner vector that references the groups in the
+        -- outer vector.
+        let innerRefProj = [ mP (rc c) g | c <- [1..] | g <- groupCols ]
+            innerOrdProj = [ mP (oc c) go
+                           | c <- [1..]
+                           | go <- groupCols ++ ordCols o
+                           ]
+
+        qi <- proj (innerOrdProj ++ keyProj k ++ innerRefProj ++ itemProj i) q
+
+        -- Generate the propagation vector
+        qp <- undefined
+
+        return ( TADVec qo o1 k1 r1 i1
+               , TADVec qi o2 k2 r2 i2
+               , TAPVec qp undefined undefined
+               )
 
     vecAlign (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
         -- Join both vectors by their keys. Because this is a
