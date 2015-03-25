@@ -11,6 +11,8 @@ import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
 import           Database.DSH.Common.Vector
 
+--------------------------------------------------------------------------------
+
 -- | The ordering columns of a data vector
 newtype VecOrder    = VecOrder [TA.SortDir]
 
@@ -21,6 +23,8 @@ instance Monoid VecOrder where
     mempty = VecOrder []
     mappend (VecOrder o1) (VecOrder o2) = VecOrder (o1 ++ o2)
 
+--------------------------------------------------------------------------------
+
 -- | The natural key of a data vector
 newtype VecKey      = VecKey { unKey :: Int }
 
@@ -28,25 +32,37 @@ instance Monoid VecKey where
     mempty = VecKey 0
     mappend (VecKey k1) (VecKey k2) = VecKey (k1 + k2)
 
+--------------------------------------------------------------------------------
+
 -- | Outer key reference columns
 newtype VecRef      = VecRef Int
+
+-- | Derive inner references from an outer key.
+keyRef :: VecKey -> VecRef
+keyRef (VecKey i) = VecRef i
 
 instance Monoid VecRef where
     mempty = VecRef 0
     mappend (VecRef r1) (VecRef r2) = VecRef (r1 + r2)
 
+--------------------------------------------------------------------------------
+
 -- | Payload columns of a data vector
-newtype VecItems    = VecItems Int
+newtype VecItems    = VecItems { unItems :: Int }
 
 instance Monoid VecItems where
     mempty = VecItems 0
     mappend (VecItems i1) (VecItems i2) = VecItems (i1 + i2)
+
+--------------------------------------------------------------------------------
 
 -- | Source columns of a transformation vector
 newtype VecTransSrc = VecTransSrc Int
 
 -- | Destination columns of a transformation vector
 newtype VecTransDst = VecTransDst Int
+
+--------------------------------------------------------------------------------
 
 data TADVec = TADVec AlgNode VecOrder VecKey VecRef VecItems
 
@@ -60,6 +76,8 @@ instance DagVector TADVec where
     updateVector n1 n2 (TADVec q o k r i)
         | q == n1   = TADVec n2 o k r i
         | otherwise = TADVec q o k r i
+
+--------------------------------------------------------------------------------
 
 $(deriveJSON defaultOptions ''VecOrder)
 $(deriveJSON defaultOptions ''VecKey)

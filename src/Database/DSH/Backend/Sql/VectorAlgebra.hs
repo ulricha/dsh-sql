@@ -18,8 +18,8 @@ import qualified Data.List.NonEmpty               as N
 import           Data.Monoid                      hiding (Sum, Any, All)
 import           GHC.Exts
 
--- import           Database.Algebra.Dag.Build
--- import           Database.Algebra.Dag.Common
+import           Database.Algebra.Dag.Build
+import           Database.Algebra.Dag.Common
 import           Database.Algebra.Table.Construct
 import           Database.Algebra.Table.Lang
 
@@ -50,6 +50,18 @@ sc i = "s" ++ show i
 
 dc :: Int -> Attr
 dc i = "d" ++ show i
+
+keyCols :: VecKey -> [Attr]
+keyCols (VecKey i) = [ kc c | c <- [1..i] ]
+
+ordCols :: VecOrder -> [Attr]
+ordCols (VecOrder o) = [ oc c | c <- [1..] | _ <- o ]
+
+refCols :: VecRef -> [Attr]
+refCols (VecRef i) = [ rc c | c <- [1..i] ]
+
+itemCols :: VecItems -> [Attr]
+itemCols (VecItems i) = [ rc c | c <- [1..i] ]
 
 --------------------------------------------------------------------------------
 -- Projection
@@ -152,6 +164,9 @@ chooseBaseKey :: N.NonEmpty L.Key -> NonEmpty Attr
 chooseBaseKey keys = case sortWith (\(L.Key k) -> N.length k) $ N.toList keys of
     L.Key k : _ -> fmap (\(L.ColName c) -> c) k
     _           -> $impossible
+
+keyRefProj :: VecKey -> [Proj]
+keyRefProj (VecKey i) = [ mP (rc c) (kc c) | c <- [1..i] ]
 
 --------------------------------------------------------------------------------
 -- Expressions
@@ -264,6 +279,64 @@ frameSpecification :: VL.FrameSpec -> FrameBounds
 frameSpecification VL.FAllPreceding   = ClosedFrame FSUnboundPrec FECurrRow
 frameSpecification (VL.FNPreceding n) = ClosedFrame (FSValPrec n) FECurrRow
 
+--------------------------------------------------------------------------------
+
+-- | The default value for sums over empty lists for all possible
+-- numeric input types.
+sumDefault :: T.ScalarType -> (ATy, AVal)
+sumDefault T.IntT     = (AInt, int 0)
+sumDefault T.DoubleT  = (ADouble, double 0)
+sumDefault T.DecimalT = (ADec, dec 0)
+sumDefault _          = $impossible
+
+groupJoinDefault :: AlgNode
+                 -> VecOrder
+                 -> VecKey
+                 -> VecRef
+                 -> VecItems
+                 -> AVal
+                 -> Build TableAlgebra AlgNode
+groupJoinDefault qa o k r i defaultVal =
+    proj (vecProj o k r i
+          ++
+          [eP acol (BinAppE Coalesce (ColE acol) (ConstE defaultVal))])
+         qa
+  where
+    acol  = ic (unItems i + 1)
+
+-- | For a segmented aggregate operator, apply the aggregate
+-- function's default value for the empty segments. The first argument
+-- specifies the outer vector, while the second argument specifies the
+-- result vector of the aggregate.
+--
+-- Note: AggrS produces regular vector with singleton segments. For
+-- key and order of this vector, we can not use the inner key and
+-- order of the aggregation result, as the values for the empty
+-- segments are missing. Also, we can not mix in order and key values
+-- of the outer vector, because they might not be aligned at
+-- all. Instead, we generate surrogate values for order and key based
+-- on the ref values. This is necessary to keep the vector
+-- presentation uniform, but we can statically say that these
+-- rownum-generated values will not be used: the aggregation default
+-- has to be unboxed and unboxing will discard inner key and order.
+--
+-- FIXME employ an outerjoin-based scheme for default values based on
+-- the unbox operator.
+segAggrDefault :: AlgNode -> AlgNode -> VecKey -> VecRef -> AVal -> Build TableAlgebra AlgNode
+segAggrDefault qo qa ok r defaultValue =
+    -- Generate synthetic ord and key values for the inner vector.
+    projM ([cP (oc 1), mP (kc 1) (oc 1)] ++ refProj r ++ [cP (ic 1)])
+    $ rownumM (oc 1) (refCols r) []
+          (proj (refProj r ++ itemProj (VecItems 1)) qa)
+           `unionM`
+           projM (refProj r ++ [eP (ic 1) (ConstE defaultValue)])
+               -- We know that the outer key must be aligned with inner references.
+               (differenceM
+                   (proj (keyRefProj ok) qo)
+                   (proj (refProj r) qa))
+
+--------------------------------------------------------------------------------
+
 -- | The VectorAlgebra instance for TA algebra, implemented using
 -- natural keys.
 instance VL.VectorAlgebra TableAlgebra where
@@ -303,6 +376,71 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAPVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
                , TAPVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
+
+
+    vecNestJoin p v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
+        let o = o1 <> o2   -- New order is defined by both left and right
+            k = k1 <> k2   -- New key is defined by both left and right
+            r = keyRef k1  -- nesting operator: left key defines reference
+            i = i1 <> i2   -- We need items from left and right
+
+        qj  <- projM (ordProj o ++ keyProj k ++ keyRefProj k1 ++ itemProj i)
+               $ thetaJoinM (joinPredicate i1 p)
+                     (return q1)
+                     (proj (shiftAll v1 v2) q2)
+
+        qp1 <- proj (prodTransProjLeft k1 k2) qj
+        qp2 <- proj (prodTransProjRight k1 k2) qj
+
+        return ( TADVec qj o k r i
+               , TAPVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+               , TAPVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
+               )
+
+    vecGroupJoin p a v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
+        let o = o1
+            k = k1
+            r = r1
+            i = i1 <> VecItems 1
+
+        let acol      = ic (unItems i1 + 1)
+            groupCols = [ (c, ColE c)
+                        | c <- keyCols k1 ++ ordCols o1 ++ refCols r1 ++ itemCols i1
+                        ]
+
+        qa  <- projM (ordProj o ++ keyProj k ++ refProj r1 ++ itemProj i)
+               $ aggrM [(aggrFun a, acol)] groupCols
+               $ leftOuterJoinM (joinPredicate i1 p)
+                     (return q1)
+                     (proj (shiftAll v1 v2) q2)
+
+        qd <- case a of
+                  VL.AggrSum t _ -> groupJoinDefault qa o k r i1 (snd $ sumDefault t)
+                  VL.AggrAny _   -> groupJoinDefault qa o k r i1 (bool False)
+                  VL.AggrAll _   -> groupJoinDefault qa o k r i1 (bool True)
+                  VL.AggrCount   -> groupJoinDefault qa o k r i1 (int 0)
+                  -- FIXME this is a hack to simulate the (incorrect)
+                  -- behaviour of regular NestJoin + AggrS when empty
+                  -- groups occur for non-defaulting
+                  -- aggregates. Whereas the Align join for AggrS
+                  -- removes (outer) tuples with empty groups
+                  -- implicitly, we do this explicitly here.
+                  _              -> select (UnAppE Not (UnAppE IsNull (ColE acol)))
+                                           qa
+
+        return $ TADVec qd o k r i
+
+    vecAggrS a (TADVec qo _ k1 _ _) (TADVec qi _ _ r2 _) = do
+        -- Group the inner vector by ref.
+        qa <- aggr [(aggrFun a, ic 1)] [ (c, ColE c) | c <- refCols r2 ] qi
+        qd <- case a of
+                  VL.AggrSum t _ -> segAggrDefault qo qa k1 r2 (snd $ sumDefault t)
+                  VL.AggrAny _   -> segAggrDefault qo qa k1 r2 (bool False)
+                  VL.AggrAll _   -> segAggrDefault qo qa k1 r2 (bool True)
+                  VL.AggrCount   -> segAggrDefault qo qa k1 r2 (int 0)
+                  _              -> return qa
+
+        return $ TADVec qd (VecOrder [Asc]) (VecKey 1) r2 (VecItems 1)
 
     vecAlign (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
         -- Join both vectors by their keys. Because this is a
