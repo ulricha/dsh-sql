@@ -26,21 +26,21 @@ newtype VecKey      = VecKey { unKey :: Int }
 
 instance Monoid VecKey where
     mempty = VecKey 0
-    mappend (VecKey k1) (VecKey k2) = VecKey (k2 + k2)
+    mappend (VecKey k1) (VecKey k2) = VecKey (k1 + k2)
 
 -- | Outer key reference columns
 newtype VecRef      = VecRef Int
 
 instance Monoid VecRef where
     mempty = VecRef 0
-    mappend (VecRef r1) (VecRef r2) = VecRef (r2 + r2)
+    mappend (VecRef r1) (VecRef r2) = VecRef (r1 + r2)
 
 -- | Payload columns of a data vector
 newtype VecItems    = VecItems Int
 
 instance Monoid VecItems where
     mempty = VecItems 0
-    mappend (VecItems i1) (VecItems i2) = VecItems (i2 + i2)
+    mappend (VecItems i1) (VecItems i2) = VecItems (i1 + i2)
 
 -- | Source columns of a transformation vector
 newtype VecTransSrc = VecTransSrc Int
