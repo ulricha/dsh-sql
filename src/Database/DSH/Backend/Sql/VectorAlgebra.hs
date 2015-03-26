@@ -64,7 +64,7 @@ refCols :: VecRef -> [Attr]
 refCols (VecRef i) = [ rc c | c <- [1..i] ]
 
 itemCols :: VecItems -> [Attr]
-itemCols (VecItems i) = [ rc c | c <- [1..i] ]
+itemCols (VecItems i) = [ ic c | c <- [1..i] ]
 
 --------------------------------------------------------------------------------
 -- Projection
@@ -523,7 +523,7 @@ instance VL.VectorAlgebra TableAlgebra where
     vecProject exprs (TADVec q o k r i) = do
         let items = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs
         qp <- proj (ordProj o ++ keyProj k ++ refProj r ++ items) q
-        return $ TADVec qp o k r i
+        return $ TADVec qp o k r (VecItems $ length items)
 
     vecTableRef tableName schema = do
         q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj)
