@@ -347,16 +347,32 @@ instance VL.VectorAlgebra TableAlgebra where
     type PVec TableAlgebra = TAPVec
     type RVec TableAlgebra = TARVec
 
+    vecNumber (TADVec q o k r i) = do
+        let i' = VecItems (unItems i + 1)
+
+            nc = ic (unItems i + 1)
+
+        qn <- rownum nc (ordCols o) [] q
+
+        return $ TADVec qn o k r i'
+
     vecSort sortExprs (TADVec q o k r i) = do
-        let o'       = VecOrder $ map (const Asc) sortExprs
+        let o'       = VecOrder (map (const Asc) sortExprs) <> o
+            -- Include the old order columns. This implements stable
+            -- sorting and guarantees a strict total order of columns.
             sortCols = [ eP (oc c) (taExpr e) | c <- [1..] | e <- sortExprs ]
+                       ++
+                       [ mP (oc (c + length sortExprs)) (oc c)
+                       | c <- [1..unOrd o]
+                       ]
             srcCols  = [ mP (sc c) (oc c) | c <- [1..unOrd o] ]
             s        = VecTransSrc (unOrd o)
             d        = VecTransDst (unOrd o')
 
         qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i ++ srcCols) q
         qs <- proj (vecProj o' k r i) qe
-        qp <- proj (srcProj s ++ [ mP (dc c) (oc c) | c <- [1..unOrd o'] ]) qe
+        -- qp <- proj (srcProj s ++ [ mP (dc c) (oc c) | c <- [1..unOrd o'] ]) qe
+        qp <- undefined
         return ( TADVec qs o' k r i
                , TAPVec qp s d
                )
