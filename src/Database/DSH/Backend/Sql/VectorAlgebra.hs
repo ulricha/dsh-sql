@@ -354,14 +354,20 @@ instance VL.VectorAlgebra TableAlgebra where
     type PVec TableAlgebra = TAPVec
     type RVec TableAlgebra = TARVec
 
-    vecNumber (TADVec q o k r i) = do
+    vecNumber (TADVec q o@(VecOrder ds) k r i) = do
         let i' = VecItems (unItems i + 1)
 
             nc = ic (unItems i + 1)
 
-        qn <- rownum nc (ordCols o) [] q
+        qn <- rownum' nc [ (ColE oc, d) | oc <- ordCols o | d <- ds ] [] q
 
         return $ TADVec qn o k r i'
+
+    vecReverse (TADVec q (VecOrder ds) k r i) = do
+        let o' = VecOrder $ map (const Desc) ds
+        return ( TADVec q o' k r i
+               , TAPVec $unimplemented $unimplemented $unimplemented
+               )
 
     vecSort sortExprs (TADVec q o k r i) = do
         let o'       = VecOrder (map (const Asc) sortExprs) <> o
@@ -429,10 +435,11 @@ instance VL.VectorAlgebra TableAlgebra where
                     (return q1)
                     (proj (shiftAll v1 v2) q2)
 
-        qp <- proj $unimplemented qj
+        -- FIXME dummy vector
+        qp <- proj [] qj
 
         return ( TADVec qj o k r i
-               , TARVec qp $unimplemented $unimplemented
+               , TARVec qp (VecTransSrc 0) (VecTransDst 0)
                )
 
     vecNestJoin p v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
@@ -601,6 +608,15 @@ instance VL.VectorAlgebra TableAlgebra where
         return ( TADVec qs o (VecKey k) r i
                , TARVec qr (VecTransSrc k) (VecTransDst k)
                )
+
+    vecZip (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
+        -- Join both vectors by their keys. Because this is a
+        -- 1:1-join, we can discard order and ref of the right input.
+        qa <- projM (ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj (i1 <> i2))
+              $ thetaJoinM (keyJoin k1 k2)
+                    (return q1)
+                    (proj (shiftKey k1 k2 ++ shiftItems i1 i2) q2)
+        return $ TADVec qa o1 k1 r1 (i1 <> i2)
 
     vecProject exprs (TADVec q o k r _) = do
         let items = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs
