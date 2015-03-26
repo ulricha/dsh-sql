@@ -635,3 +635,15 @@ instance VL.VectorAlgebra TableAlgebra where
         order = VecOrder $ fmap (const Asc) $ N.toList baseKeyCols
         key   = VecKey $ N.length baseKeyCols
         ref   = VecRef 0
+
+    vecLit tys vs = do
+        let o = VecOrder [Asc]
+            k = VecKey 1
+            r = VecRef 1
+            i = VecItems (length tys)
+        let litSchema = [(rc 1, intT), (kc 1, intT)]
+                        ++
+                        [ (ic c, algTy t) | c <- [1..] | t <- tys ]
+        qr <- projM ([mP (oc 1) (kc 1), cP (kc 1), cP (rc 1)] ++ itemProj i)
+              $ litTable' (map (map algVal) vs) litSchema
+        return $ TADVec qr o k r i
