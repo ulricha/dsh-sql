@@ -338,6 +338,13 @@ segAggrDefault qo qa ok r defaultValue =
                    (proj (keyRefProj ok) qo)
                    (proj (refProj r) qa))
 
+aggrDefault :: AlgNode -> AVal -> Build TableAlgebra AlgNode
+aggrDefault qa defaultVal =
+    proj [cP (oc 1), cP (kc 1), eP (ic 1) defaultExpr] qa
+
+  where
+    defaultExpr = BinAppE Coalesce (ColE (ic 1)) (ConstE defaultVal)
+
 --------------------------------------------------------------------------------
 
 -- | The VectorAlgebra instance for TA algebra, implemented using
@@ -395,7 +402,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAPVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecSemiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+    vecSemiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
             r = r1
@@ -405,13 +412,14 @@ instance VL.VectorAlgebra TableAlgebra where
                     (return q1)
                     (proj (shiftAll v1 v2) q2)
 
-        qp <- proj $unimplemented qj
+        -- FIXME dummy vector
+        qp <- proj [] qj
 
         return ( TADVec qj o k r i
-               , TARVec qp $unimplemented $unimplemented
+               , TARVec qp (VecTransSrc 0) (VecTransDst 0)
                )
 
-    vecAntiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+    vecAntiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
             r = r1
@@ -476,6 +484,28 @@ instance VL.VectorAlgebra TableAlgebra where
                   -- implicitly, we do this explicitly here.
                   _              -> select (UnAppE Not (UnAppE IsNull (ColE acol)))
                                            qa
+
+        return $ TADVec qd o k r i
+
+    vecAggr a (TADVec q _ _ _ _) = do
+        let o = VecOrder [Asc]
+            k = VecKey 1
+            r = VecRef 0
+            i = VecItems 1
+
+        let oneE = ConstE $ int 1
+
+        qa <- projM [eP (oc 1) oneE, eP (kc 1) oneE, cP (ic 1)]
+              $ aggr [(aggrFun a, ic 1)] [] q
+
+        qd <- case a of
+                  VL.AggrSum t _ -> aggrDefault qa (snd $ sumDefault t)
+                  VL.AggrAll _   -> aggrDefault qa (bool True)
+                  VL.AggrAny _   -> aggrDefault qa (bool False)
+                  -- SQL COUNT handles empty inputs.
+                  VL.AggrCount   -> return qa
+                  -- All other aggregates can not be handled correctly.
+                  _              -> return qa
 
         return $ TADVec qd o k r i
 
