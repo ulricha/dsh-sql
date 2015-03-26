@@ -371,8 +371,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
         qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i ++ srcCols) q
         qs <- proj (vecProj o' k r i) qe
-        -- qp <- proj (srcProj s ++ [ mP (dc c) (oc c) | c <- [1..unOrd o'] ]) qe
-        qp <- undefined
+        qp <- proj (srcProj s ++ [ mP (dc c) (oc c) | c <- [1..unOrd o'] ]) qe
         return ( TADVec qs o' k r i
                , TAPVec qp s d
                )
@@ -396,6 +395,37 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAPVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
+    vecSemiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+        let o = o1
+            k = k1
+            r = r1
+            i = i1
+
+        qj <- semiJoinM (joinPredicate i1 p)
+                    (return q1)
+                    (proj (shiftAll v1 v2) q2)
+
+        qp <- proj $unimplemented qj
+
+        return ( TADVec qj o k r i
+               , TARVec qp $unimplemented $unimplemented
+               )
+
+    vecAntiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+        let o = o1
+            k = k1
+            r = r1
+            i = i1
+
+        qj <- antiJoinM (joinPredicate i1 p)
+                    (return q1)
+                    (proj (shiftAll v1 v2) q2)
+
+        qp <- proj $unimplemented qj
+
+        return ( TADVec qj o k r i
+               , TARVec qp $unimplemented $unimplemented
+               )
 
     vecNestJoin p v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
@@ -519,11 +549,11 @@ instance VL.VectorAlgebra TableAlgebra where
         qi <- proj (innerOrdProj ++ keyProj k ++ innerRefProj ++ itemProj i) q
 
         -- Generate the propagation vector
-        qp <- undefined
+        qp <- $unimplemented
 
         return ( TADVec qo o1 k1 r1 i1
                , TADVec qi o2 k2 r2 i2
-               , TAPVec qp undefined undefined
+               , TAPVec qp $unimplemented $unimplemented
                )
 
     vecAlign (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
