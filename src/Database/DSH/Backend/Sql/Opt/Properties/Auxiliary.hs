@@ -66,8 +66,3 @@ mapCol _                             = Nothing
 mColE :: Expr -> Maybe Attr
 mColE (ColE c) = Just c
 mColE _        = Nothing
-
-posCol :: SerializeOrder -> S.Set Attr
-posCol (AbsPos c)  = S.singleton c
-posCol (RelPos cs) = S.fromList cs
-posCol NoPos       = S.empty
