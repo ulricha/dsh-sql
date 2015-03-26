@@ -445,18 +445,24 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qd (VecOrder [Asc]) (VecKey 1) r2 (VecItems 1)
 
-    -- vecGroupAggr groupExprs aggrFuns (TADVec q o k r i) = do
-    --     let parts = [ (ic c, eP (ic c) (taExpr e))
-    --                 | e <- groupExprs
-    --                 | i <- [i..]
-    --                 ]
+    vecGroupAggr groupExprs aggrFuns (TADVec q _ _ _ _) = do
+        let gl = length groupExprs
+        let o' = VecOrder $ replicate gl Asc
+            k' = VecKey gl
+            r' = VecRef 0
+            i' = VecItems $ length groupExprs + N.length aggrFuns
 
-    --         gl    = length groupExprs
+        let parts = [ eP (ic c) (taExpr e) | e <- groupExprs | c <- [1..]]
 
-    --         aggrs = [ (aggrFun a, ic i) | a <- N.toList aggrFuns | i <- [gl+1..] ]
+            aggrs = [ (aggrFun a, ic i) | a <- N.toList aggrFuns | i <- [gl+1..] ]
 
-    --     -- qa <- aggr aggrs groups q
-    --     undefined
+        let ordProjs = [ mP (oc c) (ic c) | c <- [1..unItems i'] ]
+            keyProjs = [ mP (kc c) (ic c) | c <- [1..unItems i'] ]
+
+        qa <- projM (ordProjs ++ keyProjs ++ itemProj i')
+              $ aggr aggrs parts q
+
+        return $ TADVec qa o' k' r' i'
 
     vecGroup groupExprs (TADVec q o k r i) = do
         let gl = length groupExprs
@@ -520,7 +526,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qr (VecTransSrc k) (VecTransDst k)
                )
 
-    vecProject exprs (TADVec q o k r i) = do
+    vecProject exprs (TADVec q o k r _) = do
         let items = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs
         qp <- proj (ordProj o ++ keyProj k ++ refProj r ++ items) q
         return $ TADVec qp o k r (VecItems $ length items)
