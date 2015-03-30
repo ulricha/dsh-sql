@@ -363,6 +363,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qn o k r i'
 
+    -- FIXME we propably need to flip directions, not just use descending.
     vecReverse (TADVec q (VecOrder ds) k r i) = do
         let o' = VecOrder $ map (const Desc) ds
         return ( TADVec q o' k r i
