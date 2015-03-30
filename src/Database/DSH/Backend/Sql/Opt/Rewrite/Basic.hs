@@ -176,6 +176,8 @@ unreferencedGroupingCols q =
         keys              <- pKeys <$> bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
+        predicate $ length partCols > 1
+
         -- All non-empty and incomplete prefixes of the partitioning
         -- columns
         let partPrefixes   = init $ drop 1 (inits $ map fst partCols)
