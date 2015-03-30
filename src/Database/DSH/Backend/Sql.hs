@@ -17,7 +17,6 @@ import           Text.Printf
 import qualified Database.HDBC                            as H
 import           Database.HDBC.PostgreSQL
 
-import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.State
 import           Data.Decimal

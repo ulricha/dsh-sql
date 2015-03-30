@@ -11,7 +11,6 @@ module Database.DSH.Backend.Sql.VectorAlgebra
     ( ic, kc, oc, rc
     ) where
 
--- import           Control.Applicative              hiding (Const)
 import           Control.Exception.Base
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as N

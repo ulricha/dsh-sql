@@ -25,12 +25,12 @@ Flag debuggraph
 
 Library
   Extensions:        CPP
-  Build-depends:     base               >= 4.7 && < 5,
+  Build-depends:     base               >= 4.8 && < 5,
                      template-haskell   >= 2.9,
                      containers         >= 0.5,
                      mtl                >= 2.1,
                      text               >= 1.1,
-                     HDBC               >= 2.3,
+                     HDBC               >= 2.4.0.1,
                      HDBC-postgresql    >= 2.3,
                      either             >= 4.0,
                      semigroups         >= 0.16,
@@ -73,12 +73,12 @@ Test-Suite sqltests
     type:       exitcode-stdio-1.0
     Hs-Source-Dirs : testsuite
     Main-is:       Main.hs
-    Build-depends: base                       >= 4.7 && < 5,
+    Build-depends: base                       >= 4.8 && < 5,
                    QuickCheck                 >= 2.4,
                    containers                 >= 0.5,
                    text                       >= 1.1,
                    HDBC-postgresql            >= 2.3,
-                   HDBC                       >= 2.3,
+                   HDBC                       >= 2.4.0.1,
                    test-framework-quickcheck2 >= 0.2,
                    test-framework-hunit       >= 0.3,
                    test-framework             >= 0.6,
