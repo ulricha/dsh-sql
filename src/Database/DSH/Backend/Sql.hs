@@ -14,7 +14,7 @@ module Database.DSH.Backend.Sql
 import           Text.Printf
 
 import qualified Database.HDBC                            as H
-import           Database.HDBC.PostgreSQL
+import           Database.HDBC.ODBC
 
 import           Control.Monad
 import           Control.Monad.State

@@ -1,16 +1,21 @@
 module Main where
 
-import Control.Applicative
+import System.Environment
 
-import Database.HDBC.PostgreSQL
+import Database.HDBC.ODBC
 
 import Database.DSH.Tests
 import Database.DSH.Backend.Sql
 
-getConn :: IO Connection
-getConn = connectPostgreSQL "user = 'au' password = 'foobar' host = 'localhost' dbname = 'test'"
+getConn :: String -> IO Connection
+getConn connString = connectODBC connString
 
 main :: IO ()
 main = do
-    c <- sqlBackend <$> getConn
-    runTests c defaultTests
+    argv <- getArgs
+    case argv of
+        [connString] -> do
+            c <- sqlBackend <$> getConn connString
+            runTests c defaultTests
+        _            ->
+            error "usage: sqltests <connection string>"
