@@ -32,24 +32,31 @@ import qualified Database.DSH.VL                  as VL
 --------------------------------------------------------------------------------
 -- Column names
 
+-- | Item columns
 ic :: Int -> Attr
 ic i = "i" ++ show i
 
+-- | Key columns
 kc :: Int -> Attr
 kc i = "k" ++ show i
 
+-- | Order columns
 oc :: Int -> Attr
 oc i = "o" ++ show i
 
+-- | Ref columns
 rc :: Int -> Attr
 rc i = "r" ++ show i
 
+-- | (Key) source columns
 sc :: Int -> Attr
 sc i = "s" ++ show i
 
+-- | (Key) destination columns
 dc :: Int -> Attr
 dc i = "d" ++ show i
 
+-- | Grouping columns
 gc :: Int -> Attr
 gc i = "g" ++ show i
 
@@ -68,12 +75,15 @@ itemCols (VecItems i) = [ ic c | c <- [1..i] ]
 --------------------------------------------------------------------------------
 -- Projection
 
+-- | Column projection: 'c'
 cP :: Attr -> Proj
 cP a = (a, ColE a)
 
+-- | Expression projection 'c:e'
 eP :: Attr -> Expr -> Proj
 eP = (,)
 
+-- | Mapping projection 'a:b'
 mP :: Attr -> Attr -> Proj
 mP n o = (n, ColE o)
 
@@ -392,6 +402,10 @@ instance VL.VectorAlgebra TableAlgebra where
     vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
+
+            -- FIXME we should be able to statically tell that
+            -- argument vectors of thetajoin do not have
+            -- (non-constant) ref columns
             r = r1         -- The left vector defines the reference
             i = i1 <> i2   -- We need items from left and right
 
