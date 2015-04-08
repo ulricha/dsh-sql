@@ -60,6 +60,10 @@ dc i = "d" ++ show i
 gc :: Int -> Attr
 gc i = "g" ++ show i
 
+-- | Filter columns
+fc :: Int -> Attr
+fc i = "f" ++ show i
+
 keyCols :: VecKey -> [Attr]
 keyCols (VecKey i) = [ kc c | c <- [1..i] ]
 
@@ -71,6 +75,9 @@ refCols (VecRef i) = [ rc c | c <- [1..i] ]
 
 itemCols :: VecItems -> [Attr]
 itemCols (VecItems i) = [ ic c | c <- [1..i] ]
+
+filterCols :: VecFilter -> [Attr]
+filterCols (VecFilter i) = [ fc c | c <- [1..i] ]
 
 --------------------------------------------------------------------------------
 -- Projection
@@ -103,6 +110,9 @@ itemProj (VecItems i) = map (cP . ic) [1..i]
 
 srcProj :: VecTransSrc -> [Proj]
 srcProj (VecTransSrc i) = map (cP . sc) [1..i]
+
+filterProj :: VecKey -> [Proj]
+filterProj (VecKey i) = [ mP (fc c) (kc c) | c <- [1..i] ]
 
 -- | Generate a projection that shifts item names of a right input
 -- vector to avoid collision with the items in the left input vector.
@@ -354,29 +364,34 @@ aggrDefault qa defaultVal =
   where
     defaultExpr = BinAppE Coalesce (ColE (ic 1)) (ConstE defaultVal)
 
+flipDir :: SortDir -> SortDir
+flipDir Asc  = Desc
+flipDir Desc = Asc
+
 --------------------------------------------------------------------------------
 
 -- | The VectorAlgebra instance for TA algebra, implemented using
 -- natural keys.
 instance VL.VectorAlgebra TableAlgebra where
     type DVec TableAlgebra = TADVec
-    type PVec TableAlgebra = TAPVec
     type RVec TableAlgebra = TARVec
+    type KVec TableAlgebra = TAKVec
+    type FVec TableAlgebra = TAFVec
+    type SVec TableAlgebra = TASVec
 
     vecNumber (TADVec q o@(VecOrder ds) k r i) = do
         let i' = VecItems (unItems i + 1)
-
             nc = ic (unItems i + 1)
 
         qn <- rownum' nc [ (ColE oc, d) | oc <- ordCols o | d <- ds ] [] q
-
         return $ TADVec qn o k r i'
 
-    -- FIXME we propably need to flip directions, not just use descending.
+    -- FIXME does flipping the direction really implement reversing of
+    -- the order?
     vecReverse (TADVec q (VecOrder ds) k r i) = do
-        let o' = VecOrder $ map (const Desc) ds
+        let o' = VecOrder $ map flipDir ds
         return ( TADVec q o' k r i
-               , TAPVec $unimplemented $unimplemented $unimplemented
+               , TASVec q
                )
 
     vecSort sortExprs (TADVec q o k r i) = do
@@ -394,9 +409,8 @@ instance VL.VectorAlgebra TableAlgebra where
 
         qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i ++ srcCols) q
         qs <- proj (vecProj o' k r i) qe
-        qp <- proj (srcProj s ++ [ mP (dc c) (oc c) | c <- [1..unOrd o'] ]) qe
         return ( TADVec qs o' k r i
-               , TAPVec qp s d
+               , TASVec qs
                )
 
     vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
@@ -418,8 +432,8 @@ instance VL.VectorAlgebra TableAlgebra where
         qp2 <- proj (prodTransProjRight k1 k2) qj
 
         return ( TADVec qj o k r i
-               , TAPVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TAPVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
+               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
     vecSemiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
@@ -432,11 +446,10 @@ instance VL.VectorAlgebra TableAlgebra where
                     (return q1)
                     (proj (shiftAll v1 v2) q2)
 
-        -- FIXME dummy vector
-        qp <- proj [] qj
+        qf <- proj (filterProj k1) qj
 
         return ( TADVec qj o k r i
-               , TARVec qp (VecTransSrc 0) (VecTransDst 0)
+               , TAFVec qf (VecFilter $ unKey k1)
                )
 
     vecAntiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
@@ -449,11 +462,10 @@ instance VL.VectorAlgebra TableAlgebra where
                     (return q1)
                     (proj (shiftAll v1 v2) q2)
 
-        -- FIXME dummy vector
-        qp <- proj [] qj
+        qf <- proj (filterProj k1) qj
 
         return ( TADVec qj o k r i
-               , TARVec qp (VecTransSrc 0) (VecTransDst 0)
+               , TAFVec qf (VecFilter $ unKey k1)
                )
 
     vecNestJoin p v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
@@ -471,8 +483,8 @@ instance VL.VectorAlgebra TableAlgebra where
         qp2 <- proj (prodTransProjRight k1 k2) qj
 
         return ( TADVec qj o k r i
-               , TAPVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TAPVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
+               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
     vecGroupJoin p a v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
@@ -604,7 +616,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return ( TADVec qo o1 k1 r1 i1
                , TADVec qi o2 k2 r2 i2
-               , TAPVec qp $unimplemented $unimplemented
+               , TASVec qp
                )
 
     vecAlign (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
@@ -616,11 +628,11 @@ instance VL.VectorAlgebra TableAlgebra where
                     (proj (shiftKey k1 k2 ++ shiftItems i1 i2) q2)
         return $ TADVec qa o1 k1 r1 (i1 <> i2)
 
-    vecSelect expr (TADVec q o (VecKey k) r i) = do
+    vecSelect expr (TADVec q o k r i) = do
         qs <- select (taExpr expr) q
-        qr <- proj (transProj (VecKey k)) q
-        return ( TADVec qs o (VecKey k) r i
-               , TARVec qr (VecTransSrc k) (VecTransDst k)
+        qr <- proj (filterProj k) q
+        return ( TADVec qs o k r i
+               , TAFVec qr (VecFilter $ unKey k)
                )
 
     vecZip (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
@@ -630,7 +642,11 @@ instance VL.VectorAlgebra TableAlgebra where
               $ thetaJoinM (keyJoin k1 k2)
                     (return q1)
                     (proj (shiftKey k1 k2 ++ shiftItems i1 i2) q2)
-        return $ TADVec qa o1 k1 r1 (i1 <> i2)
+
+        return ( TADVec qa o1 k1 r1 (i1 <> i2)
+               , TAFVec $unimplemented $unimplemented
+               , TAFVec $unimplemented $unimplemented
+               )
 
     vecProject exprs (TADVec q o k r _) = do
         let items = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs

@@ -2,7 +2,7 @@
 
 module Database.DSH.Backend.Sql.Vector where
 
-import           Data.Monoid
+-- import           Data.Monoid
 
 import           Data.Aeson.TH
 
@@ -64,11 +64,21 @@ newtype VecTransDst = VecTransDst Int
 
 --------------------------------------------------------------------------------
 
+-- | Key columns of a filter vector
+newtype VecFilter = VecFilter Int
+
+--------------------------------------------------------------------------------
+
 data TADVec = TADVec AlgNode VecOrder VecKey VecRef VecItems
+
+data TAKVec = TAKVec AlgNode VecTransSrc VecTransDst
 
 data TARVec = TARVec AlgNode VecTransSrc VecTransDst
 
-data TAPVec = TAPVec AlgNode VecTransSrc VecTransDst
+-- | Sorting of segments is a NOOP in the natural key backend.
+data TASVec = TASVec AlgNode
+
+data TAFVec = TAFVec AlgNode VecFilter
 
 instance DagVector TADVec where
     vectorNodes (TADVec n _ _ _ _) = [n]
@@ -86,7 +96,7 @@ $(deriveJSON defaultOptions ''VecItems)
 $(deriveJSON defaultOptions ''VecTransSrc)
 $(deriveJSON defaultOptions ''VecTransDst)
 $(deriveJSON defaultOptions ''TADVec)
+$(deriveJSON defaultOptions ''TAKVec)
 $(deriveJSON defaultOptions ''TARVec)
-$(deriveJSON defaultOptions ''TAPVec)
 
 --------------------------------------------------------------------------------
