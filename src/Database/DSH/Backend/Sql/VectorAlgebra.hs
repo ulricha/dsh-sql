@@ -724,7 +724,7 @@ instance VL.VectorAlgebra TableAlgebra where
             i2 = i
 
         -- Apply the grouping expressions
-        let groupCols  = [ gc (c + unItems i) | c <- [1..] | _ <- groupExprs ]
+        let groupCols  = [ gc c | c <- [1..] | _ <- groupExprs ]
             groupProj  = [ eP g (taExpr ge) | g <- groupCols | ge <- groupExprs ]
 
         qg <- proj (vecProj o k r i ++ groupProj) q
@@ -747,7 +747,7 @@ instance VL.VectorAlgebra TableAlgebra where
                            | go <- groupCols ++ ordCols o
                            ]
 
-        qi <- proj (innerOrdProj ++ keyProj k ++ innerRefProj ++ itemProj i) q
+        qi <- proj (innerOrdProj ++ keyProj k ++ innerRefProj ++ itemProj i) qg
 
         return ( TADVec qo o1 k1 r1 i1
                , TADVec qi o2 k2 r2 i2
