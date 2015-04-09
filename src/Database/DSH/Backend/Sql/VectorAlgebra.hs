@@ -113,7 +113,7 @@ ordProj (VecOrder ds) = zipWith (\_ i -> cP (oc i)) ds [1..]
 
 refProj :: VecRef -> [Proj]
 refProj (VecRef 0) = []
-refProj (VecRef i) = map (cP . ic) [1..i]
+refProj (VecRef i) = map (cP . rc) [1..i]
 
 itemProj :: VecItems -> [Proj]
 itemProj (VecItems 0) = []
