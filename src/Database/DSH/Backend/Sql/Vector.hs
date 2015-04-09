@@ -57,10 +57,10 @@ instance Monoid VecItems where
 --------------------------------------------------------------------------------
 
 -- | Source columns of a transformation vector
-newtype VecTransSrc = VecTransSrc Int
+newtype VecTransSrc = VecTransSrc { unSrc :: Int }
 
 -- | Destination columns of a transformation vector
-newtype VecTransDst = VecTransDst Int
+newtype VecTransDst = VecTransDst { unDst :: Int }
 
 --------------------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ data TAKVec = TAKVec AlgNode VecTransSrc VecTransDst
 data TARVec = TARVec AlgNode VecTransSrc VecTransDst
 
 -- | Sorting of segments is a NOOP in the natural key backend.
-data TASVec = TASVec AlgNode
+data TASVec = TASVec
 
 data TAFVec = TAFVec AlgNode VecFilter
 
