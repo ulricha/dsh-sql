@@ -414,9 +414,8 @@ instance VL.VectorAlgebra TableAlgebra where
                        [ mP (oc (c + length sortExprs)) (oc c)
                        | c <- [1..unOrd o]
                        ]
-            srcCols  = [ mP (sc c) (oc c) | c <- [1..unOrd o] ]
 
-        qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i ++ srcCols) q
+        qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i) q
         qs <- proj (vecProj o' k r i) qe
         return ( TADVec qs o' k r i
                , TASVec
