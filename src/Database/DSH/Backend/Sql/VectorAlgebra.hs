@@ -65,12 +65,20 @@ fc :: Int -> Attr
 fc i = "f" ++ show i
 
 -- | Synthesized order column (left)
-loc :: Attr
-loc = "loc"
+lsoc :: Attr
+lsoc = "lso"
 
 -- | Synthesized order column (right)
-roc :: Attr
-roc = "roc"
+rsoc :: Attr
+rsoc = "rso"
+
+-- | Synthesized order column
+soc :: Attr
+soc = "so"
+
+-- | Union side marker
+usc :: Attr
+usc = "us"
 
 keyCols :: VecKey -> [Attr]
 keyCols (VecKey i) = [ kc c | c <- [1..i] ]
@@ -163,6 +171,9 @@ shiftAll (TADVec _ o1 k1 r1 i1) (TADVec _ o2 k2 r2 i2) =
 keyJoin :: VecKey -> VecKey -> [(Expr, Expr, JoinRel)]
 keyJoin (VecKey k1) (VecKey k2) = assert (k1 == k2) $
     [ (ColE (kc c), ColE (kc (c + k1)), EqJ) | c <- [1..k1]]
+
+keySrcProj :: VecKey -> [Proj]
+keySrcProj (VecKey i) = [ mP (sc c) (kc c) | c <- [1..i] ]
 
 -- | Create the relational representation of a transformation vector
 -- from a single data vector. The key is duplicated into source and
@@ -397,6 +408,15 @@ instance VL.VectorAlgebra TableAlgebra where
         qn <- rownum' nc [ (ColE c, d) | c <- ordCols o | d <- ds ] [] q
         return $ TADVec qn o k r i'
 
+    vecNumberS (TADVec q o@(VecOrder ds) k r i) = do
+        let i' = VecItems (unItems i + 1)
+            nc = ic (unItems i + 1)
+
+        qn <- rownum' nc
+                      [ (ColE c, d) | c <- ordCols o | d <- ds ]
+                      (map ColE (refCols r)) q
+        return $ TADVec qn o k r i'
+
     -- FIXME does flipping the direction really implement reversing of
     -- the order?
     vecReverse (TADVec q (VecOrder ds) k r i) = do
@@ -405,7 +425,24 @@ instance VL.VectorAlgebra TableAlgebra where
                , TASVec
                )
 
+    vecReverseS = VL.vecReverse
+
     vecSort sortExprs (TADVec q o k r i) = do
+        let o'       = VecOrder (map (const Asc) sortExprs) <> o
+            -- Include the old order columns. This implements stable
+            -- sorting and guarantees a strict total order of columns.
+            sortCols = [ eP (oc c) (taExpr e) | c <- [1..] | e <- sortExprs ]
+                       ++
+                       [ mP (oc (c + length sortExprs)) (oc c)
+                       | c <- [1..unOrd o]
+                       ]
+
+        qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i) q
+        return ( TADVec qe o' k r i
+               , TASVec
+               )
+
+    vecSortS sortExprs (TADVec q o k r i) = do
         let o'       = VecOrder (map (const Asc) sortExprs) <> o
             -- Include the old order columns. This implements stable
             -- sorting and guarantees a strict total order of columns.
@@ -687,18 +724,18 @@ instance VL.VectorAlgebra TableAlgebra where
             r = r1
             i = i1 <> i2
 
-        qj <- thetaJoinM [(ColE loc, ColE roc, EqJ)]
-                  (rownum' loc (synthOrder o1) [] q1)
-                  (projM ([cP roc] ++ shiftKey k1 k2 ++ shiftItems i1 i2)
-                   $ rownum' roc (synthOrder o2) [] q2)
+        qj <- thetaJoinM [(ColE lsoc, ColE rsoc, EqJ)]
+                  (rownum' lsoc (synthOrder o1) [] q1)
+                  (projM ([cP rsoc] ++ shiftKey k1 k2 ++ shiftItems i1 i2)
+                   $ rownum' rsoc (synthOrder o2) [] q2)
 
-        let keyProj1 = [mP (dc 1) loc] ++ [ mP (sc c) (kc c) | c <- [1..unKey k1]]
-            keyProj2 = [mP (dc 1) loc]
+        let keyProj1 = [mP (dc 1) lsoc] ++ [ mP (sc c) (kc c) | c <- [1..unKey k1]]
+            keyProj2 = [mP (dc 1) lsoc]
                        ++
                        [ mP (sc c) (kc $ c + unKey k1) | c <- [1..unKey k2] ]
         qk1 <- proj keyProj1 qj
         qk2 <- proj keyProj2 qj
-        qd  <- proj ([mP (oc 1) loc, mP (kc 1) loc] ++ refProj r1 ++ itemProj i) qj
+        qd  <- proj ([mP (oc 1) lsoc, mP (kc 1) lsoc] ++ refProj r1 ++ itemProj i) qj
 
         return ( TADVec qd o k r i
                , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 1)
@@ -753,7 +790,39 @@ instance VL.VectorAlgebra TableAlgebra where
 
     -- Because we only demand per-segment order for inner vectors,
     -- reordering is a NOOP in the natural key model.
-    vecAppSort _ (TADVec q o k r i) = return (TADVec q o k r i, TASVec)
+    vecAppSort _ dv = return (dv, TASVec)
+
+    vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
+        qs1 <- projM ([eP usc (ConstE $ VInt 1), cP soc]
+                      ++ ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj i1)
+               $ rownum' soc (synthOrder o1) [] q1
+        qk1 <- proj ([mP (dc 1) usc, mP (dc 1) soc]
+                     ++
+                     keySrcProj k1) qs1
+
+        qu1 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
+                     ++
+                     refProj r1)
+                    qs1
+
+        qs2 <- projM ([eP usc (ConstE $ VInt 2), cP soc]
+                      ++ ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i2)
+               $ rownum' soc (synthOrder o2) [] q2
+        qk2 <- proj ([mP (dc 2) usc, mP (dc 2) soc]
+                     ++
+                     keySrcProj k2) qs2
+
+        qu2 <- proj ([mP (oc 2) usc, mP (oc 2) soc, mP (kc 2) usc, mP (kc 2) soc]
+                     ++
+                     refProj r2)
+                    qs2
+
+        qu <- union qu1 qu2
+
+        return ( TADVec qu (VecOrder [Asc, Asc]) (VecKey 2) r1 i1
+               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 2)
+               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 2)
+               )
 
     vecAppFilter (TAFVec qf f) (TADVec q o k r i) = do
         let filterPred = [ (ColE c1, ColE c2, EqJ)
@@ -824,3 +893,31 @@ instance VL.VectorAlgebra TableAlgebra where
         return ( TADVec qd o' k' r' i'
                , TAKVec qr' s' d'
                )
+
+    vecUnboxKey (TADVec q _ k r _) = do
+        let mapSrcProj = [ mP (sc c) (kc c) | c <- [1..unKey k] ]
+            mapDstProj = [ mP (dc c) (rc c) | c <- [1..unRef r] ]
+
+        qk <- proj (mapSrcProj ++ mapDstProj) q
+        return $ TAKVec qk (VecTransSrc $ unKey k) (VecTransDst $ unRef r)
+
+    vecSegment (TADVec q o k _ i) = do
+        let r'         = VecRef $ unKey k
+            mapRefProj = [ mP (rc c) (kc c) | c <- [1..unKey k]]
+        q' <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
+        return $ TADVec q' o k r' i
+
+    vecUnsegment (TADVec q o k _ i) = do
+        q' <- proj (ordProj o ++ keyProj k ++ itemProj i) q
+        return $ TADVec q' o k (VecRef 0) i
+
+    singletonDescr = do
+        q <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
+        return $ TADVec q (VecOrder [Asc]) (VecKey 1) (VecRef 0) (VecItems 0)
+
+    vecTranspose = $unimplemented
+    vecReshape = $unimplemented
+    vecTransposeS = $unimplemented
+    vecReshapeS = $unimplemented
+    vecAggrNonEmpty = $unimplemented
+    vecAggrNonEmptyS = $unimplemented

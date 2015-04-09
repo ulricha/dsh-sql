@@ -35,7 +35,7 @@ instance Monoid VecKey where
 --------------------------------------------------------------------------------
 
 -- | Outer key reference columns
-newtype VecRef      = VecRef Int
+newtype VecRef      = VecRef { unRef :: Int }
 
 -- | Derive inner references from an outer key.
 keyRef :: VecKey -> VecRef
