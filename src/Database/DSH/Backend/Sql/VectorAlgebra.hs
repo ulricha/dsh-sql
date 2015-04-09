@@ -416,8 +416,7 @@ instance VL.VectorAlgebra TableAlgebra where
                        ]
 
         qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i) q
-        qs <- proj (vecProj o' k r i) qe
-        return ( TADVec qs o' k r i
+        return ( TADVec qe o' k r i
                , TASVec
                )
 
@@ -781,7 +780,6 @@ instance VL.VectorAlgebra TableAlgebra where
                      ++
                      [ mP (dc c) (kc c) | c <- [1..unKey k] ])
                     qd
-
 
         return ( TADVec qd o' k' r' i'
                , TAKVec qr' s' d'
