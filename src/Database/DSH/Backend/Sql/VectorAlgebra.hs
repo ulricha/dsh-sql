@@ -298,6 +298,9 @@ joinPredicate (VecItems o) (L.JoinPred conjs) =
 joinConjunct :: Int -> L.JoinConjunct VL.Expr -> (Expr, Expr, JoinRel)
 joinConjunct o (L.JoinConjunct e1 op e2) = (taExpr e1, taExprOffset o e2, joinOp op)
 
+refJoinPred :: VecRef -> [(Expr, Expr, JoinRel)]
+refJoinPred (VecRef r) = [ (ColE $ rc c, ColE $ rc $ c + r, EqJ) | c <- [1..r] ]
+
 joinOp :: L.BinRelOp -> JoinRel
 joinOp L.Eq  = EqJ
 joinOp L.Gt  = GtJ
@@ -480,6 +483,25 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
+    vecThetaJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+        let o = o1 <> o2   -- New order is defined by both left and right
+            k = k1 <> k2   -- New key is defined by both left and right
+            r = r1         -- The left vector defines the reference
+            i = i1 <> i2   -- We need items from left and right
+
+        qj  <- projM (vecProj o k r i)
+               $ thetaJoinM (refJoinPred r1 ++ joinPredicate i1 p)
+                     (return q1)
+                     (proj (shiftAll v1 v2) q2)
+
+        qp1 <- proj (prodTransProjLeft k1 k2) qj
+        qp2 <- proj (prodTransProjRight k1 k2) qj
+
+        return ( TADVec qj o k r i
+               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
+               )
+
     vecCartProduct v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
@@ -519,6 +541,22 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qf (VecFilter $ unKey k1)
                )
 
+    vecSemiJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
+        let o = o1
+            k = k1
+            r = r1
+            i = i1
+
+        qj <- semiJoinM (refJoinPred r1 ++ joinPredicate i1 p)
+                    (return q1)
+                    (proj (shiftAll v1 v2) q2)
+
+        qf <- proj (filterProj k1) qj
+
+        return ( TADVec qj o k r i
+               , TAFVec qf (VecFilter $ unKey k1)
+               )
+
     vecAntiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
@@ -526,6 +564,22 @@ instance VL.VectorAlgebra TableAlgebra where
             i = i1
 
         qj <- antiJoinM (joinPredicate i1 p)
+                    (return q1)
+                    (proj (shiftAll v1 v2) q2)
+
+        qf <- proj (filterProj k1) qj
+
+        return ( TADVec qj o k r i
+               , TAFVec qf (VecFilter $ unKey k1)
+               )
+
+    vecAntiJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
+        let o = o1
+            k = k1
+            r = r1
+            i = i1
+
+        qj <- antiJoinM (refJoinPred r1 ++ joinPredicate i1 p)
                     (return q1)
                     (proj (shiftAll v1 v2) q2)
 
@@ -788,23 +842,32 @@ instance VL.VectorAlgebra TableAlgebra where
               $ litTable' (map (map algVal) vs) litSchema
         return $ TADVec qr o k r i
 
-    -- Because we only demand per-segment order for inner vectors,
-    -- reordering is a NOOP in the natural key model.
-    vecAppSort _ dv = return (dv, TASVec)
 
     vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
+        -- We have to use synthetic rownum-generated order and keys
+        -- because left and right inputs might have non-compapible
+        -- order and keys.
+
+        -- Create synthetic order keys based on the original order
+        -- columns and a marker column for left and right inputs.
         qs1 <- projM ([eP usc (ConstE $ VInt 1), cP soc]
                       ++ ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj i1)
                $ rownum' soc (synthOrder o1) [] q1
+
+        -- Generate a rekeying vector that maps old keys to
         qk1 <- proj ([mP (dc 1) usc, mP (dc 1) soc]
                      ++
                      keySrcProj k1) qs1
 
+        -- Generate the union input for the left side: We use the
+        -- marker column together with the rownum-generated values as
+        -- order and keys.
         qu1 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
                      ++
                      refProj r1)
                     qs1
 
+        -- Do the same for the right input.
         qs2 <- projM ([eP usc (ConstE $ VInt 2), cP soc]
                       ++ ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i2)
                $ rownum' soc (synthOrder o2) [] q2
@@ -817,12 +880,18 @@ instance VL.VectorAlgebra TableAlgebra where
                      refProj r2)
                     qs2
 
+        -- With synthetic order and key values, both inputs are
+        -- schema-compatible and can be used in a union.
         qu <- union qu1 qu2
 
         return ( TADVec qu (VecOrder [Asc, Asc]) (VecKey 2) r1 i1
                , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 2)
                , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 2)
                )
+
+    -- Because we only demand per-segment order for inner vectors,
+    -- reordering is a NOOP in the natural key model.
+    vecAppSort _ dv = return (dv, TASVec)
 
     vecAppFilter (TAFVec qf f) (TADVec q o k r i) = do
         let filterPred = [ (ColE c1, ColE c2, EqJ)
