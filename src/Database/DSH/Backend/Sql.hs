@@ -71,7 +71,13 @@ generateSqlQueries taPlan = renderSql $ queryShape taPlan
 
 --------------------------------------------------------------------------------
 
-type TAVecBuild a = VecBuild TA.TableAlgebra (DVec TA.TableAlgebra) (PVec TA.TableAlgebra) (RVec TA.TableAlgebra) a 
+type TAVecBuild a = VecBuild TA.TableAlgebra
+                             (DVec TA.TableAlgebra)
+                             (RVec TA.TableAlgebra)
+                             (KVec TA.TableAlgebra)
+                             (FVec TA.TableAlgebra)
+                             (SVec TA.TableAlgebra)
+                             a
 
 -- | Insert SerializeRel operators in TA.TableAlgebra plans to define
 -- descr and order columns as well as the required payload columns.
