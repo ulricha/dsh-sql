@@ -517,6 +517,23 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
+    vecNestProduct v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
+        let o = o1 <> o2   -- New order is defined by both left and right
+            k = k1 <> k2   -- New key is defined by both left and right
+            r = keyRef k1  -- nesting operator: left key defines reference
+            i = i1 <> i2   -- We need items from left and right
+
+        qj  <- projM (ordProj o ++ keyProj k ++ keyRefProj k1 ++ itemProj i)
+               $ crossM (return q1) (proj (shiftAll v1 v2) q2)
+
+        qp1 <- proj (prodTransProjLeft k1 k2) qj
+        qp2 <- proj (prodTransProjRight k1 k2) qj
+
+        return ( TADVec qj o k r i
+               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
+               )
+
     vecGroupJoin p a v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
