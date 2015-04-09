@@ -64,6 +64,14 @@ gc i = "g" ++ show i
 fc :: Int -> Attr
 fc i = "f" ++ show i
 
+-- | Synthesized order column (left)
+loc :: Attr
+loc = "loc"
+
+-- | Synthesized order column (right)
+roc :: Attr
+roc = "roc"
+
 keyCols :: VecKey -> [Attr]
 keyCols (VecKey i) = [ kc c | c <- [1..i] ]
 
@@ -368,6 +376,9 @@ flipDir :: SortDir -> SortDir
 flipDir Asc  = Desc
 flipDir Desc = Asc
 
+synthOrder :: VecOrder -> [SortSpec]
+synthOrder (VecOrder dirs) = [ (ColE $ oc c, d)| c <- [1..] | d <- dirs ]
+
 --------------------------------------------------------------------------------
 
 -- | The VectorAlgebra instance for TA algebra, implemented using
@@ -635,17 +646,30 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qr (VecFilter $ unKey k)
                )
 
-    vecZip (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
-        -- Join both vectors by their keys. Because this is a
-        -- 1:1-join, we can discard order and ref of the right input.
-        qa <- projM (ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj (i1 <> i2))
-              $ thetaJoinM (keyJoin k1 k2)
-                    (return q1)
-                    (proj (shiftKey k1 k2 ++ shiftItems i1 i2) q2)
+    vecZip (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 _ i2) = do
+        let -- The result vector uses synthetic rownum-generated order
+            -- and keys
+            o = VecOrder [Asc]
+            k = VecKey 1
+            r = r1
+            i = i1 <> i2
 
-        return ( TADVec qa o1 k1 r1 (i1 <> i2)
-               , TAFVec $unimplemented $unimplemented
-               , TAFVec $unimplemented $unimplemented
+        qj <- thetaJoinM [(ColE loc, ColE roc, EqJ)]
+                  (rownum' loc (synthOrder o1) [] q1)
+                  (projM ([cP roc] ++ shiftKey k1 k2 ++ shiftItems i1 i2)
+                   $ rownum' roc (synthOrder o2) [] q2)
+
+        let keyProj1 = [mP (dc 1) loc] ++ [ mP (sc c) (kc c) | c <- [1..unKey k1]]
+            keyProj2 = [mP (dc 1) loc]
+                       ++
+                       [ mP (sc c) (kc $ c + unKey k1) | c <- [1..unKey k2] ]
+        qk1 <- proj keyProj1 qj
+        qk2 <- proj keyProj2 qj
+        qd  <- projM ([mP (oc 1) loc, mP (kc 1) loc] ++ refProj r1 ++ itemProj i) qj
+
+        return ( TADVec qa o k r i
+               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 1)
+               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 1)
                )
 
     vecProject exprs (TADVec q o k r _) = do
