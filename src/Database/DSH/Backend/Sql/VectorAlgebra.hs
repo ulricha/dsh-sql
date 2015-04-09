@@ -634,7 +634,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
     vecSelect expr (TADVec q o k r i) = do
         qs <- select (taExpr expr) q
-        qr <- proj (filterProj k) q
+        qr <- proj (filterProj k) qs
         return ( TADVec qs o k r i
                , TAFVec qr (VecFilter $ unKey k)
                )
