@@ -784,6 +784,44 @@ instance VL.VectorAlgebra TableAlgebra where
                , TASVec
                )
 
+    vecGroupS groupExprs (TADVec q o k r i) = do
+        let gl = length groupExprs
+        let o1 = VecOrder $ replicate gl Asc
+            k1 = VecKey $ unRef r + gl
+            r1 = r
+            i1 = VecItems gl
+
+        let o2 = o
+            k2 = k
+            r2 = VecRef $ unRef r + gl
+            i2 = i
+
+        -- Apply the grouping expressions
+        let groupCols  = [ gc c | c <- [1..] | _ <- groupExprs ]
+            groupProj  = [ eP g (taExpr ge) | g <- groupCols | ge <- groupExprs ]
+
+        qg <- proj (vecProj o k r i ++ groupProj) q
+
+        -- Generate the outer vector: one tuple per distinct values of
+        -- the ref and grouping columns.
+        let outerKeyProj = [ mP (kc c) g | c <- [1..] | g <- refCols r ++ groupCols ]
+            outerOrdProj = [ mP (oc c) g | c <- [1..] | g <- groupCols ]
+            outerItemProj = [ mP (ic c) g | c <- [1..] | g <- groupCols ]
+
+        qo <- projM (outerOrdProj ++ outerKeyProj ++ refProj r ++ outerItemProj)
+              $ distinctM
+              $ proj (refProj r ++ [ cP g | g <- groupCols ]) qg
+
+        -- Generate the inner vector that references the groups in the
+        -- outer vector.
+        let innerRefProj = [ mP (rc c) g | c <- [1..] | g <- refCols r ++ groupCols ]
+        qi <- proj (ordProj o ++ keyProj k ++ innerRefProj ++ itemProj i) qg
+
+        return ( TADVec qo o1 k1 r1 i1
+               , TADVec qi o2 k2 r2 i2
+               , TASVec
+               )
+
     vecAlign (TADVec q1 o1 k1 r1 i1) (TADVec q2 _ k2 _ i2) = do
         -- Join both vectors by their keys. Because this is a
         -- 1:1-join, we can discard order and ref of the right input.
