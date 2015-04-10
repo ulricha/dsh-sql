@@ -752,7 +752,7 @@ instance VL.VectorAlgebra TableAlgebra where
             r1 = VecRef 0
             i1 = VecItems gl
 
-        let o2 = VecOrder (replicate (gl + unOrd o) Asc)
+        let o2 = o
             k2 = k
             r2 = VecRef gl
             i2 = i
@@ -776,12 +776,8 @@ instance VL.VectorAlgebra TableAlgebra where
         -- Generate the inner vector that references the groups in the
         -- outer vector.
         let innerRefProj = [ mP (rc c) g | c <- [1..] | g <- groupCols ]
-            innerOrdProj = [ mP (oc c) go
-                           | c <- [1..]
-                           | go <- groupCols ++ ordCols o
-                           ]
 
-        qi <- proj (innerOrdProj ++ keyProj k ++ innerRefProj ++ itemProj i) qg
+        qi <- proj (ordProj o ++ keyProj k ++ innerRefProj ++ itemProj i) qg
 
         return ( TADVec qo o1 k1 r1 i1
                , TADVec qi o2 k2 r2 i2
