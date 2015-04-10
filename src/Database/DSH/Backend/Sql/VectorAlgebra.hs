@@ -404,6 +404,24 @@ instance VL.VectorAlgebra TableAlgebra where
     type FVec TableAlgebra = TAFVec
     type SVec TableAlgebra = TASVec
 
+    vecUnique (TADVec q o k r i) = do
+        -- Create groups based on the items and select the first
+        -- member of each group
+        qu <- projM (ordProj o ++ keyProj k ++ refProj r ++ itemProj i)
+              $ selectM (BinAppE Eq (ColE soc) (ConstE $ VInt 1))
+              $ rownum soc [] (map ColE $ itemCols i) q
+
+        return $ TADVec qu o k r i
+
+    vecUniqueS (TADVec q o k r i) = do
+        -- Create per-segment groups based on the items and select the
+        -- first member of each group
+        qu <- projM (ordProj o ++ keyProj k ++ refProj r ++ itemProj i)
+              $ selectM (BinAppE Eq (ColE soc) (ConstE $ VInt 1))
+              $ rownum soc [] (map ColE $ refCols r ++ itemCols i) q
+
+        return $ TADVec qu o k r i
+
     vecNumber (TADVec q o@(VecOrder ds) k r i) = do
         let i' = VecItems (unItems i + 1)
             nc = ic (unItems i + 1)
