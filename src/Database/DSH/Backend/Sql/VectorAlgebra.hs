@@ -445,20 +445,10 @@ instance VL.VectorAlgebra TableAlgebra where
                , TASVec
                )
 
-    vecSortS sortExprs (TADVec q o k r i) = do
-        let o'       = VecOrder (map (const Asc) sortExprs) <> o
-            -- Include the old order columns. This implements stable
-            -- sorting and guarantees a strict total order of columns.
-            sortCols = [ eP (oc c) (taExpr e) | c <- [1..] | e <- sortExprs ]
-                       ++
-                       [ mP (oc (c + length sortExprs)) (oc c)
-                       | c <- [1..unOrd o]
-                       ]
-
-        qe <- proj (sortCols ++ keyProj k ++ refProj r ++ itemProj i) q
-        return ( TADVec qe o' k r i
-               , TASVec
-               )
+    -- Per-segment sorting is no different from regular sorting
+    -- because we require only relative per-segment order in inner
+    -- vectors.
+    vecSortS = VL.vecSort
 
     vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
