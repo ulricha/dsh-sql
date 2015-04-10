@@ -404,6 +404,13 @@ instance VL.VectorAlgebra TableAlgebra where
     type FVec TableAlgebra = TAFVec
     type SVec TableAlgebra = TASVec
 
+    vecWinFun a w (TADVec q o k r i) = do
+        let wfun      = windowFunction a
+            frameSpec = frameSpecification w
+            winCol    = ic $ unItems i + 1
+        qw <- winFun (winCol, wfun) [] (synthOrder o) (Just frameSpec) q
+        return $ TADVec qw o k r (i <> (VecItems 1))
+
     vecUnique (TADVec q o k r i) = do
         -- Create groups based on the items and select the first
         -- member of each group
