@@ -1052,13 +1052,15 @@ instance VL.VectorAlgebra TableAlgebra where
         q <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
         return $ TADVec q (VecOrder [Asc]) (VecKey 1) (VecRef 0) (VecItems 0)
 
-    vecUnboxScalar v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 r2 i2) = do
+    vecUnboxScalar v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ i2) = do
         let o = o1
             k = k1
             r = r1
             i = i1 <> i2
         q <- projM (vecProj o k r i)
-             $ thetaJoinM [ (ColE $ kc c, ColE $ rc c, EqJ) | c <- [1..unKey k] ]
+             $ thetaJoinM [ (ColE $ kc c, ColE $ rc $ c + unRef r1, EqJ)
+                          | c <- [1..unKey k]
+                          ]
                    (return q1)
                    (proj (shiftAll v1 v2) q2)
 
