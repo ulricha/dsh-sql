@@ -1066,6 +1066,31 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec q o k r i
 
+    vecDistLift (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
+        let o = o2
+            k = k2
+            r = r2
+            i = i1 <> i2
+
+            s = VecTransSrc $ unKey k1
+            d = VecTransDst $ unKey k2
+
+        qj <- thetaJoinM [ (ColE (kc $ c + unKey k2), ColE (rc c), EqJ)
+                         | c <- [1..unRef r2]
+                         ]
+                   (proj (shiftKey k2 k1 ++ itemProj i1) q1)
+                   (proj (ordProj o2 ++ keyProj k2 ++ refProj r2 ++ shiftItems i1 i2) q2)
+
+        qd <- proj (ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i) qj
+        qr <- proj ([ mP (sc c) (kc $ c + unKey k2) | c <- [1..unKey k1] ]
+                    ++
+                    [ mP (dc c) (kc c) | c <- [1..unKey k2] ])
+                   qj
+
+        return ( TADVec qd o k r i
+               , TARVec qr s d
+               )
+
     vecTranspose = $unimplemented
     vecReshape = $unimplemented
     vecTransposeS = $unimplemented
