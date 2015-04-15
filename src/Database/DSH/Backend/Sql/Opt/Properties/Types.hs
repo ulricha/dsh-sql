@@ -10,9 +10,9 @@ import           Database.DSH.Common.Impossible
 ----------------------------------------------------------------------------
 -- Property types
 
-data TopDownProps = TDProps { pICols :: S.Set Attr
-                            , pUse   :: S.Set Attr
-                            }
+data TopDownProps = TDProps
+    { pICols :: S.Set Attr
+    }
 
 instance Show TopDownProps where
     show ps = show $ S.toList (pICols ps)

@@ -20,7 +20,7 @@ import           Database.DSH.Common.Impossible
 
 
 seed :: TopDownProps
-seed = TDProps { pICols = S.empty, pUse = S.empty }
+seed = TDProps { pICols = S.empty }
 
 type InferenceState = NodeMap TopDownProps
 
@@ -37,7 +37,6 @@ replaceProps n p = modify (M.insert n p)
 inferUnOp :: TopDownProps -> TopDownProps -> UnOp -> TopDownProps
 inferUnOp ownProps cp op =
     TDProps { pICols = inferIColsUnOp (pICols ownProps) (pICols cp) op
-            -- , pUse   = inferUseUnOp (pUse ownProps) (pUse cp) op
             }
 
 inferBinOp :: BottomUpProps
@@ -54,14 +53,8 @@ inferBinOp childBUProps1 childBUProps2 ownProps cp1 cp2 op =
                                        (pICols cp2)
                                        (S.map fst $ pCols childBUProps2)
                                        op
-      -- (urc1', urc2') = inferUseBinOp (pUse ownProps)
-      --                                (pUse cp1)
-      --                                (pUse cp2)
-      --                                (S.map fst $ pCols childBUProps1)
-      --                                (S.map fst $ pCols childBUProps2)
-      --                                op
-      cp1' = TDProps { pICols = crc1' {-, pUse = urc1' -} }
-      cp2' = TDProps { pICols = crc2' {-, pUse = urc2' -} }
+      cp1' = TDProps { pICols = crc1' }
+      cp2' = TDProps { pICols = crc2' }
   in (cp1', cp2')
 
 inferChildProperties :: NodeMap BottomUpProps

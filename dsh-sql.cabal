@@ -56,7 +56,6 @@ Library
                      Database.DSH.Backend.Sql.Opt.Properties.Types
                      Database.DSH.Backend.Sql.Opt.Properties.Cols
                      Database.DSH.Backend.Sql.Opt.Properties.ICols
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Use
                      Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
                      Database.DSH.Backend.Sql.Opt.Properties.Empty
                      Database.DSH.Backend.Sql.Opt.Properties.Card1
