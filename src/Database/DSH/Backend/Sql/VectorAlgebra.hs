@@ -127,8 +127,8 @@ itemProj :: VecItems -> [Proj]
 itemProj (VecItems 0) = []
 itemProj (VecItems i) = map (cP . ic) [1..i]
 
-srcProj :: VecTransSrc -> [Proj]
-srcProj (VecTransSrc i) = map (cP . sc) [1..i]
+-- srcProj :: VecTransSrc -> [Proj]
+-- srcProj (VecTransSrc i) = map (cP . sc) [1..i]
 
 filterProj :: VecKey -> [Proj]
 filterProj (VecKey i) = [ mP (fc c) (kc c) | c <- [1..i] ]
@@ -175,13 +175,13 @@ keyJoin (VecKey k1) (VecKey k2) = assert (k1 == k2) $
 keySrcProj :: VecKey -> [Proj]
 keySrcProj (VecKey i) = [ mP (sc c) (kc c) | c <- [1..i] ]
 
--- | Create the relational representation of a transformation vector
--- from a single data vector. The key is duplicated into source and
--- destination columns.
-transProj :: VecKey -> [Proj]
-transProj (VecKey i) = [ mP (sc c) (kc c) | c <- [1..i] ]
-                       ++
-                       [ mP (dc c) (kc c) | c <- [1..i] ]
+-- -- | Create the relational representation of a transformation vector
+-- -- from a single data vector. The key is duplicated into source and
+-- -- destination columns.
+-- transProj :: VecKey -> [Proj]
+-- transProj (VecKey i) = [ mP (sc c) (kc c) | c <- [1..i] ]
+--                        ++
+--                        [ mP (dc c) (kc c) | c <- [1..i] ]
 
 -- | Generate the left propagation vector for a product-like operator.
 prodTransProjLeft :: VecKey -> VecKey -> [Proj]
@@ -1000,9 +1000,7 @@ instance VL.VectorAlgebra TableAlgebra where
     vecAppendS = $unimplemented
 
     -- FIXME can we really rely on keys being aligned/compatible?
-    vecCombine (TADVec q1 _ _ _ _)
-               (TADVec q2 o2 k2 r2 i2)
-               (TADVec q3 o3 k3 r3 i3) = do
+    vecCombine _ _ _ = do
 
         return ( $unimplemented
                , $unimplemented

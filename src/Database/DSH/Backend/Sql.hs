@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE InstanceSigs      #-}
+{-# LANGUAGE ParallelListComp  #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE ParallelListComp  #-}
 
 -- | This module implements the execution of SQL query bundles and the
 -- construction of nested values from the resulting vector bundle.
@@ -19,12 +19,13 @@ import           Database.HDBC.ODBC
 
 import           Control.Monad
 import           Control.Monad.State
+import qualified Data.ByteString.Char8                    as BS
 import           Data.Decimal
 import qualified Data.Map                                 as M
 import           Data.Maybe
-import qualified Data.Text                                as Txt
-import qualified Data.Text.Encoding                       as Txt
-
+import qualified Data.Text                                as T
+import qualified Data.Vector                              as V
+import qualified Data.Text.Encoding                       as TE
 
 import qualified Database.Algebra.Dag                     as D
 import qualified Database.Algebra.Dag.Build               as B
@@ -52,6 +53,14 @@ newtype SqlBackend = SqlBackend Connection
 sqlBackend :: Connection -> SqlBackend
 sqlBackend = SqlBackend
 
+newtype SqlCode = SqlCode { unSql :: String }
+
+data SqlVector = SqlVector SqlCode VecOrder VecKey VecRef VecItems
+
+instance RelationalVector SqlVector where
+    rvKeyCols (SqlVector _ _ k _ _) = map kc $ [1..unKey k]
+    rvItemCols (SqlVector _ _ _ _ i) = V.generate (unItems i) (ic . (+ 1))
+
 --------------------------------------------------------------------------------
 
 -- | In a query shape, render each root node for the algebraic plan
@@ -62,12 +71,18 @@ sqlBackend = SqlBackend
 generateSqlQueries :: QueryPlan TA.TableAlgebra TADVec -> Shape (BackendCode SqlBackend)
 generateSqlQueries taPlan = renderSql $ queryShape taPlan
   where
+    roots :: [AlgNode]
     roots = D.rootNodes $ queryDag taPlan
-    (_sqlShared, sqlQueries) = renderOutputDSHWith PostgreSQL materialize (queryDag taPlan)
-    nodeToQuery  = zip roots sqlQueries
-    lookupNode n = maybe $impossible SqlCode $ lookup n nodeToQuery
 
-    renderSql = fmap (\(TADVec r _ _ _ _) -> lookupNode r)
+    (_sqlShared, sqlQueries) = renderOutputDSHWith PostgreSQL materialize (queryDag taPlan)
+
+    nodeToQuery :: [(AlgNode, SqlCode)]
+    nodeToQuery  = zip roots (map SqlCode sqlQueries)
+
+    lookupNode :: AlgNode -> SqlCode
+    lookupNode n = maybe $impossible id $ lookup n nodeToQuery
+
+    renderSql = fmap (\(TADVec q o k r i) -> BC $ SqlVector (lookupNode q) o k r i)
 
 --------------------------------------------------------------------------------
 
@@ -133,7 +148,7 @@ insertSerialize g = g >>= traverseShape
              -> (VecOrder -> [TA.OrdCol])
              -> TAVecBuild TADVec
     insertOp (TADVec q o k r i) mkRef mkKey mkOrd = do
-        let op = TA.Serialize (mkRef r, mkKey k, mkOrd o, itemCols i)
+        let op = TA.Serialize (mkRef r, mkKey k, mkOrd o, needItems i)
 
         qp   <- lift $ B.insert $ UnOp op q
         return $ TADVec qp o k r i
@@ -157,9 +172,9 @@ insertSerialize g = g >>= traverseShape
     noKey :: VecKey -> [TA.KeyCol]
     noKey = const []
 
-    itemCols :: VecItems -> [TA.PayloadCol]
-    itemCols (VecItems 0) = []
-    itemCols (VecItems i) = [ TA.PayloadCol $ ic c | c <- [1..i] ]
+    needItems :: VecItems -> [TA.PayloadCol]
+    needItems (VecItems 0) = []
+    needItems (VecItems i) = [ TA.PayloadCol $ ic c | c <- [1..i] ]
 
 implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
@@ -170,13 +185,18 @@ implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
 
 --------------------------------------------------------------------------------
 
+instance RelationalVector (BackendCode SqlBackend) where
+    rvKeyCols (BC v) = rvKeyCols v
+    rvItemCols (BC v) = rvItemCols v
+
+
 instance Backend SqlBackend where
     data BackendRow SqlBackend  = SqlRow (M.Map String H.SqlValue)
-    data BackendCode SqlBackend = SqlCode String
+    data BackendCode SqlBackend = BC SqlVector
     data BackendPlan SqlBackend = QP (QueryPlan TA.TableAlgebra TADVec)
 
-    execFlatQuery (SqlBackend conn) (SqlCode q) = do
-        stmt  <- H.prepare conn q
+    execFlatQuery (SqlBackend conn) (BC (SqlVector q _ _ _ _)) = do
+        stmt  <- H.prepare conn (unSql q)
         void $ H.execute stmt []
         map SqlRow <$> H.fetchAllRowsMap' stmt
 
@@ -203,6 +223,20 @@ instance Row (BackendRow SqlBackend) where
         case M.lookup c r of
             Just v  -> SqlScalar v
             Nothing -> error $ printf "col lookup %s failed in %s" c (show r)
+
+    keyVal :: Scalar (BackendRow SqlBackend) -> KeyVal
+    keyVal (SqlScalar v) = case v of
+        H.SqlInt32 i -> KInteger $ fromIntegral i
+        H.SqlInt64 i -> KInteger $ fromIntegral i
+        H.SqlWord32 i -> KInteger $ fromIntegral i
+        H.SqlWord64 i -> KInteger $ fromIntegral i
+        H.SqlInteger i -> KInteger $ fromIntegral i
+        H.SqlString s -> KByteString $ BS.pack s
+        H.SqlByteString s -> KByteString s
+        H.SqlLocalDate d -> KDay d
+
+        _ -> $impossible
+
 
     descrVal (SqlScalar (H.SqlInt32 i))   = fromIntegral i
     descrVal (SqlScalar (H.SqlInteger i)) = fromIntegral i
@@ -238,11 +272,11 @@ instance Row (BackendRow SqlBackend) where
 
     charVal (SqlScalar (H.SqlChar c))       = charE c
     charVal (SqlScalar (H.SqlString (c:_))) = charE c
-    charVal (SqlScalar (H.SqlByteString c)) = charE (head $ Txt.unpack $ Txt.decodeUtf8 c)
+    charVal (SqlScalar (H.SqlByteString c)) = charE (head $ T.unpack $ TE.decodeUtf8 c)
     charVal _                               = $impossible
 
-    textVal (SqlScalar (H.SqlString t))     = textE (Txt.pack t)
-    textVal (SqlScalar (H.SqlByteString s)) = textE (Txt.decodeUtf8 s)
+    textVal (SqlScalar (H.SqlString t))     = textE (T.pack t)
+    textVal (SqlScalar (H.SqlByteString s)) = textE (TE.decodeUtf8 s)
     textVal _                               = $impossible
 
     -- FIXME this is an incredibly crude method to convert HDBC's
