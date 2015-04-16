@@ -193,7 +193,7 @@ prodTransProjLeft k1 k2 =
 -- | Generate the right propagation vector for a product-like operator.
 prodTransProjRight :: VecKey -> VecKey -> [Proj]
 prodTransProjRight k1 k2 =
-    [ mP (sc c) (kc c) | c <- [unKey k1 + 1..unKey k1 + unKey k2] ]
+    [ mP (sc c) (kc $ c + unKey k1) | c <- [1..unKey k2] ]
     ++
     [ mP (dc c) (kc c) | c <- [1..unKey (k1 <> k2)] ]
 
