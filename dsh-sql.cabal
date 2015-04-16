@@ -34,7 +34,8 @@ Library
                      , algebra-dag        >= 0.1
                      , algebra-sql        >= 0.1
                      , base               >= 4.8 && < 5
-                     , bytestring >= 0.10
+                     , bytestring         >= 0.10
+                     , bytestring-lexing  >= 0.4
                      , containers         >= 0.5
                      , either             >= 4.0
                      , mtl                >= 2.1
@@ -81,7 +82,8 @@ Test-Suite sqltests
                    , HUnit                      >= 1.2
                    , QuickCheck                 >= 2.4
                    , base                       >= 4.8 && < 5
-                   , bytestring >= 0.10
+                   , bytestring                 >= 0.10
+                   , bytestring-lexing          >= 0.4
                    , containers                 >= 0.5
                    , dsh-sql                    >= 0.1
                    , test-framework             >= 0.6

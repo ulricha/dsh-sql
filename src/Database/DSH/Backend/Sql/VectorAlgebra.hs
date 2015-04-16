@@ -215,7 +215,7 @@ keyRefProj (VecKey i) = [ mP (rc c) (kc c) | c <- [1..i] ]
 algVal :: L.ScalarVal -> AVal
 algVal (L.IntV i)     = int (fromIntegral i)
 algVal (L.BoolV t)    = bool t
-algVal L.UnitV        = int (-1)
+algVal L.UnitV        = int 0xdeadbeef
 algVal (L.StringV s)  = string s
 algVal (L.DoubleV d)  = double d
 algVal (L.DateV d)    = date d

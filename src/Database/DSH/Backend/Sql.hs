@@ -26,6 +26,8 @@ import           Data.Maybe
 import qualified Data.Text                                as T
 import qualified Data.Vector                              as V
 import qualified Data.Text.Encoding                       as TE
+import qualified Data.ByteString.Lex.Double               as BD
+import qualified Data.ByteString.Lex.Integral             as BI
 
 import qualified Database.Algebra.Dag                     as D
 import qualified Database.Algebra.Dag.Build               as B
@@ -59,6 +61,7 @@ data SqlVector = SqlVector SqlCode VecOrder VecKey VecRef VecItems
 
 instance RelationalVector SqlVector where
     rvKeyCols (SqlVector _ _ k _ _) = map kc $ [1..unKey k]
+    rvRefCols (SqlVector _ _ _ r _) = map rc $ [1..unRef r]
     rvItemCols (SqlVector _ _ _ _ i) = V.generate (unItems i) (ic . (+ 1))
 
 --------------------------------------------------------------------------------
@@ -188,7 +191,7 @@ implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
 instance RelationalVector (BackendCode SqlBackend) where
     rvKeyCols (BC v) = rvKeyCols v
     rvItemCols (BC v) = rvItemCols v
-
+    rvRefCols (BC v) = rvRefCols v
 
 instance Backend SqlBackend where
     data BackendRow SqlBackend  = SqlRow (M.Map String H.SqlValue)
@@ -244,7 +247,8 @@ instance Row (BackendRow SqlBackend) where
 
     unitVal (SqlScalar H.SqlNull)        = unitE
     unitVal (SqlScalar (H.SqlInteger _)) = unitE
-    unitVal _                            = $impossible
+    unitVal (SqlScalar (H.SqlInt64 _))   = unitE
+    unitVal (SqlScalar v)                = error $ printf "unitVal: %s" (show v)
 
     integerVal (SqlScalar (H.SqlInteger i)) = integerE i
     integerVal (SqlScalar (H.SqlInt32 i))   = integerE $ fromIntegral i
@@ -253,14 +257,15 @@ instance Row (BackendRow SqlBackend) where
     integerVal (SqlScalar (H.SqlWord64 i))  = integerE $ fromIntegral i
     integerVal _                            = $impossible
 
-    doubleVal (SqlScalar (H.SqlDouble d))   = doubleE d
-    doubleVal (SqlScalar (H.SqlRational d)) = doubleE $ fromRational d
-    doubleVal (SqlScalar (H.SqlInteger d))  = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlInt32 d))    = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlInt64 d))    = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlWord32 d))   = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlWord64 d))   = doubleE $ fromIntegral d
-    doubleVal _                             = $impossible
+    doubleVal (SqlScalar (H.SqlDouble d))     = doubleE d
+    doubleVal (SqlScalar (H.SqlRational d))   = doubleE $ fromRational d
+    doubleVal (SqlScalar (H.SqlInteger d))    = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt32 d))      = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt64 d))      = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord32 d))     = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord64 d))     = doubleE $ fromIntegral d
+    doubleVal (SqlScalar (H.SqlByteString c)) = doubleE $ maybe $impossible fst (BD.readDouble c)
+    doubleVal (SqlScalar v)                   = error $ printf "doubleVal: %s" (show v)
 
     boolVal (SqlScalar (H.SqlBool b))    = boolE b
     boolVal (SqlScalar (H.SqlInteger i)) = boolE (i /= 0)
@@ -268,7 +273,8 @@ instance Row (BackendRow SqlBackend) where
     boolVal (SqlScalar (H.SqlInt64 i))   = boolE (i /= 0)
     boolVal (SqlScalar (H.SqlWord32 i))  = boolE (i /= 0)
     boolVal (SqlScalar (H.SqlWord64 i))  = boolE (i /= 0)
-    boolVal _                            = $impossible
+    boolVal (SqlScalar (H.SqlByteString s)) = boolE $ (maybe $impossible fst (BI.readDecimal s) /= (0 :: Integer))
+    boolVal (SqlScalar v)                = error $ printf "boolVal: %s" (show v)
 
     charVal (SqlScalar (H.SqlChar c))       = charE c
     charVal (SqlScalar (H.SqlString (c:_))) = charE c
@@ -283,8 +289,9 @@ instance Row (BackendRow SqlBackend) where
     -- rationals to decimals. Implement this reasonably or - even
     -- better - replace HDBC completely. Rationals do not make sense
     -- here.
-    decimalVal (SqlScalar (H.SqlRational d)) = decimalE $ realFracToDecimal 5 d
-    decimalVal _                             = $impossible
+    decimalVal (SqlScalar (H.SqlRational d))   = decimalE $ realFracToDecimal 5 d
+    decimalVal (SqlScalar (H.SqlByteString c)) = decimalE $ read $ BS.unpack c
+    decimalVal (SqlScalar v)                   = error $ printf "decimalVal: %s" (show v)
 
     dayVal (SqlScalar (H.SqlLocalDate d)) = dayE d
     dayVal _                              = $impossible
