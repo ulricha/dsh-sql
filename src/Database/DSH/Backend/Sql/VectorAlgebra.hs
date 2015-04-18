@@ -371,13 +371,13 @@ segAggrDefault qo qa ok r defaultValue =
     -- Generate synthetic ord and key values for the inner vector.
     projM ([cP (oc 1), mP (kc 1) (oc 1)] ++ refProj r ++ [cP (ic 1)])
     $ rownumM (oc 1) (refCols r) []
-          (proj (refProj r ++ itemProj (VecItems 1)) qa)
-           `unionM`
-           projM (refProj r ++ [eP (ic 1) (ConstE defaultValue)])
-               -- We know that the outer key must be aligned with inner references.
-               (differenceM
-                   (proj (keyRefProj ok) qo)
-                   (proj (refProj r) qa))
+    $ (proj (refProj r ++ itemProj (VecItems 1)) qa)
+      `unionM`
+      (projM (refProj r ++ [eP (ic 1) (ConstE defaultValue)])
+           -- We know that the outer key must be aligned with inner references.
+           (differenceM
+               (proj (keyRefProj ok) qo)
+               (proj (refProj r) qa)))
 
 aggrDefault :: AlgNode -> AVal -> Build TableAlgebra AlgNode
 aggrDefault qa defaultVal =
