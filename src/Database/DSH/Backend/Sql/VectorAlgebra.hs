@@ -436,6 +436,8 @@ instance VL.VectorAlgebra TableAlgebra where
         qn <- rownum' nc [ (ColE c, d) | c <- ordCols o | d <- ds ] [] q
         return $ TADVec qn o k r i'
 
+    -- FIXME we might have key order for inner vectors. include the
+    -- key here.
     vecNumberS (TADVec q o@(VecOrder ds) k r i) = do
         let i' = VecItems (unItems i + 1)
             nc = ic (unItems i + 1)
@@ -995,7 +997,58 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 2)
                )
 
-    vecAppendS = $unimplemented
+    vecAppendS (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
+        -- We have to use synthetic rownum-generated order and keys
+        -- because left and right inputs might have non-compapible
+        -- order and keys.
+
+        -- Create synthetic order keys based on the original order
+        -- columns and a marker column for left and right
+        -- inputs. Order for inner vectors might not be key
+        -- (per-segment order), so we have to include the key here to
+        -- avoid random results.
+        qs1 <- projM ([eP usc (ConstE $ VInt 1), cP soc]
+                      ++ ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj i1)
+               $ rownum' soc
+                         (synthOrder o1 ++ map (\c -> (ColE c, Asc)) (keyCols k1))
+                         []
+                         q1
+
+        -- Generate a rekeying vector that maps old keys to
+        qk1 <- proj ([mP (dc 1) usc, mP (dc 1) soc]
+                     ++
+                     keySrcProj k1) qs1
+
+        -- Generate the union input for the left side: We use the
+        -- marker column together with the rownum-generated values as
+        -- order and keys.
+        qu1 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
+                     ++ refProj r1 ++ itemProj i1)
+                    qs1
+
+        -- Do the same for the right input.
+        qs2 <- projM ([eP usc (ConstE $ VInt 2), cP soc]
+                      ++ ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i2)
+               $ rownum' soc
+                         (synthOrder o2 ++ map (\c -> (ColE c, Asc)) (keyCols k2))
+                         []
+                         q2
+        qk2 <- proj ([mP (dc 2) usc, mP (dc 2) soc]
+                     ++
+                     keySrcProj k2) qs2
+
+        qu2 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 2) usc, mP (kc 2) soc]
+                     ++ refProj r2 ++ itemProj i2)
+                    qs2
+
+        -- With synthetic order and key values, both inputs are
+        -- schema-compatible and can be used in a union.
+        qu <- union qu1 qu2
+
+        return ( TADVec qu (VecOrder [Asc, Asc]) (VecKey 2) r1 i1
+               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 2)
+               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 2)
+               )
 
     -- FIXME can we really rely on keys being aligned/compatible?
     vecCombine _ _ _ = do
