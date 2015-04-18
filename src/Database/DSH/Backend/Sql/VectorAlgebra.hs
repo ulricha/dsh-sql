@@ -971,8 +971,7 @@ instance VL.VectorAlgebra TableAlgebra where
         -- marker column together with the rownum-generated values as
         -- order and keys.
         qu1 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
-                     ++
-                     refProj r1)
+                     ++ refProj r1 ++ itemProj i1)
                     qs1
 
         -- Do the same for the right input.
@@ -983,9 +982,8 @@ instance VL.VectorAlgebra TableAlgebra where
                      ++
                      keySrcProj k2) qs2
 
-        qu2 <- proj ([mP (oc 2) usc, mP (oc 2) soc, mP (kc 2) usc, mP (kc 2) soc]
-                     ++
-                     refProj r2)
+        qu2 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 2) usc, mP (kc 2) soc]
+                     ++ refProj r2 ++ itemProj i2)
                     qs2
 
         -- With synthetic order and key values, both inputs are
