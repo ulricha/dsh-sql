@@ -1139,19 +1139,21 @@ instance VL.VectorAlgebra TableAlgebra where
         qk <- proj (mapSrcProj ++ mapDstProj) q
         return $ TAKVec qk (VecTransSrc $ unKey k) (VecTransDst $ unRef r)
 
-    vecSegment (TADVec q o k _ i) = do
-        let r'         = VecRef $ unKey k
-            mapRefProj = [ mP (rc c) (kc c) | c <- [1..unKey k]]
-        q' <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
-        return $ TADVec q' o k r' i
+    vecSegment (TADVec q o k r i) = do
+        let mapRefProj = [ mP (rc c) (kc c) | c <- [1..unKey k]]
+        qo <- proj (ordProj o ++ keyProj k ++ refProj r) q
+        qi <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
+        return ( TADVec qo o k r (VecItems 0)
+               , TADVec qi o k (VecRef $ unKey k) i
+               )
 
-    vecUnsegment (TADVec q o k _ i) = do
-        q' <- proj (ordProj o ++ keyProj k ++ itemProj i) q
-        return $ TADVec q' o k (VecRef 0) i
-
-    singletonDescr = do
-        q <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
-        return $ TADVec q (VecOrder [Asc]) (VecKey 1) (VecRef 0) (VecItems 0)
+    vecNest (TADVec q o k _ i) = do
+        qo <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
+        let constRef = [eP (rc 1) (ConstE (int 1))]
+        qi <- proj (ordProj o ++ keyProj k ++ constRef ++ itemProj i) q
+        return ( TADVec qo (VecOrder [Asc]) (VecKey 1) (VecRef 0) (VecItems 0)
+               , TADVec qi o k (VecRef 1) i
+               )
 
     vecUnboxScalar v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ i2) = do
         let o = o1
@@ -1196,5 +1198,3 @@ instance VL.VectorAlgebra TableAlgebra where
     vecReshape = $unimplemented
     vecTransposeS = $unimplemented
     vecReshapeS = $unimplemented
-    vecAggrNonEmpty = $unimplemented
-    vecAggrNonEmptyS = $unimplemented
