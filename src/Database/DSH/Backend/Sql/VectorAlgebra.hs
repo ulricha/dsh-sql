@@ -1169,6 +1169,29 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec q o k r i
 
+    vecDistSng (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
+        let o = o2
+            k = k2
+            r = r2
+            i = i1 <> i2
+
+            s = VecTransSrc $ unKey k1
+            d = VecTransDst $ unKey k2
+
+        qp <- crossM
+                  (proj (itemProj i1) q1)
+                  (proj (ordProj o2 ++ keyProj k2 ++ refProj r2 ++ shiftItems i1 i2) q2)
+
+        qd <- proj (ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i) qp
+        qr <- proj ([ mP (sc c) (kc $ c + unKey k2) | c <- [1..unKey k1] ]
+                    ++
+                    [ mP (dc c) (kc c) | c <- [1..unKey k2] ])
+                   qp
+
+        return ( TADVec qd o k r i
+               , TARVec qr s d
+               )
+
     vecDistLift (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
         let o = o2
             k = k2
