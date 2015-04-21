@@ -1179,7 +1179,7 @@ instance VL.VectorAlgebra TableAlgebra where
             d = VecTransDst $ unKey k2
 
         qp <- crossM
-                  (proj (itemProj i1) q1)
+                  (proj (shiftKey k2 k1 ++ itemProj i1) q1)
                   (proj (ordProj o2 ++ keyProj k2 ++ refProj r2 ++ shiftItems i1 i2) q2)
 
         qd <- proj (ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i) qp
