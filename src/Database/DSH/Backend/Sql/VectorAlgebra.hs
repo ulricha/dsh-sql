@@ -755,6 +755,10 @@ instance VL.VectorAlgebra TableAlgebra where
         return $ TADVec qd o k r i
 
     vecAggrS a (TADVec qo _ k1 _ _) (TADVec qi _ _ r2 _) = do
+        let o = VecOrder [Asc]
+            k = VecKey 1
+            r = r2
+            i = VecItems 1
         -- Group the inner vector by ref.
         qa <- aggr [(aggrFun a, ic 1)] [ (c, ColE c) | c <- refCols r2 ] qi
         qd <- case a of
@@ -762,9 +766,13 @@ instance VL.VectorAlgebra TableAlgebra where
                   VL.AggrAny _   -> segAggrDefault qo qa k1 r2 (bool False)
                   VL.AggrAll _   -> segAggrDefault qo qa k1 r2 (bool True)
                   VL.AggrCount   -> segAggrDefault qo qa k1 r2 (int 0)
-                  _              -> return qa
+                  _              ->
+                      projM ([cP (oc 1), mP (kc 1) (oc 1)]
+                             ++ refProj r
+                             ++ itemProj i)
+                      $ rownum (oc 1) (refCols r) [] qa
 
-        return $ TADVec qd (VecOrder [Asc]) (VecKey 1) r2 (VecItems 1)
+        return $ TADVec qd o k r i
 
     vecGroupAggr groupExprs aggrFuns (TADVec q _ _ _ _) = do
         let gl = length groupExprs
