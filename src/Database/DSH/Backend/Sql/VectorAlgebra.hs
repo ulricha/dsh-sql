@@ -965,7 +965,7 @@ instance VL.VectorAlgebra TableAlgebra where
                $ rownum' soc (synthOrder o1) [] q1
 
         -- Generate a rekeying vector that maps old keys to
-        qk1 <- proj ([mP (dc 1) usc, mP (dc 1) soc]
+        qk1 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
                      ++
                      keySrcProj k1) qs1
 
@@ -980,7 +980,7 @@ instance VL.VectorAlgebra TableAlgebra where
         qs2 <- projM ([eP usc (ConstE $ VInt 2), cP soc]
                       ++ ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i2)
                $ rownum' soc (synthOrder o2) [] q2
-        qk2 <- proj ([mP (dc 2) usc, mP (dc 2) soc]
+        qk2 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
                      ++
                      keySrcProj k2) qs2
 
@@ -1015,7 +1015,7 @@ instance VL.VectorAlgebra TableAlgebra where
                          q1
 
         -- Generate a rekeying vector that maps old keys to
-        qk1 <- proj ([mP (dc 1) usc, mP (dc 1) soc]
+        qk1 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
                      ++
                      keySrcProj k1) qs1
 
@@ -1033,7 +1033,7 @@ instance VL.VectorAlgebra TableAlgebra where
                          (synthOrder o2 ++ map (\c -> (ColE c, Asc)) (keyCols k2))
                          []
                          q2
-        qk2 <- proj ([mP (dc 2) usc, mP (dc 2) soc]
+        qk2 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
                      ++
                      keySrcProj k2) qs2
 
