@@ -95,13 +95,14 @@ aggrTy :: S.Set TypedAttr -> (AggrType, Attr) -> TypedAttr
 aggrTy childCols (aggr, resCol) = (resCol, resType)
   where
     resType = case aggr of
-        All _  -> ABool
-        Any _  -> ABool
-        Count  -> AInt
-        Avg e  -> numAggr $ exprTy childCols e
-        Max e  -> numAggr $ exprTy childCols e
-        Min e  -> numAggr $ exprTy childCols e
-        Sum e  -> numAggr $ exprTy childCols e
+        All _     -> ABool
+        Any _     -> ABool
+        CountStar -> AInt
+        Count _   -> AInt
+        Avg e     -> numAggr $ exprTy childCols e
+        Max e     -> numAggr $ exprTy childCols e
+        Min e     -> numAggr $ exprTy childCols e
+        Sum e     -> numAggr $ exprTy childCols e
 
 winFunTy :: S.Set TypedAttr -> (WinFun, Attr) -> TypedAttr
 winFunTy childCols (aggr, resCol) = (resCol, resType)

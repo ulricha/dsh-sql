@@ -39,13 +39,14 @@ exprCols (ColE c)          = S.singleton c
 exprCols (ConstE _)        = S.empty
 
 aggrInput :: AggrType -> S.Set Attr
-aggrInput (Avg e)  = exprCols e
-aggrInput (Max e)  = exprCols e
-aggrInput (Min e)  = exprCols e
-aggrInput (Sum e)  = exprCols e
-aggrInput (All e)  = exprCols e
-aggrInput (Any e)  = exprCols e
-aggrInput Count    = S.empty
+aggrInput (Avg e)   = exprCols e
+aggrInput (Max e)   = exprCols e
+aggrInput (Min e)   = exprCols e
+aggrInput (Sum e)   = exprCols e
+aggrInput (All e)   = exprCols e
+aggrInput (Any e)   = exprCols e
+aggrInput (Count e) = exprCols e
+aggrInput CountStar = S.empty
 
 winFunInput :: WinFun -> S.Set Attr
 winFunInput (WinAvg e)        = exprCols e

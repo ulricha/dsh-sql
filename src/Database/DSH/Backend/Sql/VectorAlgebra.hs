@@ -286,7 +286,19 @@ aggrFun (VL.AggrMax e)   = Max $ taExpr e
 aggrFun (VL.AggrAvg e)   = Avg $ taExpr e
 aggrFun (VL.AggrAll e)   = All $ taExpr e
 aggrFun (VL.AggrAny e)   = Any $ taExpr e
-aggrFun VL.AggrCount     = Count
+aggrFun VL.AggrCount     = CountStar
+
+-- | Map aggregate functions to relational aggregates for the
+-- groupjoin operator. For Count, we need the first key column of the
+-- right input to account for the NULLs produced by the outer join.:725
+aggrFunGroupJoin :: Int -> VL.AggrFun -> AggrType
+aggrFunGroupJoin _ (VL.AggrSum _ e) = Sum $ taExpr e
+aggrFunGroupJoin _ (VL.AggrMin e)   = Min $ taExpr e
+aggrFunGroupJoin _ (VL.AggrMax e)   = Max $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAvg e)   = Avg $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAll e)   = All $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAny e)   = Any $ taExpr e
+aggrFunGroupJoin c VL.AggrCount     = Count $ ColE (kc c)
 
 -- | Transform a VL join predicate into a TA predicate. Items of the
 -- left input are necessary to account for the pre-join item column
@@ -711,7 +723,7 @@ instance VL.VectorAlgebra TableAlgebra where
                         ]
 
         qa  <- projM (ordProj o ++ keyProj k ++ refProj r1 ++ itemProj i)
-               $ aggrM [(aggrFun a, acol)] groupCols
+               $ aggrM [(aggrFunGroupJoin (unKey k1 + 1) a, acol)] groupCols
                $ leftOuterJoinM (joinPredicate i1 p)
                      (return q1)
                      (proj (shiftAll v1 v2) q2)
@@ -720,7 +732,7 @@ instance VL.VectorAlgebra TableAlgebra where
                   VL.AggrSum t _ -> groupJoinDefault qa o k r i1 (snd $ sumDefault t)
                   VL.AggrAny _   -> groupJoinDefault qa o k r i1 (bool False)
                   VL.AggrAll _   -> groupJoinDefault qa o k r i1 (bool True)
-                  VL.AggrCount   -> groupJoinDefault qa o k r i1 (int 0)
+                  VL.AggrCount   -> return qa
                   -- FIXME this is a hack to simulate the (incorrect)
                   -- behaviour of regular NestJoin + AggrS when empty
                   -- groups occur for non-defaulting
