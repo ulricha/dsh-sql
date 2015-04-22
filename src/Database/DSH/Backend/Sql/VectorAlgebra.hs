@@ -912,7 +912,36 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 1)
                )
 
-    vecZipS = $unimplemented
+    vecZipS (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
+        let -- The result vector uses synthetic rownum-generated
+            -- per-segment order. As key, we can simply use the key
+            -- from either left or right side. Both will retain their
+            -- key property as we are doing a 1:1 join.
+            o = VecOrder [Asc]
+            k = k1 <> k2
+            r = r1
+            i = i1 <> i2
+
+        qj <- thetaJoinM [(ColE lsoc, ColE rsoc, EqJ)]
+                  (rownum' lsoc (synthOrder o1) (map ColE $ refCols r1) q1)
+                  (projM ([cP rsoc] ++ shiftKey k1 k2 ++ shiftItems i1 i2)
+                   $ rownum' rsoc (synthOrder o2) (map ColE $ refCols r2) q2)
+
+        let keyProj1 = [ mP (dc c) (kc c) | c <- [1..unKey k1] ]
+                       ++
+                       [ mP (sc c) (kc c) | c <- [1..unKey k1] ]
+            keyProj2 = [ mP (dc c) (kc c) | c <- [1..unKey k1] ]
+                       ++
+                       [ mP (sc c) (kc $ c + unKey k1) | c <- [1..unKey k2] ]
+
+        qk1 <- proj keyProj1 qj
+        qk2 <- proj keyProj2 qj
+        qd  <- proj ([mP (oc 1) lsoc] ++ keyProj k ++ refProj r1 ++ itemProj i) qj
+
+        return ( TADVec qd o k r i
+               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k1)
+               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k1)
+               )
 
     vecProject exprs (TADVec q o k r _) = do
         let items = zipWith (\c e -> eP (ic c) (taExpr e)) [1..] exprs
