@@ -922,9 +922,9 @@ instance VL.VectorAlgebra TableAlgebra where
             r = r1
             i = i1 <> i2
 
-        qj <- thetaJoinM [(ColE lsoc, ColE rsoc, EqJ)]
+        qj <- thetaJoinM ([ (ColE lsoc, ColE rsoc, EqJ)] ++ refJoinPred r1)
                   (rownum' lsoc (synthOrder o1) (map ColE $ refCols r1) q1)
-                  (projM ([cP rsoc] ++ shiftKey k1 k2 ++ shiftItems i1 i2)
+                  (projM ([cP rsoc] ++ shiftKey k1 k2 ++ shiftRef r1 r2 ++ shiftItems i1 i2)
                    $ rownum' rsoc (synthOrder o2) (map ColE $ refCols r2) q2)
 
         let keyProj1 = [ mP (dc c) (kc c) | c <- [1..unKey k1] ]
