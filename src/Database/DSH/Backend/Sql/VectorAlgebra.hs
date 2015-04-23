@@ -1273,8 +1273,3 @@ instance VL.VectorAlgebra TableAlgebra where
         return ( TADVec qd o k r i
                , TARVec qr s d
                )
-
-    vecTranspose = $unimplemented
-    vecReshape = $unimplemented
-    vecTransposeS = $unimplemented
-    vecReshapeS = $unimplemented
