@@ -1100,11 +1100,41 @@ instance VL.VectorAlgebra TableAlgebra where
                )
 
     -- FIXME can we really rely on keys being aligned/compatible?
-    vecCombine _ _ _ = do
+    vecCombine (TADVec qb ob kb rb _)
+               (TADVec q1 _ k1 _ i1)
+               (TADVec q2 _ k2 _ i2) = do
 
-        return ( $unimplemented
-               , $unimplemented
-               , $unimplemented
+        d1  <- thetaJoinM [ (ColE $ kc c, ColE $ kc $ c + unKey kb, EqJ)
+                          | c <- [1..unKey k1]
+                          ]
+                   (projM (ordProj ob ++ keyProj kb ++ refProj rb)
+                    $ select (ColE (ic 1)) qb)
+                   (proj (shiftKey kb k1 ++ itemProj i1) q1)
+
+        d2  <- thetaJoinM [ (ColE $ kc c, ColE $ kc $ c + unKey kb, EqJ)
+                          | c <- [1..unKey k2]
+                          ]
+                   (projM (ordProj ob ++ keyProj kb ++ refProj rb)
+                    $ select (UnAppE Not (ColE (ic 1))) qb)
+                   (proj (shiftKey kb k2 ++ itemProj i2) q2)
+
+        qu  <- unionM
+                   (proj (ordProj ob ++ keyProj kb ++ refProj rb ++ itemProj i1) d1)
+                   (proj (ordProj ob ++ keyProj kb ++ refProj rb ++ itemProj i2) d2)
+
+        qk1 <- proj ([ mP (sc c) (kc $ c + unKey kb) | c <- [1..unKey k1] ]
+                     ++
+                     [ mP (dc c) (kc c) | c <- [1..unKey kb] ])
+                    d1
+
+        qk2 <- proj ([ mP (sc c) (kc $ c + unKey kb) | c <- [1..unKey k2] ]
+                     ++
+                     [ mP (dc c) (kc c) | c <- [1..unKey kb] ])
+                    d2
+
+        return ( TADVec qu ob kb rb i1
+               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey kb)
+               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey kb)
                )
 
     -- Because we only demand per-segment order for inner vectors,
