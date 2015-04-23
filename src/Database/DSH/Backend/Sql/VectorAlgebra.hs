@@ -1204,19 +1204,27 @@ instance VL.VectorAlgebra TableAlgebra where
                , TADVec qi o k (VecRef 1) i
                )
 
-    vecUnboxScalar v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ i2) = do
+    vecUnboxSng v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ k2 _ i2) = do
         let o = o1
             k = k1
             r = r1
             i = i1 <> i2
-        q <- projM (vecProj o k r i)
-             $ thetaJoinM [ (ColE $ kc c, ColE $ rc $ c + unRef r1, EqJ)
-                          | c <- [1..unKey k]
-                          ]
+
+        qj <- thetaJoinM [ (ColE $ kc c, ColE $ rc $ c + unRef r1, EqJ)
+                         | c <- [1..unKey k]
+                         ]
                    (return q1)
                    (proj (shiftAll v1 v2) q2)
 
-        return $ TADVec q o k r i
+        qv <- proj (vecProj o k r i) qj
+        qk <- proj ([ mP (sc c) (kc $ c + unKey k1) | c <- [1..unKey k2] ]
+                    ++
+                    [ mP (dc c) (kc c) | c <- [1..unKey k1] ])
+                   qj
+
+        return ( TADVec qv o k r i
+               , TAKVec qk (VecTransSrc $ unKey k2) (VecTransDst $ unKey k1)
+               )
 
     vecDistSng (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
         let o = o2
