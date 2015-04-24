@@ -428,7 +428,7 @@ instance VL.VectorAlgebra TableAlgebra where
         -- member of each group
         qu <- projM (ordProj o ++ keyProj k ++ refProj r ++ itemProj i)
               $ selectM (BinAppE Eq (ColE soc) (ConstE $ VInt 1))
-              $ rownum soc [] (map ColE $ itemCols i) q
+              $ rownum soc (ordCols o) (map ColE $ itemCols i) q
 
         return $ TADVec qu o k r i
 
@@ -437,7 +437,7 @@ instance VL.VectorAlgebra TableAlgebra where
         -- first member of each group
         qu <- projM (ordProj o ++ keyProj k ++ refProj r ++ itemProj i)
               $ selectM (BinAppE Eq (ColE soc) (ConstE $ VInt 1))
-              $ rownum soc [] (map ColE $ refCols r ++ itemCols i) q
+              $ rownum soc (ordCols o) (map ColE $ refCols r ++ itemCols i) q
 
         return $ TADVec qu o k r i
 
