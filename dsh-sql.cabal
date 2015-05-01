@@ -58,6 +58,7 @@ Library
                      Database.DSH.Backend.Sql.Opt.Properties.TopDown
                      Database.DSH.Backend.Sql.Opt.Properties.Types
                      Database.DSH.Backend.Sql.Opt.Properties.Cols
+                     Database.DSH.Backend.Sql.Opt.Properties.Nullable
                      Database.DSH.Backend.Sql.Opt.Properties.ICols
                      Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
                      Database.DSH.Backend.Sql.Opt.Properties.Empty

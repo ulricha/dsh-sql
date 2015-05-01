@@ -2,7 +2,7 @@
 
 module Database.DSH.Backend.Sql.Opt.Properties.BottomUp where
 
-import qualified Data.Set.Monad                             as S
+import qualified Data.Set.Monad                                   as S
 
 import           Database.Algebra.Dag
 import           Database.Algebra.Dag.Common
@@ -14,10 +14,11 @@ import           Database.DSH.Common.Opt
 
 import           Database.DSH.Backend.Sql.Opt.Properties.Card1
 import           Database.DSH.Backend.Sql.Opt.Properties.Cols
+import           Database.DSH.Backend.Sql.Opt.Properties.Const
 import           Database.DSH.Backend.Sql.Opt.Properties.Empty
 import           Database.DSH.Backend.Sql.Opt.Properties.Keys
+import           Database.DSH.Backend.Sql.Opt.Properties.Nullable
 import           Database.DSH.Backend.Sql.Opt.Properties.Order
-import           Database.DSH.Backend.Sql.Opt.Properties.Const
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 
 -- FIXME this is (almost) identical to its X100 counterpart -> merge
@@ -40,52 +41,58 @@ inferWorker _ op n pm =
 
 inferNullOp :: NullOp -> Either String BottomUpProps
 inferNullOp op = do
-  let opCols  = inferColsNullOp op
-      opKeys  = inferKeysNullOp op
-      opEmpty = inferEmptyNullOp op
-      opCard1 = inferCard1NullOp op
+  let opCols     = inferColsNullOp op
+      opKeys     = inferKeysNullOp op
+      opEmpty    = inferEmptyNullOp op
+      opCard1    = inferCard1NullOp op
       -- We only care for rownum-generated columns. Therefore, For
       -- nullary operators order is empty.
-      opOrder = []
-      opConst = inferConstNullOp op
-  return $ BUProps { pCols = opCols
-                   , pKeys = opKeys
-                   , pEmpty = opEmpty
-                   , pCard1 = opCard1
-                   , pOrder = opOrder
-                   , pConst = opConst
+      opOrder    = []
+      opConst    = inferConstNullOp op
+      opNullable = inferNullableNullOp op
+  return $ BUProps { pCols     = opCols
+                   , pKeys     = opKeys
+                   , pEmpty    = opEmpty
+                   , pCard1    = opCard1
+                   , pOrder    = opOrder
+                   , pConst    = opConst
+                   , pNullable = opNullable
                    }
 
 inferUnOp :: UnOp -> BottomUpProps -> Either String BottomUpProps
 inferUnOp op cProps = do
-  let opCols  = inferColsUnOp (pCols cProps) op
-      opKeys  = inferKeysUnOp (pKeys cProps) (pCard1 cProps) (S.map fst $ pCols cProps) op
-      opEmpty = inferEmptyUnOp (pEmpty cProps) op
-      opCard1 = inferCard1UnOp (pCard1 cProps) (pEmpty cProps) op
-      opOrder = inferOrderUnOp (pOrder cProps) op
-      opConst = inferConstUnOp (pConst cProps) op
-  return $ BUProps { pCols = opCols
-                   , pKeys = opKeys
-                   , pEmpty = opEmpty
-                   , pCard1 = opCard1
-                   , pOrder = opOrder
-                   , pConst = opConst
+  let opCols     = inferColsUnOp (pCols cProps) op
+      opKeys     = inferKeysUnOp (pKeys cProps) (pCard1 cProps) (S.map fst $ pCols cProps) op
+      opEmpty    = inferEmptyUnOp (pEmpty cProps) op
+      opCard1    = inferCard1UnOp (pCard1 cProps) (pEmpty cProps) op
+      opOrder    = inferOrderUnOp (pOrder cProps) op
+      opConst    = inferConstUnOp (pConst cProps) op
+      opNullable = inferNullableUnOp (pNullable cProps) op
+  return $ BUProps { pCols     = opCols
+                   , pKeys     = opKeys
+                   , pEmpty    = opEmpty
+                   , pCard1    = opCard1
+                   , pOrder    = opOrder
+                   , pConst    = opConst
+                   , pNullable = opNullable
                    }
 
 inferBinOp :: BinOp -> BottomUpProps -> BottomUpProps -> Either String BottomUpProps
 inferBinOp op c1Props c2Props = do
-  let opCols  = inferColsBinOp (pCols c1Props) (pCols c2Props) op
-      opKeys  = inferKeysBinOp (pKeys c1Props) (pKeys c2Props) (pCard1 c1Props) (pCard1 c2Props) op
-      opEmpty = inferEmptyBinOp (pEmpty c1Props) (pEmpty c2Props) op
-      opCard1 = inferCard1BinOp (pCard1 c1Props) (pCard1 c2Props) op
-      opOrder = inferOrderBinOp (pOrder c1Props) (pOrder c2Props) op
-      opConst = inferConstBinOp (pConst c1Props) (pConst c2Props) op
-  return $ BUProps { pCols = opCols
-                   , pKeys = opKeys
-                   , pEmpty = opEmpty
-                   , pCard1 = opCard1
-                   , pOrder = opOrder
-                   , pConst = opConst
+  let opCols     = inferColsBinOp (pCols c1Props) (pCols c2Props) op
+      opKeys     = inferKeysBinOp (pKeys c1Props) (pKeys c2Props) (pCard1 c1Props) (pCard1 c2Props) op
+      opEmpty    = inferEmptyBinOp (pEmpty c1Props) (pEmpty c2Props) op
+      opCard1    = inferCard1BinOp (pCard1 c1Props) (pCard1 c2Props) op
+      opOrder    = inferOrderBinOp (pOrder c1Props) (pOrder c2Props) op
+      opConst    = inferConstBinOp (pConst c1Props) (pConst c2Props) op
+      opNullable = inferNullableBinOp c1Props c2Props op
+  return $ BUProps { pCols     = opCols
+                   , pKeys     = opKeys
+                   , pEmpty    = opEmpty
+                   , pCard1    = opCard1
+                   , pOrder    = opOrder
+                   , pConst    = opConst
+                   , pNullable = opNullable
                    }
 
 inferBottomUpProperties :: AlgebraDag TableAlgebra -> NodeMap BottomUpProps
