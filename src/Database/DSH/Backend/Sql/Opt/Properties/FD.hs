@@ -1,6 +1,7 @@
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
+-- | Infer functional dependencies from table algebra operators.
 module Database.DSH.Backend.Sql.Opt.Properties.FD
     ( inferFDNullOp
     , inferFDUnOp

@@ -16,6 +16,7 @@ import           Database.DSH.Backend.Sql.Opt.Properties.Card1
 import           Database.DSH.Backend.Sql.Opt.Properties.Cols
 import           Database.DSH.Backend.Sql.Opt.Properties.Const
 import           Database.DSH.Backend.Sql.Opt.Properties.Empty
+import           Database.DSH.Backend.Sql.Opt.Properties.FD
 import           Database.DSH.Backend.Sql.Opt.Properties.Keys
 import           Database.DSH.Backend.Sql.Opt.Properties.Nullable
 import           Database.DSH.Backend.Sql.Opt.Properties.Order
@@ -50,6 +51,7 @@ inferNullOp op = do
       opOrder    = []
       opConst    = inferConstNullOp op
       opNullable = inferNullableNullOp op
+      opFDs      = inferFDNullOp opCols opKeys op
   return $ BUProps { pCols     = opCols
                    , pKeys     = opKeys
                    , pEmpty    = opEmpty
@@ -57,6 +59,7 @@ inferNullOp op = do
                    , pOrder    = opOrder
                    , pConst    = opConst
                    , pNullable = opNullable
+                   , pFunDeps  = opFDs
                    }
 
 inferUnOp :: UnOp -> BottomUpProps -> Either String BottomUpProps
@@ -68,6 +71,7 @@ inferUnOp op cProps = do
       opOrder    = inferOrderUnOp (pOrder cProps) op
       opConst    = inferConstUnOp (pConst cProps) op
       opNullable = inferNullableUnOp (pNullable cProps) op
+      opFDs      = inferFDUnOp cProps op
   return $ BUProps { pCols     = opCols
                    , pKeys     = opKeys
                    , pEmpty    = opEmpty
@@ -75,6 +79,7 @@ inferUnOp op cProps = do
                    , pOrder    = opOrder
                    , pConst    = opConst
                    , pNullable = opNullable
+                   , pFunDeps  = opFDs
                    }
 
 inferBinOp :: BinOp -> BottomUpProps -> BottomUpProps -> Either String BottomUpProps
@@ -86,6 +91,7 @@ inferBinOp op c1Props c2Props = do
       opOrder    = inferOrderBinOp (pOrder c1Props) (pOrder c2Props) op
       opConst    = inferConstBinOp (pConst c1Props) (pConst c2Props) op
       opNullable = inferNullableBinOp c1Props c2Props op
+      opFDs      = inferFDBinOp c1Props c2Props opKeys opCols op
   return $ BUProps { pCols     = opCols
                    , pKeys     = opKeys
                    , pEmpty    = opEmpty
@@ -93,6 +99,7 @@ inferBinOp op c1Props c2Props = do
                    , pOrder    = opOrder
                    , pConst    = opConst
                    , pNullable = opNullable
+                   , pFunDeps  = opFDs
                    }
 
 inferBottomUpProperties :: AlgebraDag TableAlgebra -> NodeMap BottomUpProps
