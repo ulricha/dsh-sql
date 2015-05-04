@@ -28,6 +28,8 @@ type Orders = [(Attr, [Attr])]
 
 type ConstCol = (Attr, AVal)
 
+data FD = FD (S.Set Attr) Attr deriving (Eq, Ord, Show)
+
 data BottomUpProps = BUProps
     { pCols     :: S.Set TypedAttr
     , pKeys     :: S.Set PKey
@@ -36,9 +38,13 @@ data BottomUpProps = BUProps
     , pOrder    :: Orders
     , pConst    :: [ConstCol]
     , pNullable :: S.Set Attr
+    , pFunDeps  :: S.Set FD
     } deriving (Show)
 
-data AllProps = AllProps { bu :: BottomUpProps, td :: TopDownProps } deriving (Show)
+data AllProps = AllProps
+    { bu :: BottomUpProps
+    , td :: TopDownProps
+    } deriving (Show)
 
 ----------------------------------------------------------------------------
 -- Utility functions on properties
