@@ -11,14 +11,16 @@ import qualified Data.Set.Monad as S
 
 import Database.Algebra.Table.Lang
 
-import Database.DSH.Common.Impossible
+
 import Database.DSH.Backend.Sql.Opt.Properties.Types
 import Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
 
 nullableExpr :: S.Set Attr -> Expr -> Bool
 nullableExpr ns e =
     case e of
-        BinAppE Coalesce e1 e2 -> $unimplemented
+        BinAppE Coalesce e1 e2 -> (nullableExpr ns e1 && nullableExpr ns e2)
+                                  ||
+                                  (not (nullableExpr ns e1) && nullableExpr ns e2)
         BinAppE _ e1 e2        -> nullableExpr ns e1 || nullableExpr ns e2
         UnAppE _ e1            -> nullableExpr ns e1
         ColE c                 -> c `S.member` ns
@@ -79,7 +81,7 @@ inferNullableBinOp ps1 ps2 op =
         -- to NULL will not be in the result).
         EqJoin _        -> (pNullable ps1) ∪ (pNullable ps2)
         ThetaJoin _     -> pNullable ps1 ∪ pNullable ps2
-        LeftOuterJoin _ -> pNullable ps1 ∪ [ c | (c, t) <- pCols ps2 ]
+        LeftOuterJoin _ -> pNullable ps1 ∪ [ c | (c, _) <- pCols ps2 ]
         SemiJoin _      -> pNullable ps1
         AntiJoin _      -> pNullable ps1
         DisjUnion _     -> pNullable ps1 ∪ pNullable ps2
