@@ -133,36 +133,6 @@ unreferencedAggrCols q =
                   logRewrite "Basic.ICols.Aggr.Narrow" q
                   void $ replaceWithNew q $ UnOp (Aggr (neededAggrs, partCols)) $(v "q1") |])
 
--- FIXME to be actually useful, this rewrite should consider general
--- FDs instead of just keys.
-unreferencedGroupingCols :: TARule AllProps
-unreferencedGroupingCols q =
-  $(dagPatMatch 'q "Aggr args (q1)"
-    [| do
-        neededCols        <- pICols <$> td <$> properties q
-        keys              <- pKeys <$> bu <$> properties $(v "q1")
-        (aggrs, partCols) <- return $(v "args")
-
-        predicate $ length partCols > 1
-
-        -- All non-empty and incomplete prefixes of the partitioning
-        -- columns
-        let partPrefixes   = init $ drop 1 (inits $ map fst partCols)
-            isKey        p = S.fromList p `S.member` keys
-        -- Find the smallest prefix that is a key
-        Just prefix <- return $ find isKey partPrefixes
-
-        -- The suffix of non-key columns that are functionally
-        -- determined by the key.
-        let nonKeyCols    = drop (length prefix) partCols
-            reqNonKeyCols = filter (\(c, _) -> c `S.member` neededCols) nonKeyCols
-
-        predicate $ length reqNonKeyCols /= length nonKeyCols
-        return $ do
-          logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
-          let reqPartCols = take (length prefix) partCols ++ reqNonKeyCols
-          void $ replaceWithNew q $ UnOp (Aggr (aggrs, reqPartCols)) $(v "q1") |])
-
 unreferencedLiteralCols :: TARule AllProps
 unreferencedLiteralCols q =
   $(dagPatMatch 'q "LitTable tab "
@@ -187,6 +157,64 @@ unreferencedLiteralCols q =
              let reqTuples = transpose reqCols
 
              void $ replaceWithNew q $ NullaryOp $ LitTable (reqTuples, reqSchema) |])
+
+--------------------------------------------------------------------------------
+-- Rewrites based on functional dependencies
+
+powerset :: Ord a => S.Set a -> S.Set (S.Set a)
+powerset s
+    | s == S.empty = S.singleton S.empty
+    | otherwise = fmap (S.insert x) pxs `S.union` pxs
+        where (x, xs) = S.deleteFindMin s
+              pxs = powerset xs
+
+-- | Heuristically prune grouping columns that are not required downstream and that
+-- are covered by other grouping columns via functional dependencies.
+--
+-- This heuristic is hopefully sufficient: We perform one pass over
+-- the grouping expressions. For each column expression, we check
+-- wether it is covered by a subset of the /preceding/ columns that
+-- have not been eliminated.
+--
+-- An exact solution to this optimization problem would need to
+-- consider /all/ other columns, not just the preceding ones. We then
+-- would have to identify the minimal covering set of columns.
+prunePartExprs :: S.Set Attr -> S.Set FD -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
+prunePartExprs reqCols fds partExprs = go S.empty partExprs
+  where
+    go :: S.Set Attr -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
+    go cs ((c, ColE c') : as)
+        | not (requiredCol c reqCols)
+          && coveredCol c' cs         = go cs as
+        | otherwise                   = (c, ColE c') : go (S.insert c' cs) as
+    go cs (ae : as)                   = ae : go cs as
+    go _  []                          = []
+
+    requiredCol :: Attr -> S.Set Attr -> Bool
+    requiredCol = S.member
+
+    coveredCol :: Attr -> S.Set Attr -> Bool
+    coveredCol c cs = any (\s -> FD s c `S.member` fds) $ powerset cs
+
+-- | Prune unreferenced grouping columns based on functional
+-- dependencies.
+unreferencedGroupingCols :: TARule AllProps
+unreferencedGroupingCols q =
+  $(dagPatMatch 'q "Aggr args (q1)"
+    [| do
+        neededCols        <- pICols <$> td <$> properties q
+        fds               <- pFunDeps <$> bu <$> properties $(v "q1")
+        (aggrs, partCols) <- return $(v "args")
+
+        predicate $ length partCols > 1
+
+        let partCols' = prunePartExprs neededCols fds partCols
+
+        predicate $ length partCols /= length partCols'
+
+        return $ do
+          logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
+          void $ replaceWithNew q $ UnOp (Aggr (aggrs, partCols')) $(v "q1") |])
 
 ----------------------------------------------------------------------------------
 -- Basic Const rewrites
@@ -606,3 +634,7 @@ inlineJoinPredRight :: [Proj] -> [(Expr, Expr, JoinRel)] -> [(Expr, Expr, JoinRe
 inlineJoinPredRight proj p = map inlineConjunct p
   where
     inlineConjunct (le, re, rel) = (le, inlineExpr proj re, rel)
+
+--------------------------------------------------------------------------------
+-- Rewrites based on functional dependencies
+
