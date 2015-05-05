@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
 
 module Database.DSH.Backend.Sql.Opt.Rewrite.Basic where
 
@@ -8,19 +8,21 @@ import           Text.Printf
 
 import           Control.Monad
 import           Data.Either.Combinators
-import           Data.List                                  hiding (insert)
+import           Data.List                                         hiding
+                                                                    (insert)
 import           Data.Maybe
-import qualified Data.Set.Monad                             as S
+import qualified Data.Set.Monad                                    as S
 
 import           Database.Algebra.Dag.Common
-import           Database.Algebra.Table.Lang                hiding (replace)
+import           Database.Algebra.Table.Lang                       hiding
+                                                                    (replace)
 
+import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
+import           Database.DSH.Backend.Sql.Opt.Properties.Const
+import           Database.DSH.Backend.Sql.Opt.Properties.Types
+import           Database.DSH.Backend.Sql.Opt.Rewrite.Common
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.Opt
-import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
-import           Database.DSH.Backend.Sql.Opt.Properties.Types
-import           Database.DSH.Backend.Sql.Opt.Properties.Const
-import           Database.DSH.Backend.Sql.Opt.Rewrite.Common
 
 cleanup :: TARewrite Bool
 cleanup = iteratively $ sequenceRewrites [ applyToAll noProps cleanupRules
@@ -675,6 +677,45 @@ inlineJoinPredRight :: [Proj] -> [(Expr, Expr, JoinRel)] -> [(Expr, Expr, JoinRe
 inlineJoinPredRight proj p = map inlineConjunct p
   where
     inlineConjunct (le, re, rel) = (le, inlineExpr proj re, rel)
+
+inlineJoinPredLeft :: [Proj] -> [(Expr, Expr, JoinRel)] -> [(Expr, Expr, JoinRel)]
+inlineJoinPredLeft proj p = map inlineConjunct p
+  where
+    inlineConjunct (le, re, rel) = (inlineExpr proj le, re, rel)
+
+pullProjectThetaJoinLeft :: TARule AllProps
+pullProjectThetaJoinLeft q =
+    $(dagPatMatch 'q "(Project p (q1)) [ThetaJoin | LeftOuterJoin]@op jp (q2)"
+      [| do
+          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
+          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          predicate $ S.null $ S.intersection colsLeft colsRight
+
+          return $ do
+              logRewrite "Basic.PullProject.Join.Left" q
+              let jp' = inlineJoinPredLeft $(v "p") $(v "jp")
+                  p'  = $(v "p")
+                        ++
+                        S.toList (fmap (\c -> (c, ColE c)) colsRight)
+              joinNode <- insert $ BinOp ($(v "op") jp') $(v "q1") $(v "q2")
+              void $ replaceWithNew q $ UnOp (Project p') joinNode |])
+
+pullProjectThetaJoinRight :: TARule AllProps
+pullProjectThetaJoinRight q =
+    $(dagPatMatch 'q "(q1) [ThetaJoin | LeftOuterJoin]@op jp (Project p (q2))"
+      [| do
+          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
+          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          predicate $ S.null $ S.intersection colsLeft colsRight
+
+          return $ do
+              logRewrite "Basic.PullProject.Join.Right" q
+              let jp' = inlineJoinPredRight $(v "p") $(v "jp")
+                  p'  = S.toList (fmap (\c -> (c, ColE c)) colsLeft)
+                        ++
+                        $(v "p")
+              joinNode <- insert $ BinOp ($(v "op") jp') $(v "q1") $(v "q2")
+              void $ replaceWithNew q $ UnOp (Project p') joinNode |])
 
 --------------------------------------------------------------------------------
 -- Rewrites based on functional dependencies
