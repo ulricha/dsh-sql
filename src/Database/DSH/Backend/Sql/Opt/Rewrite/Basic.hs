@@ -717,6 +717,19 @@ pullProjectThetaJoinRight q =
               joinNode <- insert $ BinOp ($(v "op") jp') $(v "q1") $(v "q2")
               void $ replaceWithNew q $ UnOp (Project p') joinNode |])
 
+inlineProjectAggr :: TARule ()
+inlineProjectAggr q =
+    $(dagPatMatch 'q "Aggr args (Project p (q1))"
+      [| do
+          let (as, gs) = $(v "args")
+          let inline = inlineExpr $(v "p")
+          let as' = map (\(a, c) -> (mapAggrFun inline a, c)) as
+              gs' = map (\(c, e) -> (c, inline e)) gs
+
+          return $ do
+              logRewrite "Basic.PullProject.Aggr" q
+              void $ replaceWithNew q $ UnOp (Aggr (as', gs')) $(v "q1") |])
+
 --------------------------------------------------------------------------------
 -- Rewrites based on functional dependencies
 
