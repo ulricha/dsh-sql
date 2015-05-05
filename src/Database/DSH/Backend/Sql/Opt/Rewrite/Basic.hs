@@ -46,6 +46,7 @@ cleanupRulesTopDown = [ unreferencedRownum
                       , unreferencedAggrCols
                       , unreferencedLiteralCols
                       , unreferencedGroupingCols
+                      , pruneSerializeSortCols
                       , inlineSortColsRownum
                       -- , inlineSortColsSerialize
                       , inlineSortColsWinFun
@@ -185,7 +186,7 @@ prunePartExprs reqCols fds partExprs = go S.empty partExprs
     go :: S.Set Attr -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
     go cs ((c, ColE c') : as)
         | not (requiredCol c reqCols)
-          && coveredCol c' cs         = go cs as
+          && coveredCol fds c' cs     = go cs as
         | otherwise                   = (c, ColE c') : go (S.insert c' cs) as
     go cs (ae : as)                   = ae : go cs as
     go _  []                          = []
@@ -193,8 +194,10 @@ prunePartExprs reqCols fds partExprs = go S.empty partExprs
     requiredCol :: Attr -> S.Set Attr -> Bool
     requiredCol = S.member
 
-    coveredCol :: Attr -> S.Set Attr -> Bool
-    coveredCol c cs = any (\s -> FD s c `S.member` fds) $ powerset cs
+-- | Determine wether a column c is functionally determined by any
+-- subset of a set of columns.
+coveredCol :: S.Set FD -> Attr -> S.Set Attr -> Bool
+coveredCol fds c cs = any (\s -> FD s c `S.member` fds) $ powerset cs
 
 -- | Prune unreferenced grouping columns based on functional
 -- dependencies.
@@ -210,11 +213,49 @@ unreferencedGroupingCols q =
 
         let partCols' = prunePartExprs neededCols fds partCols
 
-        predicate $ length partCols /= length partCols'
+        predicate $ length partCols < length partCols'
 
         return $ do
           logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
           void $ replaceWithNew q $ UnOp (Aggr (aggrs, partCols')) $(v "q1") |])
+
+--------------------------------------------------------------------------------
+
+-- | Prune ordering columns that are functionally determined by
+-- preceding columns.
+pruneOrdCols :: S.Set FD -> [OrdCol] -> [OrdCol]
+pruneOrdCols fds ordCols = go S.empty ordCols
+  where
+    go :: S.Set Attr -> [OrdCol] -> [OrdCol]
+    go cs (OrdCol (oc, d) : ocs)
+        | coveredCol fds oc cs     = go cs ocs
+        | otherwise                = OrdCol (oc, d) : go (S.insert oc cs) ocs
+    go _  []                       = []
+
+isAscOrd :: OrdCol -> Bool
+isAscOrd (OrdCol (_, Asc)) = True
+isAscOrd _                 = False
+
+-- | Prune ordering columns based on functional dependenices.
+pruneSerializeSortCols :: TARule AllProps
+pruneSerializeSortCols q =
+  $(dagPatMatch 'q "Serialize args (q1)"
+    [| do
+        fds                  <- pFunDeps <$> bu <$> properties $(v "q1")
+        (rcs, kcs, ocs, pcs) <- return $(v "args")
+
+        -- We restrict pruning to all-ascending orders for a simple
+        -- reason: We have no clue what should happen if there are
+        -- descending orders as well.
+        predicate $ all isAscOrd ocs
+
+        let ocs' = pruneOrdCols fds ocs
+        predicate $ length ocs' < length ocs
+
+        return $ do
+          logRewrite "Basic.ICols.Serialize.PruneSortingCols" q
+          let args' = (rcs, kcs, ocs', pcs)
+          void $ replaceWithNew q $ UnOp (Serialize args') $(v "q1") |])
 
 ----------------------------------------------------------------------------------
 -- Basic Const rewrites
