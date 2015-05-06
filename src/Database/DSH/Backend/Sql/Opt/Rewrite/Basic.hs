@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections   #-}
 
 module Database.DSH.Backend.Sql.Opt.Rewrite.Basic where
 
@@ -7,10 +7,11 @@ import           Debug.Trace
 import           Text.Printf
 
 import           Control.Monad
-import           Data.Either.Combinators
+import           Data.Either
+-- import           Data.Either.Combinators
 import           Data.List                                         hiding
                                                                     (insert)
-import qualified Data.Map as M
+import qualified Data.Map                                          as M
 import           Data.Maybe
 import qualified Data.Set.Monad                                    as S
 
@@ -200,6 +201,48 @@ prunePartExprs reqCols fds partExprs = go S.empty partExprs
     requiredCol :: Attr -> S.Set Attr -> Bool
     requiredCol = S.member
 
+-- | Prune not required grouping colummns that are functionally
+-- determined by a /single/ column. In contract to
+-- 'prunePartExprsSingle', we consider all other columns, not just the
+-- preceding ones.
+prunePartExprsSingle :: S.Set Attr -> FDSet -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
+prunePartExprsSingle reqCols fds partExprs =
+    trace ("singleDets " ++ showSet singleDets) $
+    trace ("notReqCols " ++ show notReqCols) $
+    reqExprs
+    ++ [ (c, ColE gc)
+       | (c, gc) <- notReqCols
+       , any (\rc -> coveredCol fds gc (ss rc)) reqDets
+       ]
+  where
+    -- All determinant sets of size one
+    singleDets             = S.unions
+                             $ filter (\s -> S.size s == 1)
+                             $ M.keys $ fdsRep fds
+
+    -- Separate required grouping expressions and grouping columns
+    -- that are not required
+    (reqExprs, notReqCols) = partitionEithers
+                             $ map (requiredGroupExpr reqCols) partExprs
+
+    -- Required grouping cols
+    reqGroupCols           = S.unions $ map (colFromExpr . snd) reqExprs
+
+    -- Required grouping cols that form singleton determinant sets
+    reqDets                = S.intersection singleDets reqGroupCols
+
+    colFromExpr :: Expr -> S.Set Attr
+    colFromExpr (ColE c) = S.singleton c
+    colFromExpr _        = S.empty
+
+requiredGroupExpr :: S.Set Attr
+                  -> (PartAttr, Expr)
+                  -> Either (PartAttr, Expr) (PartAttr, Attr)
+requiredGroupExpr reqCols (c, ColE gc)
+    | S.member c reqCols = Left (c, ColE gc)
+    | otherwise          = Right (c, gc)
+requiredGroupExpr _       (c, ge) = Left (c, ge)
+
 -- | Determine wether a column c is functionally determined by any
 -- subset of a set of columns.
 coveredCol :: FDSet -> Attr -> S.Set Attr -> Bool
@@ -227,18 +270,20 @@ unreferencedGroupingCols q =
         fds               <- pFunDeps <$> bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
-        -- trace ("AGGR " ++ show neededCols) $ return ()
-        -- trace ("AGGR " ++ show fds) $ return ()
+        trace ("AGGR " ++ show neededCols) $ return ()
+        trace ("AGGR " ++ show fds) $ return ()
 
+        predicate $ not $ S.null $ (S.fromList $ map fst partCols) S.\\ neededCols
         predicate $ length partCols > 1
 
-        let partCols' = prunePartExprs neededCols fds partCols
+        let partCols'  = prunePartExprsSingle neededCols fds partCols
+        let partCols'' = prunePartExprs neededCols fds partCols'
 
-        predicate $ length partCols' < length partCols
+        predicate $ length partCols'' < length partCols
 
         return $ do
           logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
-          void $ replaceWithNew q $ UnOp (Aggr (aggrs, partCols')) $(v "q1") |])
+          void $ replaceWithNew q $ UnOp (Aggr (aggrs, partCols'')) $(v "q1") |])
 
 --------------------------------------------------------------------------------
 
@@ -264,8 +309,8 @@ pruneSerializeSortCols q =
     [| do
         fds                  <- pFunDeps <$> bu <$> properties $(v "q1")
         (rcs, kcs, ocs, pcs) <- return $(v "args")
-        -- trace ("SERIALIZE " ++ show ocs) $ return ()
-        -- trace ("SERIALIZE " ++ show fds) $ return ()
+        trace ("SERIALIZE " ++ show ocs) $ return ()
+        trace ("SERIALIZE " ++ show fds) $ return ()
 
         -- We restrict pruning to all-ascending orders for a simple
         -- reason: We have no clue what should happen if there are
