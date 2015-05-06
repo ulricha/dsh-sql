@@ -10,6 +10,7 @@ import           Control.Monad
 import           Data.Either.Combinators
 import           Data.List                                         hiding
                                                                     (insert)
+import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.Set.Monad                                    as S
 
@@ -35,6 +36,7 @@ cleanupRules = [ stackedProject
                , pullProjectWinFun
                , pullProjectSelect
                , pullProjectRownum
+               , inlineProjectAggr
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
                -- , duplicateSortingCriteriaSerialize
@@ -48,7 +50,7 @@ cleanupRulesTopDown = [ unreferencedRownum
                       , unreferencedAggrCols
                       , unreferencedLiteralCols
                       , unreferencedGroupingCols
-                      , pruneSerializeSortCols
+                      -- , pruneSerializeSortCols
                       , inlineSortColsRownum
                       -- , inlineSortColsSerialize
                       , inlineSortColsWinFun
@@ -58,6 +60,8 @@ cleanupRulesTopDown = [ unreferencedRownum
                       , constRowRankCol
                       -- , constSerializeCol
                       , constWinOrderCol
+                      , pullProjectThetaJoinLeft
+                      , pullProjectThetaJoinRight
                       ]
 
 ----------------------------------------------------------------------------------
@@ -182,7 +186,7 @@ powerset s
 -- An exact solution to this optimization problem would need to
 -- consider /all/ other columns, not just the preceding ones. We then
 -- would have to identify the minimal covering set of columns.
-prunePartExprs :: S.Set Attr -> S.Set FD -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
+prunePartExprs :: S.Set Attr -> FDSet -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
 prunePartExprs reqCols fds partExprs = go S.empty partExprs
   where
     go :: S.Set Attr -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
@@ -198,10 +202,17 @@ prunePartExprs reqCols fds partExprs = go S.empty partExprs
 
 -- | Determine wether a column c is functionally determined by any
 -- subset of a set of columns.
-coveredCol :: S.Set FD -> Attr -> S.Set Attr -> Bool
+coveredCol :: FDSet -> Attr -> S.Set Attr -> Bool
 coveredCol fds c cs =
     triviallyCovered cs c
-    || (any (\s -> FD s c `S.member` fds) $ powerset cs)
+    || (any coversCol $ powerset cs)
+
+  where
+    coversCol :: S.Set Attr -> Bool
+    coversCol dets =
+        case M.lookup dets (fdsRep fds) of
+            Just deps -> c `S.member` deps
+            Nothing   -> False
 
 triviallyCovered :: S.Set Attr -> Attr -> Bool
 triviallyCovered cs c = c `S.member` cs
@@ -216,11 +227,14 @@ unreferencedGroupingCols q =
         fds               <- pFunDeps <$> bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
+        -- trace ("AGGR " ++ show neededCols) $ return ()
+        -- trace ("AGGR " ++ show fds) $ return ()
+
         predicate $ length partCols > 1
 
         let partCols' = prunePartExprs neededCols fds partCols
 
-        predicate $ length partCols < length partCols'
+        predicate $ length partCols' < length partCols
 
         return $ do
           logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
@@ -230,7 +244,7 @@ unreferencedGroupingCols q =
 
 -- | Prune ordering columns that are functionally determined by
 -- preceding columns.
-pruneOrdCols :: S.Set FD -> [OrdCol] -> [OrdCol]
+pruneOrdCols :: FDSet -> [OrdCol] -> [OrdCol]
 pruneOrdCols fds ordCols = go S.empty ordCols
   where
     go :: S.Set Attr -> [OrdCol] -> [OrdCol]
@@ -250,6 +264,8 @@ pruneSerializeSortCols q =
     [| do
         fds                  <- pFunDeps <$> bu <$> properties $(v "q1")
         (rcs, kcs, ocs, pcs) <- return $(v "args")
+        -- trace ("SERIALIZE " ++ show ocs) $ return ()
+        -- trace ("SERIALIZE " ++ show fds) $ return ()
 
         -- We restrict pruning to all-ascending orders for a simple
         -- reason: We have no clue what should happen if there are

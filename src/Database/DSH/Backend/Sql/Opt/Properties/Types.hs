@@ -3,7 +3,9 @@
 
 module Database.DSH.Backend.Sql.Opt.Properties.Types where
 
-import qualified Data.Set.Monad              as S
+import           Data.List
+import qualified Data.Map                       as M
+import qualified Data.Set.Monad                 as S
 import           Database.Algebra.Table.Lang
 import           Database.DSH.Common.Impossible
 
@@ -28,7 +30,18 @@ type Orders = [(Attr, [Attr])]
 
 type ConstCol = (Attr, AVal)
 
-data FD = FD (S.Set Attr) Attr deriving (Eq, Ord, Show)
+newtype FDSet = FDSet { fdsRep :: M.Map (S.Set Attr) (S.Set Attr) }
+
+emptyFDSet :: FDSet
+emptyFDSet = FDSet $ M.empty
+
+showSet :: S.Set Attr -> String
+showSet s = "{" ++ intercalate "," (S.toList s) ++ "}"
+
+instance Show FDSet where
+    show fds = intercalate ", "
+               $ map (\(cs, ds) -> showSet cs ++ " -> " ++ showSet ds)
+               $ M.toList $ fdsRep fds
 
 data BottomUpProps = BUProps
     { pCols     :: S.Set TypedAttr
@@ -38,7 +51,7 @@ data BottomUpProps = BUProps
     , pOrder    :: Orders
     , pConst    :: [ConstCol]
     , pNullable :: S.Set Attr
-    , pFunDeps  :: S.Set FD
+    , pFunDeps  :: FDSet
     } deriving (Show)
 
 data AllProps = AllProps

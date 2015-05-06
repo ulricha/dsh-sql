@@ -8,9 +8,10 @@ module Database.DSH.Backend.Sql.Opt.Properties.FD
     , inferFDBinOp
     ) where
 
+import qualified Data.Map                                          as M
+import           Data.Maybe
 import qualified Data.Set.Monad                                    as S
 import           Data.Tuple
-import           Data.Maybe
 
 import           Database.Algebra.Table.Lang
 
@@ -18,40 +19,70 @@ import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 import           Database.DSH.Common.Impossible
 
-inferFDNullOp :: S.Set TypedAttr -> S.Set PKey -> NullOp -> S.Set FD
-inferFDNullOp cs ks op =
+inferFDNullOp :: S.Set TypedAttr -> S.Set PKey -> NullOp -> FDSet
+inferFDNullOp tcs ks op =
     case op of
-        LitTable _ -> [ FD k c | k <- ks, (c, _) <- cs, k /= ss c ]
-        TableRef _ -> [ FD k c | k <- ks, (c, _) <- cs, k /= ss c ]
+        LitTable _ -> FDSet $ foldr (\k m -> M.insert k (cs S.\\ k) m) M.empty ks
+        TableRef _ -> FDSet $ foldr (\k m -> M.insert k (cs S.\\ k) m) M.empty ks
 
-updateSet :: [(Attr, Attr)] -> S.Set Attr -> Maybe (S.Set Attr)
-updateSet colMap cs =
+  where
+    cs = fmap fst tcs
+
+-- | Update an attribute set with new names. All attributes must find
+-- a new name.
+updateSetAll :: [(Attr, Attr)] -> S.Set Attr -> Maybe (S.Set Attr)
+updateSetAll colMap cs =
     S.foldr' (\c mcs -> S.insert <$> lookup c colMap <*> mcs)
              (Just S.empty)
              cs
 
-updateFD :: [(Attr, Attr)] -> FD -> S.Set FD
-updateFD colMap (FD scs dc) = maybe S.empty id $ do
-    scs' <- updateSet colMap scs
-    dc'  <- lookup dc colMap
-    return $ ss $ FD scs' dc'
+-- | Update an attribute set with new names. Attributes for which no
+-- new name exists are removed.
+updateSet :: [(Attr, Attr)] -> S.Set Attr -> S.Set Attr
+updateSet colMap cs = unionss $ fmap (\c -> maybe S.empty ss $ lookup c colMap) cs
 
-inferFDUnOp :: BottomUpProps -> UnOp -> S.Set FD
+updateFD :: [(Attr, Attr)] -> S.Set Attr -> S.Set Attr -> FDSet -> FDSet
+updateFD colMap dets deps (FDSet m) =
+    case (updateSetAll colMap dets, updateSet colMap deps) of
+        (Just dets', deps') | deps' /= S.empty -> FDSet $ M.insert dets' deps' m
+        _                                      -> FDSet m
+
+-- | Update a set of functional dependencies with new names from a
+-- projection. A functional dependency is kept if all attributes from
+-- the determinant set can be mapped and if at least one attribute
+-- from the dependent set can be mapped.
+updateFDSet :: [(Attr, Attr)] -> FDSet -> FDSet
+updateFDSet colMap (FDSet m) = M.foldrWithKey (updateFD colMap) emptyFDSet m
+
+-- | Add a functional dependency for a single attribute to a set of FDs.
+addFunDep :: S.Set Attr -> Attr -> FDSet -> FDSet
+addFunDep cs c (FDSet m) = FDSet $ M.insertWith S.union cs (ss c) m
+
+-- | Add a dependency for a set of attributes to a set of FDs.
+addFunDeps :: S.Set Attr -> S.Set Attr -> FDSet -> FDSet
+addFunDeps cs cs' (FDSet m) = FDSet $ M.insertWith S.union cs cs' m
+
+cols :: BottomUpProps -> S.Set Attr
+cols p = fmap fst $ pCols p
+
+inferFDUnOp :: BottomUpProps -> UnOp -> FDSet
 inferFDUnOp p op =
     case op of
         Distinct _ -> pFunDeps p
         Select _  -> pFunDeps p
-        RowNum (r, _, []) -> pFunDeps p ∪ [ FD (ss r) c | (c, _) <- pCols p ]
+        RowNum (r, _, []) -> addFunDeps (ss r) (cols p) (pFunDeps p)
         -- FIXME the combination of sorting and grouping cols propably
         -- determines r.
         RowNum (_, _, _) -> pFunDeps p
         -- FIXME dependency r -> sortcols
         RowRank _ -> pFunDeps p
-        Aggr (_, []) -> S.empty
-        Aggr (as, gs) -> ls [ FD (ls $ map fst gs) c | (_, c) <- as ]
+        Aggr (_, []) -> emptyFDSet
+        Aggr (as, gs) -> addFunDeps (ls $ map fst gs)
+                                    (S.fromList $ map snd as)
+                                    emptyFDSet
         Project ps ->
             let colMap = S.toList $ S.map swap $ S.fromList $ mapMaybe mapCol ps
-            in unionss $ fmap (updateFD colMap) (pFunDeps p)
+            in updateFDSet colMap (pFunDeps p)
         Serialize _ -> pFunDeps p
         WinFun _ -> $unimplemented
         Rank _ -> $unimplemented
@@ -61,20 +92,30 @@ inferFDBinOp :: BottomUpProps   -- ^ Properties of the left child
              -> S.Set PKey      -- ^ The keys of the operator itself
              -> S.Set TypedAttr -- ^ The cols of the operator itself
              -> BinOp           -- ^ The operator
-             -> S.Set FD
+             -> FDSet
 inferFDBinOp p1 p2 ks cs op =
     case op of
-        Cross _ ->
-            pFunDeps p1 ∪ pFunDeps p2
-            ∪
-            [ FD k c | k <- ks, (c, _) <- cs, k /= ss c ]
-        ThetaJoin _ ->
-            pFunDeps p1 ∪ pFunDeps p2
-            ∪
-            [ FD k c | k <- ks, (c, _) <- cs, k /= ss c ]
+        -- Determine functional dependency of a cartesian
+        -- product. Note: As we know that attribute sets of left and
+        -- right inputs are disjunct, we don't have to care for
+        -- collisions in the functional dependencies during unioning.
+        Cross _ -> FDSet $
+            -- Dependencies from either side are still valid after the product
+            (fdsRep $ pFunDeps p1)
+            `M.union`
+            (fdsRep $ pFunDeps p2)
+            `M.union`
+            -- The new combined keys determine all result columns of the product.
+            (foldr (\k m -> M.insert k ((fmap fst cs) S.\\ k) m) M.empty ks)
+        ThetaJoin _ -> FDSet $
+            (fdsRep $ pFunDeps p1)
+            `M.union`
+            (fdsRep $ pFunDeps p2)
+            `M.union`
+            (foldr (\k m -> M.insert k ((fmap fst cs) S.\\ k) m) M.empty ks)
         SemiJoin _ -> pFunDeps p1
         AntiJoin _ -> pFunDeps p1
         LeftOuterJoin _ -> pFunDeps p1
-        DisjUnion _ -> S.empty
+        DisjUnion _ -> emptyFDSet
         Difference _ -> pFunDeps p1
         EqJoin _ -> $unimplemented
