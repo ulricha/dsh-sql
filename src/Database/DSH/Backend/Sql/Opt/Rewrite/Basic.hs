@@ -199,7 +199,12 @@ prunePartExprs reqCols fds partExprs = go S.empty partExprs
 -- | Determine wether a column c is functionally determined by any
 -- subset of a set of columns.
 coveredCol :: S.Set FD -> Attr -> S.Set Attr -> Bool
-coveredCol fds c cs = any (\s -> FD s c `S.member` fds) $ powerset cs
+coveredCol fds c cs =
+    triviallyCovered cs c
+    || (any (\s -> FD s c `S.member` fds) $ powerset cs)
+
+triviallyCovered :: S.Set Attr -> Attr -> Bool
+triviallyCovered cs c = c `S.member` cs
 
 -- | Prune unreferenced grouping columns based on functional
 -- dependencies.
