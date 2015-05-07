@@ -77,9 +77,13 @@ inferFDUnOp p op =
         -- FIXME dependency r -> sortcols
         RowRank _ -> pFunDeps p
         Aggr (_, []) -> emptyFDSet
-        Aggr (as, gs) -> addFunDeps (ls $ map fst gs)
-                                    (S.fromList $ map snd as)
-                                    emptyFDSet
+        -- Dependencies among grouping columns stay intact and are
+        -- updated in the same way as for projections.
+        Aggr (as, gs) ->
+            let colMap = S.toList $ S.map swap $ S.fromList $ mapMaybe mapCol gs
+            in addFunDeps (ls $ map fst gs)
+                          (S.fromList $ map snd as)
+                          (updateFDSet colMap (pFunDeps p))
         Project ps ->
             let colMap = S.toList $ S.map swap $ S.fromList $ mapMaybe mapCol ps
             in updateFDSet colMap (pFunDeps p)
