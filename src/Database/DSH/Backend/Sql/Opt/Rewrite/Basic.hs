@@ -51,7 +51,7 @@ cleanupRulesTopDown = [ unreferencedRownum
                       , unreferencedAggrCols
                       , unreferencedLiteralCols
                       , unreferencedGroupingCols
-                      -- , pruneSerializeSortCols
+                      , pruneSerializeSortCols
                       , inlineSortColsRownum
                       -- , inlineSortColsSerialize
                       , inlineSortColsWinFun
@@ -311,19 +311,13 @@ requiredGroupExpr reqCols (c, ColE gc)
     | otherwise          = Right (c, gc)
 requiredGroupExpr _       (c, ge) = Left (c, ge)
 
--- | Determine wether a column c is functionally determined by any
--- subset of a set of columns.
+-- | Determine wether a column c is functionally determined by a
+-- set of columns.
 coveredCol :: FDSet -> Attr -> S.Set Attr -> Bool
 coveredCol fds c cs =
-    -- triviallyCovered cs c ||
-    (any coversCol $ powerset cs)
-
-  where
-    coversCol :: S.Set Attr -> Bool
-    coversCol dets =
-        case M.lookup dets (fdsRep fds) of
-            Just deps -> c `S.member` deps
-            Nothing   -> False
+    case M.lookup cs (fdsRep fds) of
+        Just deps -> c `S.member` deps
+        Nothing   -> False
 
 triviallyCovered :: S.Set Attr -> Attr -> Bool
 triviallyCovered cs c = c `S.member` cs
@@ -364,8 +358,13 @@ pruneOrdCols fds ordCols = go S.empty ordCols
   where
     go :: S.Set Attr -> [OrdCol] -> [OrdCol]
     go cs (OrdCol (oc, d) : ocs)
-        | coveredCol fds oc cs     = go cs ocs
-        | otherwise                = OrdCol (oc, d) : go (S.insert oc cs) ocs
+        | any (\ds -> coveredCol fds oc ds) dets
+            = go cs ocs
+        | otherwise
+            = OrdCol (oc, d) : go (S.insert oc cs) ocs
+       where
+         dets  = S.filter (\ds -> ds `S.isSubsetOf` cs)
+                 $ S.fromList $ M.keys $ fdsRep fds
     go _  []                       = []
 
 isAscOrd :: OrdCol -> Bool
@@ -379,8 +378,8 @@ pruneSerializeSortCols q =
     [| do
         fds                  <- pFunDeps <$> bu <$> properties $(v "q1")
         (rcs, kcs, ocs, pcs) <- return $(v "args")
-        trace ("SERIALIZE " ++ show ocs) $ return ()
-        trace ("SERIALIZE " ++ show fds) $ return ()
+        trace ("SERIALIZE OCS " ++ show ocs) $ return ()
+        trace ("SERIALIZE FDS " ++ show fds) $ return ()
 
         -- We restrict pruning to all-ascending orders for a simple
         -- reason: We have no clue what should happen if there are
