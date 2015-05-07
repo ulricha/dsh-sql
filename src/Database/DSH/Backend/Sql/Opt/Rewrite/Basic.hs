@@ -169,46 +169,114 @@ unreferencedLiteralCols q =
 --------------------------------------------------------------------------------
 -- Rewrites based on functional dependencies
 
-powerset :: Ord a => S.Set a -> S.Set (S.Set a)
-powerset s
-    | s == S.empty = S.singleton S.empty
-    | otherwise = fmap (S.insert x) pxs `S.union` pxs
-        where (x, xs) = S.deleteFindMin s
-              pxs = powerset xs
+-- | Helper function for 'prunePartExprs': Consider one particular not
+-- required column and check wether it is functionally determined by
+-- required columns and some other not required columns.
+prunePartCols :: [(PartAttr, Attr)]  -- ^ Columns to consider for removal
+              -> FDSet
+              -> [(PartAttr, Attr)]  -- ^ Columns that will be preserved
+              -> S.Set Attr          -- ^ Required columns
+              -> S.Set (S.Set Attr)  -- ^ All determinant sets to consider
+              -> [(PartAttr, Attr)]
+prunePartCols []       _ reqProj _       _    = reqProj
+prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
+    case find (\ds -> coveredCol fds gc ds) dets' of
+        -- 'det' determines 'gc' -> remove 'gc'
+        Just det ->
+            let -- Columns that are not required downstream but that
+                -- are part of the determinant set that determines gc
+                -- and need to be preserved.
+                unreqDetCols = S.intersection det otherUnreqCols
 
--- | Heuristically prune grouping columns that are not required downstream and that
--- are covered by other grouping columns via functional dependencies.
---
--- This heuristic is hopefully sufficient: We perform one pass over
--- the grouping expressions. For each column expression, we check
--- wether it is covered by a subset of the /preceding/ columns that
--- have not been eliminated.
---
--- An exact solution to this optimization problem would need to
--- consider /all/ other columns, not just the preceding ones. We then
--- would have to identify the minimal covering set of columns.
-prunePartExprs :: S.Set Attr -> FDSet -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
-prunePartExprs reqCols fds partExprs = go S.empty partExprs
+                -- remove all unrequired columns that are in the
+                -- determinant set from the set of columns to consider
+                -- for removal
+                (keepProjs, ts')  = partition (\dc -> snd dc `S.member` unreqDetCols)
+                                              ts
+
+                -- if '(c, gc)' can be removed, all other (not
+                -- required) projections '(c', gc)' can be removed as
+                -- well.
+                ts'' = filter ((/= gc) . snd) ts'
+
+                -- Preserve all columns that are part of the
+                -- determinant set just used.
+                nextReqProjs = keepProjs ++ reqProj
+
+                -- The set of columns that we keep in any case,
+                -- including the columns in 'det'.
+                nextReqCols = (unreqDetCols ∪ reqCols)
+
+                -- Remove all determinant sets that contain the column
+                -- we just removed.
+                nextDets = S.filter (\ds -> not $ gc `S.member` ds) dets
+
+            in prunePartCols ts'' fds nextReqProjs nextReqCols nextDets
+
+
+        -- 'gc' is not determined by any remaining determinant set.
+        Nothing  ->
+            let nextReqProjs = (c, gc) : reqProj
+                nextReqCols  = S.insert gc reqCols
+            in prunePartCols ts fds nextReqProjs nextReqCols dets
+
   where
-    go :: S.Set Attr -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
-    go cs ((c, ColE c') : as)
-        | not (requiredCol c reqCols)
-          && coveredCol fds c' cs     = go cs as
-        | otherwise                   = (c, ColE c') : go (S.insert c' cs) as
-    go cs (ae : as)                   = ae : go cs as
-    go _  []                          = []
+    otherUnreqCols = S.fromList $ map snd ts
+    candCols = reqCols ∪ otherUnreqCols
+    dets' = S.filter (\ds -> ds `S.isSubsetOf` candCols) dets
 
-    requiredCol :: Attr -> S.Set Attr -> Bool
-    requiredCol = S.member
+-- | Prune not required grouping columns that are functionally
+-- determined by a set of other grouping columns.
+--
+-- The key to efficiently check wether a column is determined by a set
+-- of columns is not to consider some subsets of the columns to
+-- consider. Instead, we check exactly those subsets that occur as
+-- determinant sets in the set of functional dependencies.
+--
+-- This is a heuristic optimization and does not result in the exact
+-- optimum: Computing the minimum set of non-required columns such
+-- that the grouping is equivalent to the original grouping seems to
+-- be considerably harder.
+prunePartExprs :: S.Set Attr
+               -> [(PartAttr, Expr)]
+               -> FDSet
+               -> [(PartAttr, Expr)]
+prunePartExprs reqCols groupProjs fds =
+    -- trace ("PRUNEPARTEXPRS REQPARTCOLS " ++ show reqPartCols) $
+    -- trace ("PRUNEPARTEXPRS NOTREQPARTCOLS " ++ show notReqPartCols) $
+    -- trace ("PRUNEPARTEXPRS DETS " ++ showSet (showSet id) dets) $
+    partExprs
+    ++ map mkExp (reqPartCols)
+    ++ map mkExp (prunePartCols notReqPartCols fds [] reqCols dets)
+  where
+    dets = S.filter (\ds -> ds `S.isSubsetOf` allCols)
+           $ S.fromList $ M.keys $ fdsRep fds
+
+    f :: (PartAttr, Expr) -> Either (PartAttr, Expr) (PartAttr, Attr)
+    f (c, ColE gc) = Right (c, gc)
+    f (c, e)       = Left (c, e)
+
+    mkExp :: (PartAttr, Attr) -> (PartAttr, Expr)
+    mkExp (c, gc) = (c, ColE gc)
+
+    (partExprs, partCols) = partitionEithers $ map f groupProjs
+
+    (reqPartCols, notReqPartCols) = partition (\gp -> fst gp `S.member` reqCols)
+                                              partCols
+
+    allCols = S.fromList $ map snd partCols
 
 -- | Prune not required grouping colummns that are functionally
--- determined by a /single/ column. In contract to
--- 'prunePartExprsSingle', we consider all other columns, not just the
--- preceding ones.
-prunePartExprsSingle :: S.Set Attr -> FDSet -> [(PartAttr, Expr)] -> [(PartAttr, Expr)]
+-- determined by a /single/ column. In contrast to
+-- 'prunePartExprsSingle', we consider all required columns, not just
+-- the preceding ones.
+prunePartExprsSingle :: S.Set Attr
+                     -> FDSet
+                     -> [(PartAttr, Expr)]
+                     -> [(PartAttr, Expr)]
 prunePartExprsSingle reqCols fds partExprs =
-    trace ("singleDets " ++ showSet singleDets) $
-    trace ("notReqCols " ++ show notReqCols) $
+    -- trace ("singleDets " ++ showSet id singleDets) $
+    -- trace ("notReqCols " ++ show notReqCols) $
     reqExprs
     ++ [ (c, ColE gc)
        | (c, gc) <- notReqCols
@@ -231,9 +299,9 @@ prunePartExprsSingle reqCols fds partExprs =
     -- Required grouping cols that form singleton determinant sets
     reqDets                = S.intersection singleDets reqGroupCols
 
-    colFromExpr :: Expr -> S.Set Attr
-    colFromExpr (ColE c) = S.singleton c
-    colFromExpr _        = S.empty
+colFromExpr :: Expr -> S.Set Attr
+colFromExpr (ColE c) = S.singleton c
+colFromExpr _        = S.empty
 
 requiredGroupExpr :: S.Set Attr
                   -> (PartAttr, Expr)
@@ -247,8 +315,8 @@ requiredGroupExpr _       (c, ge) = Left (c, ge)
 -- subset of a set of columns.
 coveredCol :: FDSet -> Attr -> S.Set Attr -> Bool
 coveredCol fds c cs =
-    triviallyCovered cs c
-    || (any coversCol $ powerset cs)
+    -- triviallyCovered cs c ||
+    (any coversCol $ powerset cs)
 
   where
     coversCol :: S.Set Attr -> Bool
@@ -270,16 +338,18 @@ unreferencedGroupingCols q =
         fds               <- pFunDeps <$> bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
-        trace ("AGGR " ++ show neededCols) $ return ()
-        trace ("AGGR " ++ show fds) $ return ()
+        -- trace ("AGGR PARTCOLS " ++ show partCols) $ return ()
+        -- trace ("AGGR " ++ show neededCols) $ return ()
+        -- trace ("AGGR " ++ show fds) $ return ()
 
         predicate $ not $ S.null $ (S.fromList $ map fst partCols) S.\\ neededCols
         predicate $ length partCols > 1
 
         let partCols'  = prunePartExprsSingle neededCols fds partCols
-        let partCols'' = prunePartExprs neededCols fds partCols'
+        let partCols'' = prunePartExprs neededCols partCols' fds
 
         predicate $ length partCols'' < length partCols
+        -- trace ("AGGR GROUP " ++ show partCols'') $ return ()
 
         return $ do
           logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q

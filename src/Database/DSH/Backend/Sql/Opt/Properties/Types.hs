@@ -35,12 +35,12 @@ newtype FDSet = FDSet { fdsRep :: M.Map (S.Set Attr) (S.Set Attr) }
 emptyFDSet :: FDSet
 emptyFDSet = FDSet $ M.empty
 
-showSet :: S.Set Attr -> String
-showSet s = "{" ++ intercalate "," (S.toList s) ++ "}"
+showSet :: Ord a => (a -> String) -> S.Set a -> String
+showSet f s = "{" ++ intercalate "," (map f $ S.toList s) ++ "}"
 
 instance Show FDSet where
     show fds = intercalate ", "
-               $ map (\(cs, ds) -> showSet cs ++ " -> " ++ showSet ds)
+               $ map (\(cs, ds) -> showSet id cs ++ " -> " ++ showSet id ds)
                $ M.toList $ fdsRep fds
 
 data BottomUpProps = BUProps
