@@ -176,11 +176,10 @@ prunePartCols :: [(PartAttr, Attr)]  -- ^ Columns to consider for removal
               -> FDSet
               -> [(PartAttr, Attr)]  -- ^ Columns that will be preserved
               -> S.Set Attr          -- ^ Required columns
-              -> S.Set Attr          -- ^ Columns required from above
               -> S.Set (S.Set Attr)  -- ^ All determinant sets to consider
               -> [(PartAttr, Attr)]
-prunePartCols []             _   reqProj _       _       _    = reqProj
-prunePartCols ((c, gc) : ts) fds reqProj reqCols icols   dets =
+prunePartCols []             _   reqProj _       _    = reqProj
+prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
     case find (\ds -> coveredCol fds gc ds) dets' of
         -- 'det' determines 'gc' -> remove 'gc'
         Just det ->
@@ -212,14 +211,20 @@ prunePartCols ((c, gc) : ts) fds reqProj reqCols icols   dets =
                 -- we just removed.
                 nextDets = S.filter (\ds -> not $ gc `S.member` ds) dets
 
-            in prunePartCols ts'' fds nextReqProjs nextReqCols icols nextDets
+            in prunePartCols ts'' fds nextReqProjs nextReqCols nextDets
 
 
         -- 'gc' is not determined by any remaining determinant set.
         Nothing  ->
             let nextReqProjs = (c, gc) : reqProj
                 nextReqCols  = S.insert gc reqCols
-            in prunePartCols ts fds nextReqProjs nextReqCols icols dets
+                -- If gc is required, we can still remove all other
+                -- occurences of gc: For grouping semantics, one
+                -- occurence is enough. Furthermore, we know that all
+                -- grouping projections in 'ts' are /not/ required
+                -- from above (icols).
+                ts'          = filter (\(_ , gc') -> gc' /= gc) ts
+            in prunePartCols ts' fds nextReqProjs nextReqCols dets
 
   where
     otherUnreqCols = S.fromList $ map snd ts
@@ -249,7 +254,7 @@ prunePartExprs icols groupProjs fds =
     -- trace ("PRUNEPARTEXPRS DETS " ++ showSet (showSet id) dets) $
     partExprs
     ++ map mkExp (reqPartCols)
-    ++ map mkExp (prunePartCols notReqPartCols fds [] reqCols icols dets)
+    ++ map mkExp (prunePartCols notReqPartCols fds [] reqCols dets)
   where
     -- Seed the set of required grouping columns with those who are
     -- required from above.
