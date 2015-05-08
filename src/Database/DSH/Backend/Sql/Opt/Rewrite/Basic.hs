@@ -280,7 +280,7 @@ prunePartExprsSingle reqCols fds partExprs =
     reqExprs
     ++ [ (c, ColE gc)
        | (c, gc) <- notReqCols
-       , any (\rc -> coveredCol fds gc (ss rc)) reqDets
+       , not $ any (\rc -> coveredCol fds gc (ss rc)) reqDets
        ]
   where
     -- All determinant sets of size one
@@ -332,9 +332,9 @@ unreferencedGroupingCols q =
         fds               <- pFunDeps <$> bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
-        -- trace ("AGGR PARTCOLS " ++ show partCols) $ return ()
-        -- trace ("AGGR " ++ show neededCols) $ return ()
-        -- trace ("AGGR " ++ show fds) $ return ()
+        trace ("AGGR PARTCOLS " ++ show partCols) $ return ()
+        trace ("AGGR ICOLS " ++ show neededCols) $ return ()
+        trace ("AGGR FDS " ++ show fds) $ return ()
 
         predicate $ not $ S.null $ (S.fromList $ map fst partCols) S.\\ neededCols
         predicate $ length partCols > 1
