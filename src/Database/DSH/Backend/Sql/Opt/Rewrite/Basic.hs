@@ -223,7 +223,7 @@ prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
                 -- occurence is enough. Furthermore, we know that all
                 -- grouping projections in 'ts' are /not/ required
                 -- from above (icols).
-                ts'          = filter (\(_ , gc') -> gc' /= gc) ts
+                ts'          = filter ((/= gc) . snd) ts
             in prunePartCols ts' fds nextReqProjs nextReqCols dets
 
   where
@@ -254,12 +254,8 @@ prunePartExprs icols groupProjs fds =
     -- trace ("PRUNEPARTEXPRS DETS " ++ showSet (showSet id) dets) $
     partExprs
     ++ map mkExp (reqPartCols)
-    ++ map mkExp (prunePartCols notReqPartCols fds [] reqCols dets)
+    ++ map mkExp (prunePartCols notReqPartCols' fds [] reqCols dets)
   where
-    -- Seed the set of required grouping columns with those who are
-    -- required from above.
-    reqCols = S.fromList $ map snd reqPartCols
-
     dets = S.filter (\ds -> ds `S.isSubsetOf` allCols)
            $ S.fromList $ M.keys $ fdsRep fds
 
@@ -274,6 +270,19 @@ prunePartExprs icols groupProjs fds =
 
     (reqPartCols, notReqPartCols) = partition (\gp -> fst gp `S.member` icols)
                                               partCols
+
+    -- Seed the set of required grouping columns with those who are
+    -- required from above.
+    reqCols = S.fromList $ map snd reqPartCols
+
+    -- Before considering non-trivial functional dependencies, we try
+    -- to remove grouping columns based on trivial functional
+    -- dependencies: If the projection column of a grouping projection
+    -- is not required from above and the corresponding grouping
+    -- column is already present in the set of required grouping
+    -- columns, the projection can be safely removed.
+    notReqPartCols' = filter (\(_, gc) -> not $ gc `S.member` reqCols)
+                             notReqPartCols
 
     allCols = S.fromList $ map snd partCols
 
