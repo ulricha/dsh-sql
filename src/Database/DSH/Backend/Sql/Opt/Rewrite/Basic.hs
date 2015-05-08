@@ -176,10 +176,11 @@ prunePartCols :: [(PartAttr, Attr)]  -- ^ Columns to consider for removal
               -> FDSet
               -> [(PartAttr, Attr)]  -- ^ Columns that will be preserved
               -> S.Set Attr          -- ^ Required columns
+              -> S.Set Attr          -- ^ Columns required from above
               -> S.Set (S.Set Attr)  -- ^ All determinant sets to consider
               -> [(PartAttr, Attr)]
-prunePartCols []       _ reqProj _       _    = reqProj
-prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
+prunePartCols []             _   reqProj _       _       _    = reqProj
+prunePartCols ((c, gc) : ts) fds reqProj reqCols icols   dets =
     case find (\ds -> coveredCol fds gc ds) dets' of
         -- 'det' determines 'gc' -> remove 'gc'
         Just det ->
@@ -211,14 +212,14 @@ prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
                 -- we just removed.
                 nextDets = S.filter (\ds -> not $ gc `S.member` ds) dets
 
-            in prunePartCols ts'' fds nextReqProjs nextReqCols nextDets
+            in prunePartCols ts'' fds nextReqProjs nextReqCols icols nextDets
 
 
         -- 'gc' is not determined by any remaining determinant set.
         Nothing  ->
             let nextReqProjs = (c, gc) : reqProj
                 nextReqCols  = S.insert gc reqCols
-            in prunePartCols ts fds nextReqProjs nextReqCols dets
+            in prunePartCols ts fds nextReqProjs nextReqCols icols dets
 
   where
     otherUnreqCols = S.fromList $ map snd ts
@@ -229,26 +230,31 @@ prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
 -- determined by a set of other grouping columns.
 --
 -- The key to efficiently check wether a column is determined by a set
--- of columns is not to consider some subsets of the columns to
--- consider. Instead, we check exactly those subsets that occur as
--- determinant sets in the set of functional dependencies.
+-- of columns is not to consider some subsets of the columns that
+-- /might/ form a determinant set. Instead, we check exactly those
+-- subsets that occur as determinant sets in the set of functional
+-- dependencies.
 --
 -- This is a heuristic optimization and does not result in the exact
 -- optimum: Computing the minimum set of non-required columns such
 -- that the grouping is equivalent to the original grouping seems to
 -- be considerably harder.
-prunePartExprs :: S.Set Attr
+prunePartExprs :: S.Set Attr               -- ^ Columns required from above
+               -> [(PartAttr, Expr)]       -- ^ Grouping projections
+               -> FDSet                    -- ^ All available FDs
                -> [(PartAttr, Expr)]
-               -> FDSet
-               -> [(PartAttr, Expr)]
-prunePartExprs reqCols groupProjs fds =
+prunePartExprs icols groupProjs fds =
     -- trace ("PRUNEPARTEXPRS REQPARTCOLS " ++ show reqPartCols) $
     -- trace ("PRUNEPARTEXPRS NOTREQPARTCOLS " ++ show notReqPartCols) $
     -- trace ("PRUNEPARTEXPRS DETS " ++ showSet (showSet id) dets) $
     partExprs
     ++ map mkExp (reqPartCols)
-    ++ map mkExp (prunePartCols notReqPartCols fds [] reqCols dets)
+    ++ map mkExp (prunePartCols notReqPartCols fds [] reqCols icols dets)
   where
+    -- Seed the set of required grouping columns with those who are
+    -- required from above.
+    reqCols = S.fromList $ map snd reqPartCols
+
     dets = S.filter (\ds -> ds `S.isSubsetOf` allCols)
            $ S.fromList $ M.keys $ fdsRep fds
 
@@ -261,7 +267,7 @@ prunePartExprs reqCols groupProjs fds =
 
     (partExprs, partCols) = partitionEithers $ map f groupProjs
 
-    (reqPartCols, notReqPartCols) = partition (\gp -> fst gp `S.member` reqCols)
+    (reqPartCols, notReqPartCols) = partition (\gp -> fst gp `S.member` icols)
                                               partCols
 
     allCols = S.fromList $ map snd partCols
