@@ -286,51 +286,6 @@ prunePartExprs icols groupProjs fds =
 
     allCols = S.fromList $ map snd partCols
 
--- | Prune not required grouping colummns that are functionally
--- determined by a /single/ column. In contrast to
--- 'prunePartExprsSingle', we consider all required columns, not just
--- the preceding ones.
-prunePartExprsSingle :: S.Set Attr
-                     -> FDSet
-                     -> [(PartAttr, Expr)]
-                     -> [(PartAttr, Expr)]
-prunePartExprsSingle reqCols fds partExprs =
-    -- trace ("singleDets " ++ showSet id singleDets) $
-    -- trace ("notReqCols " ++ show notReqCols) $
-    reqExprs
-    ++ [ (c, ColE gc)
-       | (c, gc) <- notReqCols
-       , not $ any (\rc -> coveredCol fds gc (ss rc)) reqDets
-       ]
-  where
-    -- All determinant sets of size one
-    singleDets             = S.unions
-                             $ filter (\s -> S.size s == 1)
-                             $ M.keys $ fdsRep fds
-
-    -- Separate required grouping expressions and grouping columns
-    -- that are not required
-    (reqExprs, notReqCols) = partitionEithers
-                             $ map (requiredGroupExpr reqCols) partExprs
-
-    -- Required grouping cols
-    reqGroupCols           = S.unions $ map (colFromExpr . snd) reqExprs
-
-    -- Required grouping cols that form singleton determinant sets
-    reqDets                = S.intersection singleDets reqGroupCols
-
-colFromExpr :: Expr -> S.Set Attr
-colFromExpr (ColE c) = S.singleton c
-colFromExpr _        = S.empty
-
-requiredGroupExpr :: S.Set Attr
-                  -> (PartAttr, Expr)
-                  -> Either (PartAttr, Expr) (PartAttr, Attr)
-requiredGroupExpr reqCols (c, ColE gc)
-    | S.member c reqCols = Left (c, ColE gc)
-    | otherwise          = Right (c, gc)
-requiredGroupExpr _       (c, ge) = Left (c, ge)
-
 -- | Determine wether a column c is functionally determined by a
 -- set of columns.
 coveredCol :: FDSet -> Attr -> S.Set Attr -> Bool
@@ -352,9 +307,9 @@ unreferencedGroupingCols q =
         fds               <- pFunDeps <$> bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
-        trace ("AGGR PARTCOLS " ++ show partCols) $ return ()
-        trace ("AGGR ICOLS " ++ show neededCols) $ return ()
-        trace ("AGGR FDS " ++ show fds) $ return ()
+        -- trace ("AGGR PARTCOLS " ++ show partCols) $ return ()
+        -- trace ("AGGR ICOLS " ++ show neededCols) $ return ()
+        -- trace ("AGGR FDS " ++ show fds) $ return ()
 
         predicate $ not $ S.null $ (S.fromList $ map fst partCols) S.\\ neededCols
         predicate $ length partCols > 1
@@ -397,8 +352,8 @@ pruneSerializeSortCols q =
     [| do
         fds                  <- pFunDeps <$> bu <$> properties $(v "q1")
         (rcs, kcs, ocs, pcs) <- return $(v "args")
-        trace ("SERIALIZE OCS " ++ show ocs) $ return ()
-        trace ("SERIALIZE FDS " ++ show fds) $ return ()
+        -- trace ("SERIALIZE OCS " ++ show ocs) $ return ()
+        -- trace ("SERIALIZE FDS " ++ show fds) $ return ()
 
         -- We restrict pruning to all-ascending orders for a simple
         -- reason: We have no clue what should happen if there are

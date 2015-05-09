@@ -54,9 +54,9 @@ updateFD colMap dets deps (FDSet m) =
 updateFDSet :: [(Attr, Attr)] -> FDSet -> FDSet
 updateFDSet colMap (FDSet m) = M.foldrWithKey (updateFD colMap) emptyFDSet m
 
--- | Add a functional dependency for a single attribute to a set of FDs.
-addFunDep :: S.Set Attr -> Attr -> FDSet -> FDSet
-addFunDep cs c (FDSet m) = FDSet $ M.insertWith S.union cs (ss c) m
+-- -- | Add a functional dependency for a single attribute to a set of FDs.
+-- addFunDep :: S.Set Attr -> Attr -> FDSet -> FDSet
+-- addFunDep cs c (FDSet m) = FDSet $ M.insertWith S.union cs (ss c) m
 
 -- | Add a dependency for a set of attributes to a set of FDs.
 addFunDeps :: S.Set Attr -> S.Set Attr -> FDSet -> FDSet
