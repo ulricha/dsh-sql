@@ -359,15 +359,14 @@ unreferencedGroupingCols q =
         predicate $ not $ S.null $ (S.fromList $ map fst partCols) S.\\ neededCols
         predicate $ length partCols > 1
 
-        let partCols'  = prunePartExprsSingle neededCols fds partCols
-        let partCols'' = prunePartExprs neededCols partCols' fds
+        let partCols' = prunePartExprs neededCols partCols fds
 
-        predicate $ length partCols'' < length partCols
+        predicate $ length partCols' < length partCols
         -- trace ("AGGR GROUP " ++ show partCols'') $ return ()
 
         return $ do
           logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
-          void $ replaceWithNew q $ UnOp (Aggr (aggrs, partCols'')) $(v "q1") |])
+          void $ replaceWithNew q $ UnOp (Aggr (aggrs, partCols')) $(v "q1") |])
 
 --------------------------------------------------------------------------------
 
