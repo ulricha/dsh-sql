@@ -38,6 +38,7 @@ cleanupRules = [ stackedProject
                , pullProjectSelect
                , pullProjectRownum
                , pullProjectAggr
+               , pullProjectSemiJoin
                , inlineProjectAggr
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
@@ -46,7 +47,8 @@ cleanupRules = [ stackedProject
                ]
 
 cleanupRulesTopDown :: TARuleSet AllProps
-cleanupRulesTopDown = [ unreferencedRownum
+cleanupRulesTopDown = [ unreferencedBaseTableCols
+                      , unreferencedRownum
                       , unreferencedRank
                       , unreferencedProjectCols
                       , unreferencedAggrCols
@@ -72,6 +74,22 @@ cleanupRulesTopDown = [ unreferencedRownum
 
 ---------------------------------------------------------------------------
 -- ICols rewrites
+
+unreferencedBaseTableCols :: TARule AllProps
+unreferencedBaseTableCols q =
+  $(dagPatMatch 'q "TableRef args "
+    [| do
+        let (n, schema, keys) = $(v "args")
+        reqCols <- pICols <$> td <$> properties q
+        let schema' = filter (\(c, _) -> S.member c reqCols) schema
+
+        predicate $ length schema' < length schema
+
+        return $ do
+            logRewrite "Basic.ICols.Table" q
+            let keys' = filter (\(Key k) -> all (\c -> S.member c reqCols) k)
+                               keys
+            void $ replaceWithNew q $ NullaryOp $ TableRef (n, schema', keys') |])
 
 -- | Prune a rownumber operator if its output is not required
 unreferencedRownum :: TARule AllProps
@@ -820,6 +838,16 @@ inlineJoinPredLeft :: [Proj] -> [(Expr, Expr, JoinRel)] -> [(Expr, Expr, JoinRel
 inlineJoinPredLeft proj p = map inlineConjunct p
   where
     inlineConjunct (le, re, rel) = (inlineExpr proj le, re, rel)
+
+pullProjectSemiJoin :: TARule ()
+pullProjectSemiJoin q =
+    $(dagPatMatch 'q "(Project proj (q1)) [SemiJoin | AntiJoin]@joinOp p (q2)"
+      [| do
+          return $ do
+              logRewrite "Basic.PullProject.SemiJoin" q
+              let p' = inlineJoinPredLeft $(v "proj") $(v "p")
+              joinNode <- insert $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
+              void $ replaceWithNew q $ UnOp (Project $(v "proj")) joinNode |])
 
 pullProjectThetaJoinLeft :: TARule AllProps
 pullProjectThetaJoinLeft q =
