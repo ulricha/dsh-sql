@@ -37,6 +37,7 @@ cleanupRules = [ stackedProject
                , pullProjectWinFun
                , pullProjectSelect
                , pullProjectRownum
+               , pullProjectAggr
                , inlineProjectAggr
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
@@ -715,6 +716,34 @@ mapAggrFun f (All e)   = All $ f e
 mapAggrFun f (Any e)   = Any $ f e
 mapAggrFun f (Count e) = Count $ f e
 mapAggrFun _ CountStar = CountStar
+
+nameChangeProj :: (Attr, Expr) -> Either (Attr, Attr) (Attr, Expr)
+nameChangeProj (c, ColE c') | c /= c' = Left (c, c')
+nameChangeProj (c, e)                 = Right (c, e)
+
+-- | If grouping columns are renamed, move renaming to a
+-- projection. This makes plans more readable by keeping base table
+-- names and should lead to more compact SQL code (less column
+-- renaming)
+pullProjectAggr :: TARule ()
+pullProjectAggr q =
+    $(dagPatMatch 'q "Aggr args (q1)"
+      [| do
+          let (as, gs) = $(v "args")
+          let (gnps, gps) = partitionEithers $ map nameChangeProj gs
+          predicate $ not $ null gnps
+
+          return $ do
+              logRewrite "Basic.PullProject.Aggr" q
+
+              let gs'  = gps ++ nub (map (\(_, c) -> (c, ColE c)) gnps)
+                  proj = map (\(_, c) -> (c, ColE c)) as
+                         ++ map (\(c, _) -> (c, ColE c)) gps
+                         ++ map (\(c, c') -> (c, ColE c')) gnps
+
+              aggrNode <- insert $ UnOp (Aggr (as, gs')) $(v "q1")
+              void $ replaceWithNew q $ UnOp (Project proj) aggrNode |])
+
 
 pullProjectWinFun :: TARule ()
 pullProjectWinFun q =
