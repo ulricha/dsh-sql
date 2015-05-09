@@ -722,9 +722,18 @@ instance VL.VectorAlgebra TableAlgebra where
                         | c <- keyCols k1 ++ ordCols o1 ++ refCols r1 ++ itemCols i1
                         ]
 
+        let join = case a of
+                         VL.AggrSum _ _ -> leftOuterJoinM
+                         VL.AggrAny _   -> leftOuterJoinM
+                         VL.AggrAll _   -> leftOuterJoinM
+                         VL.AggrCount   -> leftOuterJoinM
+                         VL.AggrMax _   -> thetaJoinM
+                         VL.AggrMin _   -> thetaJoinM
+                         VL.AggrAvg _   -> thetaJoinM
+
         qa  <- projM (ordProj o ++ keyProj k ++ refProj r1 ++ itemProj i)
                $ aggrM [(aggrFunGroupJoin (unKey k1 + 1) a, acol)] groupCols
-               $ leftOuterJoinM (joinPredicate i1 p)
+               $ join (joinPredicate i1 p)
                      (return q1)
                      (proj (shiftAll v1 v2) q2)
 
@@ -732,15 +741,7 @@ instance VL.VectorAlgebra TableAlgebra where
                   VL.AggrSum t _ -> groupJoinDefault qa o k r i1 (snd $ sumDefault t)
                   VL.AggrAny _   -> groupJoinDefault qa o k r i1 (bool False)
                   VL.AggrAll _   -> groupJoinDefault qa o k r i1 (bool True)
-                  VL.AggrCount   -> return qa
-                  -- FIXME this is a hack to simulate the (incorrect)
-                  -- behaviour of regular NestJoin + AggrS when empty
-                  -- groups occur for non-defaulting
-                  -- aggregates. Whereas the Align join for AggrS
-                  -- removes (outer) tuples with empty groups
-                  -- implicitly, we do this explicitly here.
-                  _              -> select (UnAppE Not (UnAppE IsNull (ColE acol)))
-                                           qa
+                  _              -> return qa
 
         return $ TADVec qd o k r i
 
