@@ -10,6 +10,7 @@
 module Database.DSH.Backend.Sql
   ( SqlBackend
   , sqlBackend
+  , unwrapCode
   ) where
 
 import           Text.Printf
@@ -58,6 +59,9 @@ sqlBackend = SqlBackend
 newtype SqlCode = SqlCode { unSql :: String }
 
 data SqlVector = SqlVector SqlCode VecOrder VecKey VecRef VecItems
+
+unwrapCode :: BackendCode SqlBackend -> String
+unwrapCode (BC (SqlVector (SqlCode q) _ _ _ _)) = q
 
 instance RelationalVector SqlVector where
     rvKeyCols (SqlVector _ _ k _ _) = map kc $ [1..unKey k]
@@ -195,7 +199,7 @@ instance RelationalVector (BackendCode SqlBackend) where
 
 instance Backend SqlBackend where
     data BackendRow SqlBackend  = SqlRow (M.Map String H.SqlValue)
-    data BackendCode SqlBackend = BC SqlVector
+    data BackendCode SqlBackend = BC { unCode :: SqlVector }
     data BackendPlan SqlBackend = QP (QueryPlan TA.TableAlgebra TADVec)
 
     execFlatQuery (SqlBackend conn) (BC (SqlVector q _ _ _ _)) = do
