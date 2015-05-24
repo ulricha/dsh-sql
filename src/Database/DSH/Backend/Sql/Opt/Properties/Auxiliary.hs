@@ -1,6 +1,8 @@
 -- | Some auxiliary functions for property inference.
 module Database.DSH.Backend.Sql.Opt.Properties.Auxiliary where
 
+import qualified Data.List                   as L
+import qualified Data.Map                    as M
 import qualified Data.Set.Monad              as S
 
 import           Database.Algebra.Table.Lang
@@ -63,6 +65,16 @@ mapCol :: Proj -> Maybe (Attr, Attr)
 mapCol (a, ColE b)                   = Just (a, b)
 mapCol (a, UnAppE (Cast _) (ColE b)) = Just (a, b)
 mapCol _                             = Nothing
+
+-- | Build a map from a projection list that maps each attribute to
+-- its new names after projection. Only attributes that are simply
+-- renamed are considered.
+mapColMulti :: [Proj] -> M.Map Attr (S.Set Attr)
+mapColMulti projs = L.foldl' insertMap M.empty projs
+  where
+    insertMap m (a, ColE b)                   = M.insertWith S.union b (ss a) m
+    insertMap m (a, UnAppE (Cast _) (ColE b)) = M.insertWith S.union b (ss a) m
+    insertMap m _                             = m
 
 mColE :: Expr -> Maybe Attr
 mColE (ColE c) = Just c

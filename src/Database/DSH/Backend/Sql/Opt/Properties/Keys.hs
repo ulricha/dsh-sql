@@ -5,15 +5,16 @@
 
 module Database.DSH.Backend.Sql.Opt.Properties.Keys where
 
-import           Data.Maybe
 import           Data.List
-import qualified Data.Set.Monad as S
+import qualified Data.Map                                          as M
+
+import qualified Data.Set.Monad                                    as S
 
 import           Database.Algebra.Table.Lang
 
-import           Database.DSH.Common.Impossible
 import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
+import           Database.DSH.Common.Impossible
 
 subsetsOfSize :: Ord a => Int -> S.Set a -> S.Set (S.Set a)
 subsetsOfSize n s
@@ -47,6 +48,19 @@ rowRankKeys resCol sortCols childCard1 childKeys =
     | k <- childKeys
     , k ∩ sortCols /= S.empty
     ]
+
+-- | Update a key under a projection. If one attribute is mapped to
+-- multiple attributes, the key is replicated.
+updateKey :: M.Map Attr (S.Set Attr) -> PKey -> S.Set PKey
+updateKey m k = go S.empty k
+  where
+    go :: S.Set PKey -> PKey -> S.Set PKey
+    go keyPrefixes keySuffix =
+        let (b, keySuffix') = S.deleteFindMin keySuffix
+        in case M.lookup b m of
+               Nothing -> S.empty
+               Just as -> [ S.insert a kp | kp <- keyPrefixes, a <- as ]
+
 
 inferKeysNullOp :: NullOp -> S.Set PKey
 inferKeysNullOp op =
@@ -82,24 +96,9 @@ inferKeysUnOp childKeys childCard1 childCols op =
         -- whose columns survive the projection and update to the new
         -- attr names. We could consider all expressions, but need to
         -- be careful here as not all operators might be injective.
-        Project projs           -> -- all sets A of a's s.t. |A| = |k| and
-                                   -- associated bs = k
-                                   S.foldr S.union S.empty
-                                   [ [ as
-                                     | as <- subsetsOfSize (S.size k) pa
-                                     , let bs = [ b | (a, b) <- attrPairs, a ∈ as ]
-                                     , bs == k
-                                     ]
-                                   | k <- childKeys
-                                   -- check that the key survives at all
-                                   , let attrPairs = S.fromList $ mapMaybe mapCol projs
-                                   , k ⊆ [ snd x | x <- attrPairs ]
-                                   -- generate the set pa of a's s.t. (a, b) ∈ attrPairs and b ∈ k
-                                   -- i.e. consider only those a's for which the original b is
-                                   -- actually part of the current key.
-                                   , let pa = [ a | (a, b) <- attrPairs, b ∈ k ]
-                                   ]
-
+        Project projs           ->
+            let m = mapColMulti projs
+            in S.foldr (\k ks -> (updateKey m k) ∪ ks) S.empty childKeys
         Select _                 -> childKeys
         Distinct _               -> S.insert childCols childKeys
         Aggr (_, [])             -> S.empty
