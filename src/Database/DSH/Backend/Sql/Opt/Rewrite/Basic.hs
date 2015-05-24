@@ -38,7 +38,8 @@ cleanupRules = [ stackedProject
                , pullProjectSelect
                , pullProjectRownum
                , pullProjectAggr
-               , pullProjectSemiJoin
+               , pullProjectSemiJoinLeft
+               , pullProjectSemiJoinRight
                , inlineProjectAggr
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
@@ -839,15 +840,26 @@ inlineJoinPredLeft proj p = map inlineConjunct p
   where
     inlineConjunct (le, re, rel) = (inlineExpr proj le, re, rel)
 
-pullProjectSemiJoin :: TARule ()
-pullProjectSemiJoin q =
+pullProjectSemiJoinLeft :: TARule ()
+pullProjectSemiJoinLeft q =
     $(dagPatMatch 'q "(Project proj (q1)) [SemiJoin | AntiJoin]@joinOp p (q2)"
       [| do
           return $ do
-              logRewrite "Basic.PullProject.SemiJoin" q
+              logRewrite "Basic.PullProject.SemiJoin.Left" q
               let p' = inlineJoinPredLeft $(v "proj") $(v "p")
               joinNode <- insert $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
               void $ replaceWithNew q $ UnOp (Project $(v "proj")) joinNode |])
+
+pullProjectSemiJoinRight :: TARule ()
+pullProjectSemiJoinRight q =
+    $(dagPatMatch 'q "(q1) [SemiJoin | AntiJoin]@jop p (Project proj (q2))"
+      [| do
+          return $ do
+              logRewrite "Basic.PullProject.SemiJoin.Right" q
+              let p' = inlineJoinPredRight $(v "proj") $(v "p")
+              trace (show $(v "proj")) $ return ()
+              trace (show $(v "p") ++ " -> " ++ show p') $ return ()
+              void $ replaceWithNew q $ BinOp ($(v "jop") p') $(v "q1") $(v "q2") |])
 
 pullProjectThetaJoinLeft :: TARule AllProps
 pullProjectThetaJoinLeft q =
