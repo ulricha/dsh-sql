@@ -162,31 +162,34 @@ insertSerialize g = g >>= traverseShape
 
     needRef :: VecRef -> [TA.RefCol]
     needRef (VecRef 0) = []
-    needRef (VecRef i) = [ TA.RefCol $ rc c | c <- [1..i] ]
+    needRef (VecRef i) = [ TA.RefCol (rc c) (TA.ColE $ rc c) | c <- [1..i] ]
 
     noRef :: VecRef -> [TA.RefCol]
     noRef = const []
 
     needOrd :: VecOrder -> [TA.OrdCol]
-    needOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) | i <- [1..] | d <- ds ]
+    needOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) (TA.ColE $ oc i)
+                            | i <- [1..] | d <- ds
+                            ]
 
     noOrd :: VecOrder -> [TA.OrdCol]
     noOrd = const []
 
     needKey :: VecKey -> [TA.KeyCol]
-    needKey (VecKey i) = [ TA.KeyCol $ kc c | c <- [1..i] ]
+    needKey (VecKey i) = [ TA.KeyCol (kc c) (TA.ColE $ kc c) | c <- [1..i] ]
 
     noKey :: VecKey -> [TA.KeyCol]
     noKey = const []
 
     needItems :: VecItems -> [TA.PayloadCol]
     needItems (VecItems 0) = []
-    needItems (VecItems i) = [ TA.PayloadCol $ ic c | c <- [1..i] ]
+    needItems (VecItems i) = [ TA.PayloadCol (ic c) (TA.ColE $ ic c) | c <- [1..i] ]
 
 implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
   where
-    taPlan               = vl2Algebra (D.nodeMap $ queryDag vlPlan) (queryShape vlPlan)
+    taPlan               = vl2Algebra (D.nodeMap $ queryDag vlPlan)
+                                      (queryShape vlPlan)
     serializedPlan       = insertSerialize taPlan
     (dag, shape, tagMap) = runVecBuild serializedPlan
 
@@ -199,7 +202,7 @@ instance RelationalVector (BackendCode SqlBackend) where
 
 instance Backend SqlBackend where
     data BackendRow SqlBackend  = SqlRow (M.Map String H.SqlValue)
-    data BackendCode SqlBackend = BC { unCode :: SqlVector }
+    data BackendCode SqlBackend = BC SqlVector
     data BackendPlan SqlBackend = QP (QueryPlan TA.TableAlgebra TADVec)
 
     execFlatQuery (SqlBackend conn) (BC (SqlVector q _ _ _ _)) = do

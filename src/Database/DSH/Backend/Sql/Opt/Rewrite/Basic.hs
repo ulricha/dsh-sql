@@ -353,19 +353,20 @@ pruneOrdCols :: FDSet -> [OrdCol] -> [OrdCol]
 pruneOrdCols fds ordCols = go S.empty ordCols
   where
     go :: S.Set Attr -> [OrdCol] -> [OrdCol]
-    go cs (OrdCol (oc, d) : ocs)
+    go cs (OrdCol c@(_, d) (ColE oc) : ocs)
         | any (\ds -> coveredCol fds oc ds) dets
             = go cs ocs
         | otherwise
-            = OrdCol (oc, d) : go (S.insert oc cs) ocs
+            = OrdCol c (ColE oc) : go (S.insert oc cs) ocs
        where
          dets  = S.filter (\ds -> ds `S.isSubsetOf` cs)
                  $ S.fromList $ M.keys $ fdsRep fds
+    go cs (OrdCol c e : ocs) = OrdCol c e : go cs ocs
     go _  []                       = []
 
 isAscOrd :: OrdCol -> Bool
-isAscOrd (OrdCol (_, Asc)) = True
-isAscOrd _                 = False
+isAscOrd (OrdCol (_, Asc) _) = True
+isAscOrd _                   = False
 
 -- | Prune ordering columns based on functional dependenices.
 pruneSerializeSortCols :: TARule AllProps

@@ -141,10 +141,10 @@ inferColsUnOp childCols op =
                                  ∪
                                  [ (c, exprTy childCols e) | (c, e) <- S.fromList pexprs ]
         Serialize (ref, key, ord, items) ->
-            let cols = (S.fromList $ map (\(PayloadCol c) -> c) items)
-                       ∪ (S.fromList $ map (\(RefCol c) -> c) ref)
-                       ∪ (S.fromList $ map (\(OrdCol (c, _)) -> c) ord)
-                       ∪ (S.fromList $ map (\(KeyCol c) -> c) key)
+            let cols = (S.fromList $ map (\(PayloadCol c _) -> c) items)
+                       ∪ (S.fromList $ map (\(RefCol c _) -> c) ref)
+                       ∪ (S.fromList $ map (\(OrdCol (c, _) _) -> c) ord)
+                       ∪ (S.fromList $ map (\(KeyCol c _) -> c) key)
             in S.map (\c -> (c, typeOf c childCols)) cols
 
 inferColsBinOp :: S.Set TypedAttr -> S.Set TypedAttr -> BinOp -> S.Set TypedAttr
@@ -158,6 +158,3 @@ inferColsBinOp leftCols rightCols op =
         AntiJoin _      -> S.union leftCols rightCols
         DisjUnion _     -> leftCols
         Difference _    -> leftCols
-
-
-

@@ -110,8 +110,8 @@ inferIColsUnOp ownICols childICols op =
 
         Serialize cs          ->
             let (ref, key, ord, items) = cs
-            in childICols
-               ∪ (S.fromList $ map (\(RefCol c) -> c) ref)
-               ∪ (S.fromList $ map (\(KeyCol c) -> c) key)
-               ∪ (S.fromList $ map (\(OrdCol (c, _)) -> c) ord)
-               ∪ (S.fromList $ map (\(PayloadCol c) -> c) items)
+            in childICols ∪
+               (S.unions (map (\(RefCol _ e) -> exprCols e) ref
+                          ++ map (\(KeyCol _ e) -> exprCols e) key
+                          ++ map (\(OrdCol _ e) -> exprCols e) ord
+                          ++ map (\(PayloadCol _ e) -> exprCols e) items))
