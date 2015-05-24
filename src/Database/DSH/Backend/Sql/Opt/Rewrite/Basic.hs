@@ -67,6 +67,8 @@ cleanupRulesTopDown = [ unreferencedBaseTableCols
                       , constWinOrderCol
                       , pullProjectThetaJoinLeft
                       , pullProjectThetaJoinRight
+                      , pullProjectCrossLeft
+                      , pullProjectCrossRight
                       ]
 
 ----------------------------------------------------------------------------------
@@ -857,8 +859,6 @@ pullProjectSemiJoinRight q =
           return $ do
               logRewrite "Basic.PullProject.SemiJoin.Right" q
               let p' = inlineJoinPredRight $(v "proj") $(v "p")
-              trace (show $(v "proj")) $ return ()
-              trace (show $(v "p") ++ " -> " ++ show p') $ return ()
               void $ replaceWithNew q $ BinOp ($(v "jop") p') $(v "q1") $(v "q2") |])
 
 pullProjectThetaJoinLeft :: TARule AllProps
@@ -894,6 +894,38 @@ pullProjectThetaJoinRight q =
                         $(v "p")
               joinNode <- insert $ BinOp ($(v "op") jp') $(v "q1") $(v "q2")
               void $ replaceWithNew q $ UnOp (Project p') joinNode |])
+
+pullProjectCrossLeft :: TARule AllProps
+pullProjectCrossLeft q =
+    $(dagPatMatch 'q "(Project p (q1)) Cross _ (q2)"
+      [| do
+          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
+          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          predicate $ S.null $ S.intersection colsLeft colsRight
+
+          return $ do
+              logRewrite "Basic.PullProject.Cross.Left" q
+              let p'  = $(v "p")
+                        ++
+                        S.toList (fmap (\c -> (c, ColE c)) colsRight)
+              crossNode <- insert $ BinOp (Cross ()) $(v "q1") $(v "q2")
+              void $ replaceWithNew q $ UnOp (Project p') crossNode |])
+
+pullProjectCrossRight :: TARule AllProps
+pullProjectCrossRight q =
+    $(dagPatMatch 'q "(q1) Cross _ (Project p (q2))"
+      [| do
+          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
+          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          predicate $ S.null $ S.intersection colsLeft colsRight
+
+          return $ do
+              logRewrite "Basic.PullProject.Cross.Right" q
+              let p'  = S.toList (fmap (\c -> (c, ColE c)) colsLeft)
+                        ++
+                        $(v "p")
+              crossNode <- insert $ BinOp (Cross ()) $(v "q1") $(v "q2")
+              void $ replaceWithNew q $ UnOp (Project p') crossNode |])
 
 inlineProjectAggr :: TARule ()
 inlineProjectAggr q =
