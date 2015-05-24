@@ -52,14 +52,14 @@ inferIColsBinOp ownICols leftICols leftCols rightICols rightCols op =
                  rightExprCols = S.unions $ map (\(_, r, _) -> exprCols r) cs
 
                  leftICols' = leftICols ∪ ownICols ∪ leftExprCols
-                 rightICols' = rightExprCols
+                 rightICols' = rightICols ∪ rightExprCols
              in (leftICols', rightICols')
          AntiJoin cs ->
              let leftExprCols = S.unions $ map (\(l, _, _) -> exprCols l) cs
                  rightExprCols = S.unions $ map (\(_, r, _) -> exprCols r) cs
 
                  leftICols' = leftICols ∪ ownICols ∪ leftExprCols
-                 rightICols' = rightExprCols
+                 rightICols' = rightICols ∪ rightExprCols
              in (leftICols', rightICols')
 
          -- The schemata of both union inputs must be kept in sync. No
