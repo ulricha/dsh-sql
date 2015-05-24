@@ -751,8 +751,15 @@ pullProjectAggr q =
     $(dagPatMatch 'q "Aggr args (q1)"
       [| do
           let (as, gs) = $(v "args")
+          -- Check wether there are projections that only change an
+          -- attribute name
           let (gnps, gps) = partitionEithers $ map nameChangeProj gs
           predicate $ not $ null gnps
+
+          -- Check that the original name in a grouping projection
+          -- does not collide with one of the output names for
+          -- aggregates.
+          predicate $ null $ (map snd gnps) `intersect` (map snd as)
 
           return $ do
               logRewrite "Basic.PullProject.Aggr" q
