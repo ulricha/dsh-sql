@@ -36,6 +36,7 @@ cleanupRules = [ stackedProject
                -- , serializeProject
                , pullProjectWinFun
                , pullProjectSelect
+               , pullProjectSerialize
                , pullProjectRownum
                , pullProjectAggr
                , pullProjectSemiJoinLeft
@@ -45,6 +46,7 @@ cleanupRules = [ stackedProject
                , duplicateSortingCriteriaRownum
                -- , duplicateSortingCriteriaSerialize
                , bypassRownumProject
+               , pruneSerializeSortCols
                ]
 
 cleanupRulesTopDown :: TARuleSet AllProps
@@ -55,7 +57,7 @@ cleanupRulesTopDown = [ unreferencedBaseTableCols
                       , unreferencedAggrCols
                       , unreferencedLiteralCols
                       , unreferencedGroupingCols
-                      , pruneSerializeSortCols
+                      , pruneSerializeSortColsFD
                       , inlineSortColsRownum
                       -- , inlineSortColsSerialize
                       , inlineSortColsWinFun
@@ -349,8 +351,8 @@ unreferencedGroupingCols q =
 
 -- | Prune ordering columns that are functionally determined by
 -- preceding columns.
-pruneOrdCols :: FDSet -> [OrdCol] -> [OrdCol]
-pruneOrdCols fds ordCols = go S.empty ordCols
+pruneOrdColsFD :: FDSet -> [OrdCol] -> [OrdCol]
+pruneOrdColsFD fds ordCols = go S.empty ordCols
   where
     go :: S.Set Attr -> [OrdCol] -> [OrdCol]
     go cs (OrdCol c@(_, d) (ColE oc) : ocs)
@@ -369,8 +371,8 @@ isAscOrd (OrdCol (_, Asc) _) = True
 isAscOrd _                   = False
 
 -- | Prune ordering columns based on functional dependenices.
-pruneSerializeSortCols :: TARule AllProps
-pruneSerializeSortCols q =
+pruneSerializeSortColsFD :: TARule AllProps
+pruneSerializeSortColsFD q =
   $(dagPatMatch 'q "Serialize args (q1)"
     [| do
         fds                  <- pFunDeps <$> bu <$> properties $(v "q1")
@@ -383,11 +385,47 @@ pruneSerializeSortCols q =
         -- descending orders as well.
         predicate $ all isAscOrd ocs
 
-        let ocs' = pruneOrdCols fds ocs
+        let ocs' = pruneOrdColsFD fds ocs
         predicate $ length ocs' < length ocs
 
         return $ do
-          logRewrite "Basic.ICols.Serialize.PruneSortingCols" q
+          logRewrite "Basic.ICols.Serialize.PruneSortingCols.FD" q
+          let args' = (rcs, kcs, ocs', pcs)
+          void $ replaceWithNew q $ UnOp (Serialize args') $(v "q1") |])
+
+--------------------------------------------------------------------------------
+
+-- | Prune ordering expressions that occur more than once
+pruneOrdCols :: [OrdCol] -> [OrdCol]
+pruneOrdCols ordCols = go S.empty ordCols
+  where
+    go :: S.Set Expr -> [OrdCol] -> [OrdCol]
+    go es (OrdCol c e : ocs)
+        | S.member e es
+            = go es ocs
+        | otherwise
+            = OrdCol c e : go (S.insert e es) ocs
+    go _  [] = []
+
+-- | Eliminate ordering expressions that occur more than once.
+pruneSerializeSortCols :: TARule ()
+pruneSerializeSortCols q =
+  $(dagPatMatch 'q "Serialize args (q1)"
+    [| do
+        (rcs, kcs, ocs, pcs) <- return $(v "args")
+        -- trace ("SERIALIZE OCS " ++ show ocs) $ return ()
+        -- trace ("SERIALIZE FDS " ++ show fds) $ return ()
+
+        -- We restrict pruning to all-ascending orders for a simple
+        -- reason: We have no clue what should happen if there are
+        -- descending orders as well.
+        predicate $ all isAscOrd ocs
+
+        let ocs' = pruneOrdCols ocs
+        predicate $ length ocs' < length ocs
+
+        return $ do
+          logRewrite "Basic.Serialize.PruneSortingCols" q
           let args' = (rcs, kcs, ocs', pcs)
           void $ replaceWithNew q $ UnOp (Serialize args') $(v "q1") |])
 
@@ -800,6 +838,22 @@ pullProjectWinFun q =
 
               winNode <- insert $ UnOp (WinFun ((resCol, f'), [], sortSpec', frameSpec)) $(v "q1")
               void $ replaceWithNew q $ UnOp (Project proj') winNode |])
+
+pullProjectSerialize :: TARule ()
+pullProjectSerialize q =
+    $(dagPatMatch 'q "Serialize args (Project proj (q1))"
+      [| do
+          return $ do
+              logRewrite "Basic.PullProject.Serialize" q
+              let (rcs, kcs, ocs, pcs) = $(v "args")
+              let rcs' = [ RefCol c (inlineExpr $(v "proj") e) | RefCol c e <- rcs ]
+                  kcs' = [ KeyCol c (inlineExpr $(v "proj") e) | KeyCol c e <- kcs ]
+                  ocs' = [ OrdCol c (inlineExpr $(v "proj") e) | OrdCol c e <- ocs ]
+                  pcs' = [ PayloadCol c (inlineExpr $(v "proj") e)
+                         | PayloadCol c e <- pcs
+                         ]
+
+              void $ replaceWithNew q $ UnOp (Serialize (rcs', kcs', ocs', pcs')) $(v "q1") |])
 
 pullProjectSelect :: TARule ()
 pullProjectSelect q =
