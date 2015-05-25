@@ -2,17 +2,25 @@
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE ParallelListComp  #-}
+{-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 
 -- | This module implements the execution of SQL query bundles and the
 -- construction of nested values from the resulting vector bundle.
 module Database.DSH.Backend.Sql
-  ( SqlBackend
+  ( -- * The relational SQL backend
+    SqlBackend
   , sqlBackend
   , unwrapCode
+    -- * Show and tell: display relational plans.
+  , showRelationalQ
+  , showRelationalOptQ
+  , showSqlQ
   ) where
 
+import           System.Process
+import           System.Random
 import           Text.Printf
 
 import qualified Database.HDBC                            as H
@@ -21,14 +29,14 @@ import           Database.HDBC.ODBC
 import           Control.Monad
 import           Control.Monad.State
 import qualified Data.ByteString.Char8                    as BS
+import qualified Data.ByteString.Lex.Double               as BD
+import qualified Data.ByteString.Lex.Integral             as BI
 import           Data.Decimal
 import qualified Data.Map                                 as M
 import           Data.Maybe
 import qualified Data.Text                                as T
-import qualified Data.Vector                              as V
 import qualified Data.Text.Encoding                       as TE
-import qualified Data.ByteString.Lex.Double               as BD
-import qualified Data.ByteString.Lex.Integral             as BI
+import qualified Data.Vector                              as V
 
 import qualified Database.Algebra.Dag                     as D
 import qualified Database.Algebra.Dag.Build               as B
@@ -38,6 +46,8 @@ import           Database.Algebra.SQL.Materialization.CTE
 import           Database.Algebra.SQL.Util
 import qualified Database.Algebra.Table.Lang              as TA
 
+import qualified Database.DSH                             as DSH
+import qualified Database.DSH.Compiler                    as C
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.Vector
@@ -216,10 +226,15 @@ instance Backend SqlBackend where
     generatePlan :: QueryPlan VL VLDVec -> BackendPlan SqlBackend
     generatePlan = QP . implementVectorOps
 
-    dumpPlan :: String -> BackendPlan SqlBackend -> IO ()
-    dumpPlan prefix (QP plan) = do
-        exportPlan (prefix ++ "_ta") plan
-        exportPlan (prefix ++ "_opt_ta") $ optimizeTA plan
+    dumpPlan :: String -> Bool -> BackendPlan SqlBackend -> IO String
+    dumpPlan prefix False (QP plan) = do
+        let fileName = prefix ++ "_ta"
+        exportPlan fileName plan
+        return fileName
+    dumpPlan prefix True (QP plan) = do
+        let fileName = prefix ++ "_opt_ta"
+        exportPlan fileName $ optimizeTA plan
+        return fileName
 
     transactionally (SqlBackend conn) ma =
         H.withTransaction conn (\c -> ma (SqlBackend c))
@@ -302,4 +317,40 @@ instance Row (BackendRow SqlBackend) where
 
     dayVal (SqlScalar (H.SqlLocalDate d)) = dayE d
     dayVal _                              = $impossible
+
+--------------------------------------------------------------------------------
+
+fileId :: IO String
+fileId = sequence $ replicate 8 $ (randomRIO ('a', 'z'))
+
+-- | Show the unoptimized relational table algebra plan
+showRelationalQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
+showRelationalQ q = do
+    let vl = C.vectorPlanQ q
+    let bp = generatePlan vl :: BackendPlan SqlBackend
+    h <- fileId
+    fileName <- dumpPlan ("q_ta_" ++ h) False bp
+    void $ runCommand $ printf ".cabal-sandbox/bin/tadot -i %s.plan | dot -Tpdf -o %s.pdf" fileName fileName
+    void $ runCommand $ printf "evince %s.pdf" fileName
+
+-- | Show the optimized relational table algebra plan
+showRelationalOptQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
+showRelationalOptQ q = do
+    let vl = C.vectorPlanQ q
+    let bp = generatePlan vl :: BackendPlan SqlBackend
+    h <- fileId
+    fileName <- dumpPlan ("q_ta_" ++ h) True bp
+    void $ runCommand $ printf ".cabal-sandbox/bin/tadot -i %s.plan | dot -Tpdf -o %s.pdf" fileName fileName
+    void $ runCommand $ printf "evince %s.pdf" fileName
+
+showSqlQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
+showSqlQ q = do
+    putStrLn sepLine
+    forM_ (map unwrapCode $ C.codeQ undefined q) $ \sql -> do
+         putStrLn sql
+         putStrLn sepLine
+
+  where
+    sepLine = replicate 80 '-'
+
 

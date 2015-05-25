@@ -25,8 +25,10 @@ Flag debuggraph
 
 Library
   Extensions:        CPP
-  Build-depends:     
-                         DSH                >= 0.10
+  Build-depends:
+                       DSH                >= 0.10
+                     , random             >= 1.1
+                     , process            >= 1.2
                      , Decimal            >= 0.4
                      , HDBC               >= 2.4.0.1
                      , HDBC-odbc          >= 2.4
