@@ -355,7 +355,8 @@ showSqlQ q = do
   where
     sepLine = replicate 80 '-'
 
--- | Show raw tabular results via 'psql'.
+-- | Show raw tabular results via 'psql', executed on the specified
+-- database..
 showTabularQ :: forall a. DSH.QA a => String -> DSH.Q a -> IO ()
 showTabularQ db q = do
     forM_ (map unwrapCode $ C.codeQ undefined q) $ \sql -> do
