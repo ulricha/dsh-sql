@@ -17,6 +17,7 @@ module Database.DSH.Backend.Sql
   , showRelationalQ
   , showRelationalOptQ
   , showSqlQ
+  , showTabularQ
   ) where
 
 import           System.Process
@@ -47,7 +48,6 @@ import           Database.Algebra.SQL.Util
 import qualified Database.Algebra.Table.Lang              as TA
 
 import qualified Database.DSH                             as DSH
-import qualified Database.DSH.Compiler                    as C
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.Vector
@@ -55,6 +55,7 @@ import           Database.DSH.Backend.Sql.VectorAlgebra
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Vector
+import qualified Database.DSH.Compiler                    as C
 import           Database.DSH.VL
 
 --------------------------------------------------------------------------------
@@ -343,6 +344,7 @@ showRelationalOptQ q = do
     void $ runCommand $ printf ".cabal-sandbox/bin/tadot -i %s.plan | dot -Tpdf -o %s.pdf" fileName fileName
     void $ runCommand $ printf "evince %s.pdf" fileName
 
+-- | Show all SQL queries produced for the given query
 showSqlQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
 showSqlQ q = do
     putStrLn sepLine
@@ -353,4 +355,18 @@ showSqlQ q = do
   where
     sepLine = replicate 80 '-'
 
+-- | Show raw tabular results via 'psql'.
+showTabularQ :: forall a. DSH.QA a => String -> DSH.Q a -> IO ()
+showTabularQ db q = do
+    forM_ (map unwrapCode $ C.codeQ undefined q) $ \sql -> do
+        putStrLn ""
+        h <- fileId
+        let queryFile = printf "q_%s.sql" h
+        writeFile queryFile sql
+        h <- runCommand $ printf "psql %s < %s" db queryFile
+        waitForProcess h
+        putStrLn sepLine
+
+  where
+    sepLine = replicate 80 '-'
 

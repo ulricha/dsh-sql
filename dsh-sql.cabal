@@ -45,7 +45,7 @@ Library
                      , set-monad          >= 0.1
                      , template-haskell   >= 2.9
                      , text               >= 1.1
-                     , vector >= 0.10
+                     , vector             >= 0.10
 
   Hs-source-dirs:    src
 
@@ -79,8 +79,8 @@ Test-Suite sqltests
     type:       exitcode-stdio-1.0
     Hs-Source-Dirs : testsuite
     Main-is:       Main.hs
-    Build-depends: 
-                       DSH                        >= 0.10
+    Build-depends:
+                     DSH                        >= 0.10
                    , HDBC                       >= 2.4.0.1
                    , HDBC-odbc                  >= 2.4
                    , HUnit                      >= 1.2
@@ -94,7 +94,7 @@ Test-Suite sqltests
                    , test-framework-hunit       >= 0.3
                    , test-framework-quickcheck2 >= 0.2
                    , text                       >= 1.1
-                   , vector >= 0.10
+                   , vector                     >= 0.10
     GHC-Options: -Wall -fno-warn-orphans
     Extensions: CPP
 
