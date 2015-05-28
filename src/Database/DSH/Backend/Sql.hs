@@ -222,7 +222,7 @@ instance Backend SqlBackend where
         map SqlRow <$> H.fetchAllRowsMap' stmt
 
     generateCode :: BackendPlan SqlBackend -> Shape (BackendCode SqlBackend)
-    generateCode (QP plan) = generateSqlQueries plan
+    generateCode (QP plan) = generateSqlQueries $ optimizeTA plan
 
     generatePlan :: QueryPlan VL VLDVec -> BackendPlan SqlBackend
     generatePlan = QP . implementVectorOps
