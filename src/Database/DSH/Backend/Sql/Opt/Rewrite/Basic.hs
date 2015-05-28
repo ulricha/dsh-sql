@@ -803,7 +803,7 @@ pullProjectAggr q =
           return $ do
               logRewrite "Basic.PullProject.Aggr" q
 
-              let gs'  = gps ++ nub (map (\(_, c) -> (c, ColE c)) gnps)
+              let gs'  = nub $ gps ++ map (\(_, c) -> (c, ColE c)) gnps
                   proj = map (\(_, c) -> (c, ColE c)) as
                          ++ map (\(c, _) -> (c, ColE c)) gps
                          ++ map (\(c, c') -> (c, ColE c')) gnps
