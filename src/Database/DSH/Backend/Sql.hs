@@ -364,8 +364,8 @@ showTabularQ db q = do
         h <- fileId
         let queryFile = printf "q_%s.sql" h
         writeFile queryFile sql
-        h <- runCommand $ printf "psql %s < %s" db queryFile
-        waitForProcess h
+        hdl <- runCommand $ printf "psql %s < %s" db queryFile
+        void $ waitForProcess hdl
         putStrLn sepLine
 
   where
