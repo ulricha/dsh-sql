@@ -1,5 +1,5 @@
 Name:                dsh-sql
-Version:             0.1.0.0
+Version:             0.2.0.0
 Synopsis:            SQL backend for Database Supported Haskell (DSH)
 Description:
   This package provides an SQL backend for Database Supported Haskell
@@ -9,7 +9,7 @@ Description:
 
 License:             BSD3
 License-file:        LICENSE
-Author:              George Giorgidze, Alexander Ulrich, Nils Schweinsberg and Jeroen Weijers
+Author:              Alexander Ulrich
 Maintainer:          alex@etc-network.de
 Stability:           Experimental
 Category:            Database
@@ -26,7 +26,7 @@ Flag debuggraph
 Library
   Extensions:        CPP
   Build-depends:
-                       DSH                >= 0.10
+                       DSH                >= 0.12
                      , random             >= 1.1
                      , process            >= 1.2
                      , Decimal            >= 0.4
@@ -34,7 +34,7 @@ Library
                      , HDBC-odbc          >= 2.4
                      , aeson              >= 0.8
                      , algebra-dag        >= 0.1
-                     , algebra-sql        >= 0.1
+                     , algebra-sql        >= 0.3
                      , base               >= 4.8 && < 5
                      , bytestring         >= 0.10
                      , bytestring-lexing  >= 0.4
