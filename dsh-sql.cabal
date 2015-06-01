@@ -52,7 +52,7 @@ Library
   if flag(debuggraph)
     CPP-Options:     -DDEBUGGRAPH
 
-  GHC-Options:       -Wall -fno-warn-orphans -fprof-auto -O2
+  GHC-Options:       -Wall -fno-warn-orphans -fprof-auto -O
 
   Exposed-modules:   Database.DSH.Backend.Sql
 
@@ -75,8 +75,7 @@ Library
                      Database.DSH.Backend.Sql.VectorAlgebra
                      Database.DSH.Backend.Sql.Vector
 
-Test-Suite sqltests
-    type:       exitcode-stdio-1.0
+Executable sqltests
     Hs-Source-Dirs : testsuite
     Main-is:       Main.hs
     Build-depends:
@@ -95,7 +94,7 @@ Test-Suite sqltests
                    , test-framework-quickcheck2 >= 0.2
                    , text                       >= 1.1
                    , vector                     >= 0.10
-    GHC-Options: -Wall -fno-warn-orphans
+    GHC-Options: -O -Wall -fno-warn-orphans
     Extensions: CPP
 
 source-repository head
