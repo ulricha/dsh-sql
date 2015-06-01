@@ -52,7 +52,7 @@ Library
   if flag(debuggraph)
     CPP-Options:     -DDEBUGGRAPH
 
-  GHC-Options:       -Wall -fno-warn-orphans -fprof-auto -O
+  GHC-Options:       -Wall -fno-warn-orphans -fprof-auto
 
   Exposed-modules:   Database.DSH.Backend.Sql
 
@@ -94,7 +94,7 @@ Executable sqltests
                    , test-framework-quickcheck2 >= 0.2
                    , text                       >= 1.1
                    , vector                     >= 0.10
-    GHC-Options: -O -Wall -fno-warn-orphans
+    GHC-Options: -Wall -fno-warn-orphans
     Extensions: CPP
 
 source-repository head
