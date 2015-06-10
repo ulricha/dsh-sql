@@ -1,5 +1,5 @@
 Name:                dsh-sql
-Version:             0.2.0.1
+Version:             0.2.0.2
 Synopsis:            SQL backend for Database Supported Haskell (DSH)
 Description:
   This package provides an SQL backend for Database Supported Haskell
@@ -37,7 +37,7 @@ Library
                      , algebra-sql        >= 0.3
                      , base               >= 4.8 && < 5
                      , bytestring         >= 0.10
-                     , bytestring-lexing  >= 0.4
+                     , bytestring-lexing  >= 0.5
                      , containers         >= 0.5
                      , either             >= 4.0
                      , mtl                >= 2.1

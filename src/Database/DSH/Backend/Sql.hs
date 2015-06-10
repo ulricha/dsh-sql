@@ -30,7 +30,7 @@ import           Database.HDBC.ODBC
 import           Control.Monad
 import           Control.Monad.State
 import qualified Data.ByteString.Char8                    as BS
-import qualified Data.ByteString.Lex.Double               as BD
+import qualified Data.ByteString.Lex.Fractional           as BD
 import qualified Data.ByteString.Lex.Integral             as BI
 import           Data.Decimal
 import qualified Data.Map                                 as M
@@ -287,7 +287,7 @@ instance Row (BackendRow SqlBackend) where
     doubleVal (SqlScalar (H.SqlInt64 d))      = doubleE $ fromIntegral d
     doubleVal (SqlScalar (H.SqlWord32 d))     = doubleE $ fromIntegral d
     doubleVal (SqlScalar (H.SqlWord64 d))     = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlByteString c)) = doubleE $ maybe $impossible fst (BD.readDouble c)
+    doubleVal (SqlScalar (H.SqlByteString c)) = doubleE $ maybe $impossible fst (BD.readDecimal c)
     doubleVal (SqlScalar v)                   = error $ printf "doubleVal: %s" (show v)
 
     boolVal (SqlScalar (H.SqlBool b))    = boolE b
