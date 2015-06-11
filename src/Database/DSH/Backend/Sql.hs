@@ -278,7 +278,8 @@ instance Row (BackendRow SqlBackend) where
     integerVal (SqlScalar (H.SqlInt64 i))   = integerE $ fromIntegral i
     integerVal (SqlScalar (H.SqlWord32 i))  = integerE $ fromIntegral i
     integerVal (SqlScalar (H.SqlWord64 i))  = integerE $ fromIntegral i
-    integerVal _                            = $impossible
+    integerVal (SqlScalar (H.SqlDouble d))  = integerE $ truncate d
+    integerVal (SqlScalar _)                = $impossible
 
     doubleVal (SqlScalar (H.SqlDouble d))     = doubleE d
     doubleVal (SqlScalar (H.SqlRational d))   = doubleE $ fromRational d
