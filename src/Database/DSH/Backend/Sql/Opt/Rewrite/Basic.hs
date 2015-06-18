@@ -71,6 +71,8 @@ cleanupRulesTopDown = [ unreferencedBaseTableCols
                       , pullProjectThetaJoinRight
                       , pullProjectCrossLeft
                       , pullProjectCrossRight
+                      , singletonProductLeft
+                      , singletonProductRight
                       ]
 
 ----------------------------------------------------------------------------------
@@ -521,6 +523,43 @@ constWinOrderCol q =
              logRewrite "Basic.Const.WinFun" q
              void $ replaceWithNew q $ UnOp (WinFun (f, part, sortCols', frameSpec)) $(v "q1") |])
 
+singletonProductRight :: TARule AllProps
+singletonProductRight q =
+  $(dagPatMatch 'q "(q1) Cross _ (q2)"
+    [| do
+         cols1 <- pCols <$> bu <$> properties $(v "q1")
+         props <- bu <$> properties $(v "q2")
+         let constCols = pConst props
+             card1     = pCard1 props
+             cols2     = pCols props
+
+         predicate card1
+         Just constVals <- return $ traverse (\(c, _) -> (\val -> (c, val)) <$> lookup c constCols) $ S.toList cols2
+         return $ do
+             logRewrite "Basic.Const.Cross.Right" q
+             let proj = [ (c, ColE c) | (c, _) <- S.toList cols1 ]
+                        ++
+                        [ (c, ConstE val) | (c, val) <- constVals ]
+             void $ replaceWithNew q $ UnOp (Project proj) $(v "q1") |])
+
+singletonProductLeft :: TARule AllProps
+singletonProductLeft q =
+  $(dagPatMatch 'q "(q1) Cross _ (q2)"
+    [| do
+         cols2 <- pCols <$> bu <$> properties $(v "q2")
+         props <- bu <$> properties $(v "q1")
+         let constCols = pConst props
+             card1     = pCard1 props
+             cols1     = pCols props
+
+         predicate card1
+         Just constVals <- return $ traverse (\(c, _) -> (\val -> (c, val)) <$> lookup c constCols) $ S.toList cols1
+         return $ do
+             logRewrite "Basic.Const.Cross.Left" q
+             let proj = [ (c, ConstE val) | (c, val) <- constVals ]
+                        ++
+                        [ (c, ColE c) | (c, _) <- S.toList cols2 ]
+             void $ replaceWithNew q $ UnOp (Project proj) $(v "q2") |])
 
 ----------------------------------------------------------------------------------
 -- Basic Order rewrites
