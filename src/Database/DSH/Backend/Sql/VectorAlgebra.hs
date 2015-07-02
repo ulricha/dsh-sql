@@ -14,7 +14,7 @@ module Database.DSH.Backend.Sql.VectorAlgebra
 import           Control.Exception.Base
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as N
-import           Data.Monoid                      hiding (Sum, Any, All)
+import           Data.Monoid                      hiding (All, Any, Sum)
 import           GHC.Exts
 
 import           Database.Algebra.Dag.Build

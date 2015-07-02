@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE BangPatterns      #-}
 
 -- | This module implements the execution of SQL query bundles and the
 -- construction of nested values from the resulting vector bundle.
@@ -212,14 +213,14 @@ instance RelationalVector (BackendCode SqlBackend) where
     rvRefCols (BC v) = rvRefCols v
 
 instance Backend SqlBackend where
-    data BackendRow SqlBackend  = SqlRow (M.Map String H.SqlValue)
+    data BackendRow SqlBackend  = SqlRow !(M.Map String H.SqlValue)
     data BackendCode SqlBackend = BC SqlVector
     data BackendPlan SqlBackend = QP (QueryPlan TA.TableAlgebra TADVec)
 
     execFlatQuery (SqlBackend conn) (BC (SqlVector q _ _ _ _)) = do
-        stmt  <- H.prepare conn (unSql q)
+        stmt <- H.prepare conn (unSql q)
         void $ H.execute stmt []
-        map SqlRow <$> H.fetchAllRowsMap' stmt
+        map SqlRow <$> H.fetchAllRowsMap stmt
 
     generateCode :: BackendPlan SqlBackend -> Shape (BackendCode SqlBackend)
     generateCode (QP plan) = generateSqlQueries $ optimizeTA plan
