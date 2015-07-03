@@ -253,11 +253,11 @@ instance Row (BackendRow SqlBackend) where
 
     keyVal :: Scalar (BackendRow SqlBackend) -> KeyVal
     keyVal (SqlScalar v) = case v of
-        H.SqlInt32 i -> KInteger $ fromIntegral i
-        H.SqlInt64 i -> KInteger $ fromIntegral i
-        H.SqlWord32 i -> KInteger $ fromIntegral i
-        H.SqlWord64 i -> KInteger $ fromIntegral i
-        H.SqlInteger i -> KInteger $ fromIntegral i
+        H.SqlInt32 i -> KInt $ fromIntegral i
+        H.SqlInt64 i -> KInt $ fromIntegral i
+        H.SqlWord32 i -> KInt $ fromIntegral i
+        H.SqlWord64 i -> KInt $ fromIntegral i
+        H.SqlInteger i -> KInt $ fromIntegral i
         H.SqlString s -> KByteString $ BS.pack s
         H.SqlByteString s -> KByteString s
         H.SqlLocalDate d -> KDay d
