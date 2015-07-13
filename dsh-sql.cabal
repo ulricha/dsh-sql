@@ -1,5 +1,5 @@
 Name:                dsh-sql
-Version:             0.2.0.2
+Version:             0.2.0.3
 Synopsis:            SQL backend for Database Supported Haskell (DSH)
 Description:
   This package provides an SQL backend for Database Supported Haskell
@@ -52,7 +52,7 @@ Library
   if flag(debuggraph)
     CPP-Options:     -DDEBUGGRAPH
 
-  GHC-Options:       -Wall -fno-warn-orphans -fprof-auto
+  GHC-Options:       -Wall -fno-warn-orphans -fprof-auto -O
 
   Exposed-modules:   Database.DSH.Backend.Sql
 

@@ -244,79 +244,82 @@ instance Backend SqlBackend where
 --------------------------------------------------------------------------------
 
 instance Row (BackendRow SqlBackend) where
-    data Scalar (BackendRow SqlBackend) = SqlScalar H.SqlValue
+    data Scalar (BackendRow SqlBackend) = SqlScalar !H.SqlValue
 
-    col c (SqlRow r) =
+    col !c (SqlRow !r) =
         case M.lookup c r of
-            Just v  -> SqlScalar v
+            Just !v -> SqlScalar v
             Nothing -> error $ printf "col lookup %s failed in %s" c (show r)
 
     keyVal :: Scalar (BackendRow SqlBackend) -> KeyVal
     keyVal (SqlScalar v) = case v of
-        H.SqlInt32 i -> KInt $ fromIntegral i
-        H.SqlInt64 i -> KInt $ fromIntegral i
-        H.SqlWord32 i -> KInt $ fromIntegral i
-        H.SqlWord64 i -> KInt $ fromIntegral i
-        H.SqlInteger i -> KInt $ fromIntegral i
-        H.SqlString s -> KByteString $ BS.pack s
+        H.SqlInt32 i -> KInt (fromIntegral i)
+        H.SqlInt64 i -> KInt (fromIntegral i)
+        H.SqlWord32 i -> KInt (fromIntegral i)
+        H.SqlWord64 i -> KInt (fromIntegral i)
+        H.SqlInteger i -> KInt (fromIntegral i)
+        H.SqlString s -> KByteString (BS.pack s)
         H.SqlByteString s -> KByteString s
         H.SqlLocalDate d -> KDay d
-
         _ -> $impossible
 
 
-    descrVal (SqlScalar (H.SqlInt32 i))   = fromIntegral i
-    descrVal (SqlScalar (H.SqlInteger i)) = fromIntegral i
-    descrVal _                            = $impossible
+    descrVal (SqlScalar (H.SqlInt32 !i))   = fromIntegral i
+    descrVal (SqlScalar (H.SqlInteger !i)) = fromIntegral i
+    descrVal _                             = $impossible
 
     unitVal (SqlScalar H.SqlNull)        = unitE
     unitVal (SqlScalar (H.SqlInteger _)) = unitE
     unitVal (SqlScalar (H.SqlInt64 _))   = unitE
     unitVal (SqlScalar v)                = error $ printf "unitVal: %s" (show v)
 
-    integerVal (SqlScalar (H.SqlInteger i)) = integerE i
-    integerVal (SqlScalar (H.SqlInt32 i))   = integerE $ fromIntegral i
-    integerVal (SqlScalar (H.SqlInt64 i))   = integerE $ fromIntegral i
-    integerVal (SqlScalar (H.SqlWord32 i))  = integerE $ fromIntegral i
-    integerVal (SqlScalar (H.SqlWord64 i))  = integerE $ fromIntegral i
-    integerVal (SqlScalar (H.SqlDouble d))  = integerE $ truncate d
-    integerVal (SqlScalar _)                = $impossible
+    integerVal (SqlScalar (H.SqlInteger !i)) = integerE i
+    integerVal (SqlScalar (H.SqlInt32 !i))   = integerE $! fromIntegral i
+    integerVal (SqlScalar (H.SqlInt64 !i))   = integerE $! fromIntegral i
+    integerVal (SqlScalar (H.SqlWord32 !i))  = integerE $! fromIntegral i
+    integerVal (SqlScalar (H.SqlWord64 !i))  = integerE $! fromIntegral i
+    integerVal (SqlScalar (H.SqlDouble !d))  = integerE $! truncate d
+    integerVal (SqlScalar _)                 = $impossible
 
-    doubleVal (SqlScalar (H.SqlDouble d))     = doubleE d
-    doubleVal (SqlScalar (H.SqlRational d))   = doubleE $ fromRational d
-    doubleVal (SqlScalar (H.SqlInteger d))    = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlInt32 d))      = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlInt64 d))      = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlWord32 d))     = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlWord64 d))     = doubleE $ fromIntegral d
-    doubleVal (SqlScalar (H.SqlByteString c)) = doubleE $ maybe $impossible fst (BD.readDecimal c)
-    doubleVal (SqlScalar v)                   = error $ printf "doubleVal: %s" (show v)
+    doubleVal (SqlScalar (H.SqlDouble !d))     = doubleE d
+    doubleVal (SqlScalar (H.SqlRational !d))   = doubleE $! fromRational d
+    doubleVal (SqlScalar (H.SqlInteger !d))    = doubleE $! fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt32 !d))      = doubleE $! fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt64 !d))      = doubleE $! fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord32 !d))     = doubleE $! fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord64 !d))     = doubleE $! fromIntegral d
+    doubleVal (SqlScalar (H.SqlByteString !c)) = doubleE $! case BD.readDecimal c of
+                                                                Just (!v, _) -> v
+                                                                Nothing      -> $impossible
+    doubleVal (SqlScalar v)                    = error $ printf "doubleVal: %s" (show v)
 
-    boolVal (SqlScalar (H.SqlBool b))    = boolE b
-    boolVal (SqlScalar (H.SqlInteger i)) = boolE (i /= 0)
-    boolVal (SqlScalar (H.SqlInt32 i))   = boolE (i /= 0)
-    boolVal (SqlScalar (H.SqlInt64 i))   = boolE (i /= 0)
-    boolVal (SqlScalar (H.SqlWord32 i))  = boolE (i /= 0)
-    boolVal (SqlScalar (H.SqlWord64 i))  = boolE (i /= 0)
-    boolVal (SqlScalar (H.SqlByteString s)) = boolE $ (maybe $impossible fst (BI.readDecimal s) /= (0 :: Integer))
-    boolVal (SqlScalar v)                = error $ printf "boolVal: %s" (show v)
+    boolVal (SqlScalar (H.SqlBool !b))      = boolE b
+    boolVal (SqlScalar (H.SqlInteger !i))   = boolE $! (i /= 0)
+    boolVal (SqlScalar (H.SqlInt32 !i))     = boolE $! (i /= 0)
+    boolVal (SqlScalar (H.SqlInt64 !i))     = boolE $! (i /= 0)
+    boolVal (SqlScalar (H.SqlWord32 !i))    = boolE $! (i /= 0)
+    boolVal (SqlScalar (H.SqlWord64 !i))    = boolE $! (i /= 0)
+    boolVal (SqlScalar (H.SqlByteString s)) = boolE $! case BI.readDecimal s of
+                                                            Just (!d, _) -> d /= (0 :: Integer)
+                                                            Nothing      -> $impossible
+    boolVal (SqlScalar v)                   = error $ printf "boolVal: %s" (show v)
 
-    charVal (SqlScalar (H.SqlChar c))       = charE c
-    charVal (SqlScalar (H.SqlString (c:_))) = charE c
-    charVal (SqlScalar (H.SqlByteString c)) = charE (head $ T.unpack $ TE.decodeUtf8 c)
-    charVal _                               = $impossible
+    charVal (SqlScalar (H.SqlChar !c))       = charE c
+    charVal (SqlScalar (H.SqlString (!c:_))) = charE c
+    charVal (SqlScalar (H.SqlByteString !c)) = charE $! (head $ T.unpack $ TE.decodeUtf8 c)
+    charVal _                                = $impossible
 
-    textVal (SqlScalar (H.SqlString t))     = textE (T.pack t)
-    textVal (SqlScalar (H.SqlByteString s)) = textE (TE.decodeUtf8 s)
-    textVal _                               = $impossible
+    textVal (SqlScalar (H.SqlString !t))     = textE $! (T.pack t)
+    textVal (SqlScalar (H.SqlByteString !s)) = textE $! (TE.decodeUtf8 s)
+    textVal _                                = $impossible
 
     -- FIXME this is an incredibly crude method to convert HDBC's
     -- rationals to decimals. Implement this reasonably or - even
     -- better - replace HDBC completely. Rationals do not make sense
     -- here.
-    decimalVal (SqlScalar (H.SqlRational d))   = decimalE $ realFracToDecimal 5 d
-    decimalVal (SqlScalar (H.SqlByteString c)) = decimalE $ read $ BS.unpack c
-    decimalVal (SqlScalar v)                   = error $ printf "decimalVal: %s" (show v)
+    decimalVal (SqlScalar (H.SqlRational !d))   = decimalE $! realFracToDecimal 5 d
+    decimalVal (SqlScalar (H.SqlByteString !c)) = decimalE $! read $! BS.unpack c
+    decimalVal (SqlScalar v)                    = error $ printf "decimalVal: %s" (show v)
 
     dayVal (SqlScalar (H.SqlLocalDate d)) = dayE d
     dayVal _                              = $impossible
