@@ -154,7 +154,7 @@ inferColsBinOp leftCols rightCols op =
         EqJoin _        -> S.union leftCols rightCols
         ThetaJoin _     -> S.union leftCols rightCols
         LeftOuterJoin _ -> S.union leftCols rightCols
-        SemiJoin _      -> S.union leftCols rightCols
-        AntiJoin _      -> S.union leftCols rightCols
+        SemiJoin _      -> leftCols
+        AntiJoin _      -> leftCols
         DisjUnion _     -> leftCols
         Difference _    -> leftCols
