@@ -218,7 +218,7 @@ algVal (L.BoolV t)    = bool t
 algVal L.UnitV        = int 0xdeadbeef
 algVal (L.StringV s)  = string s
 algVal (L.DoubleV d)  = double d
-algVal (L.DateV d)    = date d
+algVal (L.DateV d)    = date $ L.unDate d
 algVal (L.DecimalV d) = dec d
 
 binOp :: L.ScalarBinOp -> Expr -> Expr -> Expr
