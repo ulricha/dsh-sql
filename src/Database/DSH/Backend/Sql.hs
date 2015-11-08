@@ -336,8 +336,7 @@ showRelationalQ q = do
     let bp = generatePlan vl :: BackendPlan SqlBackend
     h <- fileId
     fileName <- dumpPlan ("q_ta_" ++ h) False bp
-    void $ runCommand $ printf ".cabal-sandbox/bin/tadot -i %s.plan | dot -Tpdf -o %s.pdf" fileName fileName
-    void $ runCommand $ printf "evince %s.pdf 2> /dev/null" fileName
+    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" fileName fileName fileName
 
 -- | Show the optimized relational table algebra plan
 showRelationalOptQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
@@ -346,8 +345,7 @@ showRelationalOptQ q = do
     let bp = generatePlan vl :: BackendPlan SqlBackend
     h <- fileId
     fileName <- dumpPlan ("q_ta_" ++ h) True bp
-    void $ runCommand $ printf ".cabal-sandbox/bin/tadot -i %s.plan | dot -Tpdf -o %s.pdf" fileName fileName
-    void $ runCommand $ printf "evince %s.pdf 2> /dev/null" fileName
+    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" fileName fileName fileName
 
 -- | Show all SQL queries produced for the given query
 showSqlQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
