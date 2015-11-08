@@ -88,7 +88,8 @@ inferFDUnOp p op =
             let colMap = S.toList $ S.map swap $ S.fromList $ mapMaybe mapCol ps
             in updateFDSet colMap (pFunDeps p)
         Serialize _ -> pFunDeps p
-        WinFun _ -> $unimplemented
+        -- FIXME add FDs for the new columns.
+        WinFun _ -> pFunDeps p
         Rank _ -> $unimplemented
 
 inferFDBinOp :: BottomUpProps   -- ^ Properties of the left child
