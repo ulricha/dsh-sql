@@ -1,5 +1,5 @@
 Name:                dsh-sql
-Version:             0.2.0.3
+Version:             0.3.0.1
 Synopsis:            SQL backend for Database Supported Haskell (DSH)
 Description:
   This package provides an SQL backend for Database Supported Haskell
@@ -26,7 +26,7 @@ Flag debuggraph
 Library
   Extensions:        CPP
   Build-depends:
-                       DSH                >= 0.12
+                       DSH                >= 0.13
                      , random             >= 1.1
                      , process            >= 1.2
                      , Decimal            >= 0.4
@@ -80,7 +80,7 @@ Executable flatsqlcomp
     Hs-Source-Dirs: flatsqlcomp
     Main-is:        Main.hs
     Build-depends:  base >= 4.8 && < 5,
-                    DSH >= 0.12,
+                    DSH >= 0.13,
                     dsh-sql >= 0.2,
                     aeson >= 0.9,
                     bytestring >= 0.10
@@ -90,7 +90,7 @@ Executable sqltests
     Hs-Source-Dirs : testsuite
     Main-is:       Main.hs
     Build-depends:
-                     DSH                        >= 0.10
+                     DSH                        >= 0.13
                    , HDBC                       >= 2.4.0.1
                    , HDBC-odbc                  >= 2.4
                    , HUnit                      >= 1.2
