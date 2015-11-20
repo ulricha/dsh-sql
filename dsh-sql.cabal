@@ -74,6 +74,7 @@ Library
                      Database.DSH.Backend.Sql.Opt.OptimizeTA
                      Database.DSH.Backend.Sql.VectorAlgebra
                      Database.DSH.Backend.Sql.Vector
+                     Database.DSH.Backend.Sql.CodeGen
 
 Executable sqltests
     Hs-Source-Dirs : testsuite

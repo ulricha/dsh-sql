@@ -1006,7 +1006,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
     vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         -- We have to use synthetic rownum-generated order and keys
-        -- because left and right inputs might have non-compapible
+        -- because left and right inputs might have non-compapibl
         -- order and keys.
         --
         -- FIXME Reference columns might also not be aligned. Append should only

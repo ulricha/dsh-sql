@@ -2,10 +2,7 @@
 
 module Database.DSH.Backend.Sql.Vector where
 
--- import           Data.Monoid
-
 import           Data.Aeson.TH
-
 
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
@@ -69,15 +66,19 @@ newtype VecFilter = VecFilter Int
 
 --------------------------------------------------------------------------------
 
+-- | A data vector that references a table algebra plan
 data TADVec = TADVec AlgNode VecOrder VecKey VecRef VecItems
 
+-- | A rekeying vector that references a table algebra plan
 data TAKVec = TAKVec AlgNode VecTransSrc VecTransDst
 
+-- | A renaming vector that references a table algebra plan
 data TARVec = TARVec AlgNode VecTransSrc VecTransDst
 
 -- | Sorting of segments is a NOOP in the natural key backend.
 data TASVec = TASVec
 
+-- | A filtering vector that references a table algebra plan
 data TAFVec = TAFVec AlgNode VecFilter
 
 instance DagVector TADVec where
