@@ -69,7 +69,6 @@ newtype SqlCode = SqlCode { unSql :: String }
 -- | A data vector computed by a SQL query
 data SqlVector = SqlVector
     { vecCode  :: SqlCode
-    , vecOrder :: VecOrder
     , vecKey   :: VecKey
     , vecRef   :: VecRef
     , vecItems :: VecItems
@@ -103,7 +102,10 @@ generateSqlQueries taPlan = renderSql $ queryShape taPlan
     lookupNode :: AlgNode -> SqlCode
     lookupNode n = maybe $impossible id $ lookup n nodeToQuery
 
-    renderSql = fmap (\(TADVec q o k r i) -> BC $ SqlVector (lookupNode q) o k r i)
+    -- We do not need order columns to reconstruct results: order information is
+    -- encoded in the SQL queries' ORDER BY clause. We rely on the physical
+    -- order of the result table.
+    renderSql = fmap (\(TADVec q _ k r i) -> BC $ SqlVector (lookupNode q) k r i)
 
 -- | Generate SQL queries from a comprehension expression
 comprehensionCodeGen :: CL.Expr -> Shape SqlCode
