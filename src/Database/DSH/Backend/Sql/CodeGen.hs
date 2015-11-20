@@ -25,7 +25,7 @@ import           Database.HDBC.ODBC
 
 import           Control.Monad
 import           Control.Monad.State
-import           Data.Aeson.TH
+import           Data.Aeson
 import qualified Data.ByteString.Char8                    as BS
 import qualified Data.ByteString.Lex.Fractional           as BD
 import qualified Data.ByteString.Lex.Integral             as BI
@@ -66,6 +66,9 @@ sqlBackend = SqlBackend
 
 newtype SqlCode = SqlCode { unSql :: String }
 
+instance ToJSON SqlCode where
+    toJSON (SqlCode sql) = toJSON sql
+
 -- | A data vector computed by a SQL query
 data SqlVector = SqlVector
     { vecCode  :: SqlCode
@@ -73,8 +76,6 @@ data SqlVector = SqlVector
     , vecRef   :: VecRef
     , vecItems :: VecItems
     }
-
-$(deriveJSON defaultOptions ''SqlCode)
 
 instance RelationalVector SqlVector where
     rvKeyCols vec  = map kc $ [1..unKey (vecKey vec)]

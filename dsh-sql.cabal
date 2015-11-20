@@ -55,6 +55,7 @@ Library
   GHC-Options:       -Wall -fno-warn-orphans -fprof-auto -O
 
   Exposed-modules:   Database.DSH.Backend.Sql
+                     Database.DSH.Backend.Sql.CodeGen
 
   Other-modules:     Database.DSH.Backend.Sql.Opt.Properties.BottomUp
                      Database.DSH.Backend.Sql.Opt.Properties.TopDown
@@ -74,7 +75,16 @@ Library
                      Database.DSH.Backend.Sql.Opt.OptimizeTA
                      Database.DSH.Backend.Sql.VectorAlgebra
                      Database.DSH.Backend.Sql.Vector
-                     Database.DSH.Backend.Sql.CodeGen
+
+Executable flatsqlcomp
+    Hs-Source-Dirs: flatsqlcomp
+    Main-is:        Main.hs
+    Build-depends:  base >= 4.8 && < 5,
+                    DSH >= 0.12,
+                    dsh-sql >= 0.2,
+                    aeson >= 0.9,
+                    bytestring >= 0.10
+    GHC-Options: -Wall
 
 Executable sqltests
     Hs-Source-Dirs : testsuite
