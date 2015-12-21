@@ -303,7 +303,7 @@ instance Row (BackendRow SqlBackend) where
     doubleVal (SqlScalar (H.SqlInt64 !d))      = doubleE $! fromIntegral d
     doubleVal (SqlScalar (H.SqlWord32 !d))     = doubleE $! fromIntegral d
     doubleVal (SqlScalar (H.SqlWord64 !d))     = doubleE $! fromIntegral d
-    doubleVal (SqlScalar (H.SqlByteString !c)) = doubleE $! case BD.readDecimal c of
+    doubleVal (SqlScalar (H.SqlByteString !c)) = doubleE $! case BD.readSigned BD.readDecimal c of
                                                                 Just (!v, _) -> v
                                                                 Nothing      -> $impossible
     doubleVal (SqlScalar v)                    = error $ printf "doubleVal: %s" (show v)
