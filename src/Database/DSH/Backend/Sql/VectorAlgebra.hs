@@ -114,7 +114,7 @@ mP :: Attr -> Attr -> Proj
 mP n o = (n, ColE o)
 
 keyProj :: VecKey -> [Proj]
-keyProj (VecKey i) = map (cP . kc) $ [1..i]
+keyProj (VecKey i) = map (cP . kc) [1..i]
 
 ordProj :: VecOrder -> [Proj]
 ordProj (VecOrder ds) = zipWith (\_ i -> cP (oc i)) ds [1..]
@@ -169,7 +169,7 @@ shiftAll (TADVec _ o1 k1 r1 i1) (TADVec _ o2 k2 r2 i2) =
 
 -- | Generate a join predicate that joins two vectors by their keys.
 keyJoin :: VecKey -> VecKey -> [(Expr, Expr, JoinRel)]
-keyJoin (VecKey k1) (VecKey k2) = assert (k1 == k2) $
+keyJoin (VecKey k1) (VecKey k2) = assert (k1 == k2)
     [ (ColE (kc c), ColE (kc (c + k1)), EqJ) | c <- [1..k1]]
 
 -- | Generate a projection that maps key columns to source columns.
@@ -237,14 +237,14 @@ binOp (L.SBRelOp L.LtE)       = BinAppE LtE
 binOp (L.SBBoolOp L.Conj)     = BinAppE And
 binOp (L.SBBoolOp L.Disj)     = BinAppE Or
 binOp (L.SBStringOp L.Like)   = BinAppE Like
-binOp (L.SBDateOp L.AddDays)  = \e1 e2 -> BinAppE Plus e2 e1
-binOp (L.SBDateOp L.SubDays)  = \e1 e2 -> BinAppE Minus e2 e1
-binOp (L.SBDateOp L.DiffDays) = \e1 e2 -> BinAppE Minus e2 e1
+binOp (L.SBDateOp L.AddDays)  = flip $ BinAppE Plus
+binOp (L.SBDateOp L.SubDays)  = flip $ BinAppE Minus
+binOp (L.SBDateOp L.DiffDays) = flip $ BinAppE Minus
 
 unOp :: L.ScalarUnOp -> UnFun
 unOp (L.SUBoolOp L.Not)             = Not
-unOp (L.SUCastOp (L.CastDouble))    = Cast doubleT
-unOp (L.SUCastOp (L.CastDecimal))   = Cast decT
+unOp (L.SUCastOp L.CastDouble)      = Cast doubleT
+unOp (L.SUCastOp L.CastDecimal)     = Cast decT
 unOp (L.SUNumOp L.Sin)              = Sin
 unOp (L.SUNumOp L.Cos)              = Cos
 unOp (L.SUNumOp L.Tan)              = Tan
@@ -386,13 +386,13 @@ segAggrDefault qo qa ok r defaultValue =
     -- Generate synthetic ord and key values for the inner vector.
     projM ([cP (oc 1), mP (kc 1) (oc 1)] ++ refProj r ++ [cP (ic 1)])
     $ rownumM (oc 1) (refCols r) []
-    $ (proj (refProj r ++ itemProj (VecItems 1)) qa)
+    $ proj (refProj r ++ itemProj (VecItems 1)) qa
       `unionM`
-      (projM (refProj r ++ [eP (ic 1) (ConstE defaultValue)])
+      projM (refProj r ++ [eP (ic 1) (ConstE defaultValue)])
            -- We know that the outer key must be aligned with inner references.
            (differenceM
                (proj (keyRefProj ok) qo)
-               (proj (refProj r) qa)))
+               (proj (refProj r) qa))
 
 aggrDefault :: AlgNode -> AVal -> Build TableAlgebra AlgNode
 aggrDefault qa defaultVal =
@@ -424,7 +424,7 @@ instance VL.VectorAlgebra TableAlgebra where
             frameSpec = frameSpecification w
             winCol    = ic $ unItems i + 1
         qw <- winFun (winCol, wfun) [] (synthOrder o) (Just frameSpec) q
-        return $ TADVec qw o k r (i <> (VecItems 1))
+        return $ TADVec qw o k r (i <> VecItems 1)
 
     vecUnique (TADVec q o k r i) = do
         -- Create groups based on the items and select the first
@@ -915,9 +915,9 @@ instance VL.VectorAlgebra TableAlgebra where
                   (projM ([cP rsoc] ++ shiftKey k1 k2 ++ shiftItems i1 i2)
                    $ rownum' rsoc (synthOrder o2) [] q2)
 
-        let keyProj1 = [mP (dc 1) lsoc] ++ [ mP (sc c) (kc c) | c <- [1..unKey k1]]
-            keyProj2 = [mP (dc 1) lsoc]
-                       ++
+        let keyProj1 = mP (dc 1) lsoc : [ mP (sc c) (kc c) | c <- [1..unKey k1]]
+            keyProj2 = mP (dc 1) lsoc
+                       :
                        [ mP (sc c) (kc $ c + unKey k1) | c <- [1..unKey k2] ]
         qk1 <- proj keyProj1 qj
         qk2 <- proj keyProj2 qj
@@ -938,7 +938,7 @@ instance VL.VectorAlgebra TableAlgebra where
             r = r1
             i = i1 <> i2
 
-        qj <- thetaJoinM ([ (ColE lsoc, ColE rsoc, EqJ)] ++ refJoinPred r1)
+        qj <- thetaJoinM ( (ColE lsoc, ColE rsoc, EqJ) : refJoinPred r1)
                   (rownum' lsoc (synthOrder o1) (map ColE $ refCols r1) q1)
                   (projM ([cP rsoc] ++ shiftKey k1 k2 ++ shiftRef r1 r2 ++ shiftItems i1 i2)
                    $ rownum' rsoc (synthOrder o2) (map ColE $ refCols r2) q2)
@@ -989,7 +989,7 @@ instance VL.VectorAlgebra TableAlgebra where
         baseItemProj = [ mP (ic i) c | i <- [1..] | (c, _) <- taColumns ]
 
         items = VecItems $ N.length $ L.tableCols schema
-        order = VecOrder $ fmap (const Asc) $ N.toList baseKeyCols
+        order = VecOrder $ const Asc <$> N.toList baseKeyCols
         key   = VecKey $ N.length baseKeyCols
         ref   = VecRef 0
 
@@ -1006,7 +1006,7 @@ instance VL.VectorAlgebra TableAlgebra where
         return $ TADVec qr o k r i
 
 
-    vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
+    vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 _ i2) = do
         -- We have to use synthetic rownum-generated order and keys
         -- because left and right inputs might have non-compapibl
         -- order and keys.
@@ -1047,7 +1047,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
         -- With synthetic order and key values, both inputs are
         -- schema-compatible and can be used in a union.
-        qu <- union qu1 qu2
+        qu <- qu1 `union` qu2
 
         return ( TADVec qu (VecOrder [Asc, Asc]) (VecKey 2) r1 i1
                , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 2)
@@ -1100,7 +1100,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
         -- With synthetic order and key values, both inputs are
         -- schema-compatible and can be used in a union.
-        qu <- union qu1 qu2
+        qu <- qu1 `union` qu2
 
         return ( TADVec qu (VecOrder [Asc, Asc]) (VecKey 2) r1 i1
                , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 2)
