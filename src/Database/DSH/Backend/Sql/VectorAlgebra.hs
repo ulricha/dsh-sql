@@ -290,18 +290,16 @@ aggrFun (VL.AggrAny e)   = Any $ taExpr e
 aggrFun VL.AggrCount     = CountStar
 
 -- | Map aggregate functions to relational aggregates for the
--- groupjoin operator. For Count, we need the first key column of the right
--- input to account for the NULLs produced by the outer join. Column references
--- in the aggregate expression are shifted to account for the name shift after a
--- (left outer) join.
-aggrFunGroupJoin :: Int -> VL.AggrFun -> Int -> AggrType
-aggrFunGroupJoin _ (VL.AggrSum _ e) o = Sum $ taExprOffset o e
-aggrFunGroupJoin _ (VL.AggrMin e)   o = Min $ taExprOffset o e
-aggrFunGroupJoin _ (VL.AggrMax e)   o = Max $ taExprOffset o e
-aggrFunGroupJoin _ (VL.AggrAvg e)   o = Avg $ taExprOffset o e
-aggrFunGroupJoin _ (VL.AggrAll e)   o = All $ taExprOffset o e
-aggrFunGroupJoin _ (VL.AggrAny e)   o = Any $ taExprOffset o e
-aggrFunGroupJoin c VL.AggrCount     _ = Count $ ColE (kc c)
+-- groupjoin operator. For Count, we need the first key column of the
+-- right input to account for the NULLs produced by the outer join.:725
+aggrFunGroupJoin :: Int -> VL.AggrFun -> AggrType
+aggrFunGroupJoin _ (VL.AggrSum _ e) = Sum $ taExpr e
+aggrFunGroupJoin _ (VL.AggrMin e)   = Min $ taExpr e
+aggrFunGroupJoin _ (VL.AggrMax e)   = Max $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAvg e)   = Avg $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAll e)   = All $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAny e)   = Any $ taExpr e
+aggrFunGroupJoin c VL.AggrCount     = Count $ ColE (kc c)
 
 -- | Transform a VL join predicate into a TA predicate. Items of the
 -- left input are necessary to account for the pre-join item column
@@ -735,7 +733,7 @@ instance VL.VectorAlgebra TableAlgebra where
                          VL.AggrAvg _   -> thetaJoinM
 
         qa  <- projM (ordProj o ++ keyProj k ++ refProj r1 ++ itemProj i)
-               $ aggrM [(aggrFunGroupJoin (unKey k1 + 1) a (unItems i1), acol)] groupCols
+               $ aggrM [(aggrFunGroupJoin (unKey k1 + 1) a, acol)] groupCols
                $ join (joinPredicate i1 p)
                      (return q1)
                      (proj (shiftAll v1 v2) q2)
