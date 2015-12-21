@@ -15,8 +15,8 @@ main :: IO ()
 main = do
     argv <- getArgs
     case argv of
-        [db] -> do
-            c <- getConn (printf "DSN=%s" db)
-            runTests c defaultTests
+        _:_ -> do
+            c <- getConn (printf "DSN=%s" $ last argv)
+            runTests (init argv) c defaultTests
         _            ->
-            error "usage: sqltests <odbc dbname>"
+            error "usage: sqltests [test-framework arguments] <odbc dbname>"
