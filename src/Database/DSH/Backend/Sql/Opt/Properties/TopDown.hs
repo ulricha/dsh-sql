@@ -69,7 +69,7 @@ inferChildProperties buPropMap d n = do
             cp <- lookupProps c
             let cp' = inferUnOp ownProps cp op
             replaceProps c cp'
-        BinOp op c1 c2 -> do
+        BinOp op c1 c2 | c1 /= c2 -> do
             cp1 <- lookupProps c1
             cp2 <- lookupProps c2
             let buProps1 = lookupUnsafe buPropMap "TopDown.inferChildProperties" c1
@@ -77,6 +77,11 @@ inferChildProperties buPropMap d n = do
             let (cp1', cp2') = inferBinOp buProps1 buProps2 ownProps cp1 cp2 op
             replaceProps c1 cp1'
             replaceProps c2 cp2'
+        BinOp op c1 c2 | otherwise -> do
+            cp <- lookupProps c1
+            let buProps = lookupUnsafe buPropMap "TopDown.inferChildProperties" c1
+            let (cp1', cp2') = inferBinOp buProps buProps ownProps cp cp op
+            replaceProps c1 (mergeTDProps cp1' cp2')
         TerOp _ _ _ _ -> $impossible
 
 -- | Infer properties during a top-down traversal.

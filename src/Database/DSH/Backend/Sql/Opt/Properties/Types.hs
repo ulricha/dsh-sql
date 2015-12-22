@@ -16,6 +16,9 @@ data TopDownProps = TDProps
     { pICols :: S.Set Attr
     }
 
+mergeTDProps :: TopDownProps -> TopDownProps -> TopDownProps
+mergeTDProps (TDProps ics1) (TDProps ics2) = TDProps (S.union ics1 ics2)
+
 instance Show TopDownProps where
     show ps = show $ S.toList (pICols ps)
 
