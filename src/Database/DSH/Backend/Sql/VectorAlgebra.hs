@@ -1226,11 +1226,8 @@ instance VL.VectorAlgebra TableAlgebra where
 
     vecSegment (TADVec q o k r i) = do
         let mapRefProj = [ mP (rc c) (kc c) | c <- [1..unKey k]]
-        qo <- proj (ordProj o ++ keyProj k ++ refProj r) q
         qi <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
-        return ( TADVec qo o k r (VecItems 0)
-               , TADVec qi o k (VecRef $ unKey k) i
-               )
+        return $ TADVec qi o k (VecRef $ unKey k) i
 
     vecNest (TADVec q o k _ i) = do
         qo <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
