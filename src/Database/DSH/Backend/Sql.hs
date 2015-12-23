@@ -2,9 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE ParallelListComp  #-}
 {-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 
 -- | This module provides the execution of DSH queries as SQL query bundles and the
@@ -34,7 +32,7 @@ import qualified Database.DSH.Compiler                    as C
 --------------------------------------------------------------------------------
 
 fileId :: IO String
-fileId = sequence $ replicate 8 $ (randomRIO ('a', 'z'))
+fileId = replicateM 8 (randomRIO ('a', 'z'))
 
 -- | Show the unoptimized relational table algebra plan
 showRelationalQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
@@ -68,7 +66,7 @@ showSqlQ q = do
 -- | Show raw tabular results via 'psql', executed on the specified
 -- database..
 showTabularQ :: forall a. DSH.QA a => String -> DSH.Q a -> IO ()
-showTabularQ db q = do
+showTabularQ db q =
     forM_ (map (unSql . unwrapSql) $ C.codeQ undefined q) $ \sql -> do
         putStrLn ""
         h <- fileId

@@ -20,9 +20,7 @@ type TARuleSet p = RuleSet TableAlgebra  p (Shape TADVec)
 type TAMatch p = Match TableAlgebra p (Shape TADVec)
 
 inferBottomUp :: TARewrite (NodeMap BottomUpProps)
-inferBottomUp = do
-  props <- infer inferBottomUpProperties
-  return props
+inferBottomUp = infer inferBottomUpProperties
 
 inferAll :: TARewrite (NodeMap AllProps)
 inferAll = do

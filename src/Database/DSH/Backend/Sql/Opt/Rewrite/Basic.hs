@@ -6,6 +6,7 @@ module Database.DSH.Backend.Sql.Opt.Rewrite.Basic where
 import           Debug.Trace
 import           Text.Printf
 
+import           Control.Arrow
 import           Control.Monad
 import           Data.Either
 -- import           Data.Either.Combinators
@@ -87,14 +88,14 @@ unreferencedBaseTableCols q =
   $(dagPatMatch 'q "TableRef args "
     [| do
         let (n, schema, keys) = $(v "args")
-        reqCols <- pICols <$> td <$> properties q
+        reqCols <- pICols . td <$> properties q
         let schema' = filter (\(c, _) -> S.member c reqCols) schema
 
         predicate $ length schema' < length schema
 
         return $ do
             logRewrite "Basic.ICols.Table" q
-            let keys' = filter (\(Key k) -> all (\c -> S.member c reqCols) k)
+            let keys' = filter (\(Key k) -> all (`S.member` reqCols) k)
                                keys
             void $ replaceWithNew q $ NullaryOp $ TableRef (n, schema', keys') |])
 
@@ -104,7 +105,7 @@ unreferencedRownum q =
   $(dagPatMatch 'q "RowNum args (q1)"
     [| do
          (res, _, _) <- return $(v "args")
-         neededCols  <- pICols <$> td <$> properties q
+         neededCols  <- pICols . td <$> properties q
          predicate $ not (res `S.member` neededCols)
 
          return $ do
@@ -117,7 +118,7 @@ unreferencedRank q =
   $(dagPatMatch 'q "[Rank | RowRank] args (q1)"
     [| do
          (res, _) <- return $(v "args")
-         neededCols  <- pICols <$> td <$> properties q
+         neededCols  <- pICols . td <$> properties q
          predicate $ not (res `S.member` neededCols)
 
          return $ do
@@ -130,7 +131,7 @@ unreferencedProjectCols :: TARule AllProps
 unreferencedProjectCols q =
   $(dagPatMatch 'q "Project projs (q1)"
     [| do
-        neededCols <- pICols <$> td <$> properties q
+        neededCols <- pICols . td <$> properties q
         let neededProjs = filter (flip S.member neededCols . fst) $(v "projs")
 
         -- Only modify the project if we could actually get rid of some columns.
@@ -145,7 +146,7 @@ unreferencedAggrCols :: TARule AllProps
 unreferencedAggrCols q =
   $(dagPatMatch 'q "Aggr args (q1)"
     [| do
-        neededCols <- pICols <$> td <$> properties q
+        neededCols <- pICols . td <$> properties q
         (aggrs, partCols) <- return $(v "args")
 
         let neededAggrs = filter (flip S.member neededCols . snd) aggrs
@@ -171,7 +172,7 @@ unreferencedLiteralCols :: TARule AllProps
 unreferencedLiteralCols q =
   $(dagPatMatch 'q "LitTable tab "
     [| do
-         neededCols <- pICols <$> td <$> properties q
+         neededCols <- pICols . td <$> properties q
 
          predicate (not $ S.null neededCols)
 
@@ -206,7 +207,7 @@ prunePartCols :: [(PartAttr, Attr)]  -- ^ Columns to consider for removal
               -> [(PartAttr, Attr)]
 prunePartCols []             _   reqProj _       _    = reqProj
 prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
-    case find (\ds -> coveredCol fds gc ds) dets' of
+    case find (coveredCol fds gc) dets' of
         -- 'det' determines 'gc' -> remove 'gc'
         Just det ->
             let -- Columns that are not required downstream but that
@@ -255,7 +256,7 @@ prunePartCols ((c, gc) : ts) fds reqProj reqCols dets =
   where
     otherUnreqCols = S.fromList $ map snd ts
     candCols = reqCols ∪ otherUnreqCols
-    dets' = S.filter (\ds -> ds `S.isSubsetOf` candCols) dets
+    dets' = S.filter (`S.isSubsetOf` candCols) dets
 
 -- | Prune not required grouping columns that are functionally
 -- determined by a set of other grouping columns.
@@ -279,10 +280,10 @@ prunePartExprs icols groupProjs fds =
     -- trace ("PRUNEPARTEXPRS NOTREQPARTCOLS " ++ show notReqPartCols) $
     -- trace ("PRUNEPARTEXPRS DETS " ++ showSet (showSet id) dets) $
     partExprs
-    ++ map mkExp (reqPartCols)
+    ++ map mkExp reqPartCols
     ++ map mkExp (prunePartCols notReqPartCols' fds [] reqCols dets)
   where
-    dets = S.filter (\ds -> ds `S.isSubsetOf` allCols)
+    dets = S.filter (`S.isSubsetOf` allCols)
            $ S.fromList $ M.keys $ fdsRep fds
 
     f :: (PartAttr, Expr) -> Either (PartAttr, Expr) (PartAttr, Attr)
@@ -329,15 +330,15 @@ unreferencedGroupingCols :: TARule AllProps
 unreferencedGroupingCols q =
   $(dagPatMatch 'q "Aggr args (q1)"
     [| do
-        neededCols        <- pICols <$> td <$> properties q
-        fds               <- pFunDeps <$> bu <$> properties $(v "q1")
+        neededCols        <- pICols . td <$> properties q
+        fds               <- pFunDeps . bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
         -- trace ("AGGR PARTCOLS " ++ show partCols) $ return ()
         -- trace ("AGGR ICOLS " ++ show neededCols) $ return ()
         -- trace ("AGGR FDS " ++ show fds) $ return ()
 
-        predicate $ not $ S.null $ (S.fromList $ map fst partCols) S.\\ neededCols
+        predicate $ not $ S.null $ S.fromList (map fst partCols) S.\\ neededCols
         predicate $ length partCols > 1
 
         let partCols' = prunePartExprs neededCols partCols fds
@@ -354,16 +355,16 @@ unreferencedGroupingCols q =
 -- | Prune ordering columns that are functionally determined by
 -- preceding columns.
 pruneOrdColsFD :: FDSet -> [OrdCol] -> [OrdCol]
-pruneOrdColsFD fds ordCols = go S.empty ordCols
+pruneOrdColsFD fds = go S.empty
   where
     go :: S.Set Attr -> [OrdCol] -> [OrdCol]
     go cs (OrdCol c@(_, d) (ColE oc) : ocs)
-        | any (\ds -> coveredCol fds oc ds) dets
+        | any (coveredCol fds oc) dets
             = go cs ocs
         | otherwise
             = OrdCol c (ColE oc) : go (S.insert oc cs) ocs
        where
-         dets  = S.filter (\ds -> ds `S.isSubsetOf` cs)
+         dets  = S.filter (`S.isSubsetOf` cs)
                  $ S.fromList $ M.keys $ fdsRep fds
     go cs (OrdCol c e : ocs) = OrdCol c e : go cs ocs
     go _  []                       = []
@@ -377,7 +378,7 @@ pruneSerializeSortColsFD :: TARule AllProps
 pruneSerializeSortColsFD q =
   $(dagPatMatch 'q "Serialize args (q1)"
     [| do
-        fds                  <- pFunDeps <$> bu <$> properties $(v "q1")
+        fds                  <- pFunDeps . bu <$> properties $(v "q1")
         (rcs, kcs, ocs, pcs) <- return $(v "args")
         -- trace ("SERIALIZE OCS " ++ show ocs) $ return ()
         -- trace ("SERIALIZE FDS " ++ show fds) $ return ()
@@ -399,7 +400,7 @@ pruneSerializeSortColsFD q =
 
 -- | Prune ordering expressions that occur more than once
 pruneOrdCols :: [OrdCol] -> [OrdCol]
-pruneOrdCols ordCols = go S.empty ordCols
+pruneOrdCols = go S.empty
   where
     go :: S.Set Expr -> [OrdCol] -> [OrdCol]
     go es (OrdCol c e : ocs)
@@ -442,12 +443,12 @@ constAggrKey :: TARule AllProps
 constAggrKey q =
   $(dagPatMatch 'q "Aggr args (q1)"
     [| do
-         constCols   <- pConst <$> bu <$> properties $(v "q1")
-         neededCols  <- S.toList <$> pICols <$> td <$> properties q
+         constCols   <- pConst . bu <$> properties $(v "q1")
+         neededCols  <- S.toList . pICols . td <$> properties q
          (aggrFuns, keyCols@(_:_)) <- return $(v "args")
 
          let keyCols'   = filter (\(_, e) -> not $ isConstExpr constCols e) keyCols
-             prunedKeys = (map fst keyCols) \\ (map fst keyCols')
+             prunedKeys = map fst keyCols \\ map fst keyCols'
 
          predicate $ not $ null prunedKeys
 
@@ -473,7 +474,7 @@ constRownumCol :: TARule AllProps
 constRownumCol q =
   $(dagPatMatch 'q "RowNum args (q1)"
     [| do
-         constCols <- pConst <$> bu <$> properties $(v "q1")
+         constCols <- pConst . bu <$> properties $(v "q1")
 
          (resCol, sortCols, partExprs) <- return $(v "args")
          let sortCols' = filter (\(e, _) -> not $ isConstExpr constCols e) sortCols
@@ -487,7 +488,7 @@ constRowRankCol :: TARule AllProps
 constRowRankCol q =
   $(dagPatMatch 'q "RowRank args (q1)"
     [| do
-         constCols          <- pConst <$> bu <$> properties $(v "q1")
+         constCols          <- pConst . bu <$> properties $(v "q1")
          (resCol, sortCols) <- return $(v "args")
          let sortCols' = filter (\(e, _) -> not $ isConstExpr constCols e) sortCols
          predicate $ length sortCols' < length sortCols
@@ -514,7 +515,7 @@ constWinOrderCol :: TARule AllProps
 constWinOrderCol q =
   $(dagPatMatch 'q "WinFun args (q1)"
     [| do
-         constCols <- pConst <$> bu <$> properties $(v "q1")
+         constCols <- pConst . bu <$> properties $(v "q1")
          let (f, part, sortCols, frameSpec) = $(v "args")
          let sortCols' = filter (\(e, _) -> not $ isConstExpr constCols e) sortCols
          predicate $ length sortCols' < length sortCols
@@ -527,7 +528,7 @@ singletonProductRight :: TARule AllProps
 singletonProductRight q =
   $(dagPatMatch 'q "(q1) Cross _ (q2)"
     [| do
-         cols1 <- pCols <$> bu <$> properties $(v "q1")
+         cols1 <- pCols . bu <$> properties $(v "q1")
          props <- bu <$> properties $(v "q2")
          let constCols = pConst props
              card1     = pCard1 props
@@ -546,7 +547,7 @@ singletonProductLeft :: TARule AllProps
 singletonProductLeft q =
   $(dagPatMatch 'q "(q1) Cross _ (q2)"
     [| do
-         cols2 <- pCols <$> bu <$> properties $(v "q2")
+         cols2 <- pCols . bu <$> properties $(v "q2")
          props <- bu <$> properties $(v "q1")
          let constCols = pConst props
              card1     = pCard1 props
@@ -585,11 +586,11 @@ inlineSortColsRownum q =
 
         predicate $ all ((== Asc) . snd) sortCols
 
-        orders@(_:_) <- pOrder <$> bu <$> properties $(v "q1")
+        orders@(_:_) <- pOrder . bu <$> properties $(v "q1")
 
         -- For each sorting column, try to find the original
         -- order-defining sorting columns.
-        let mSortCols = map (flip lookupSortCol orders) sortCols
+        let mSortCols = map (`lookupSortCol` orders) sortCols
 
         -- The rewrite should only fire if something actually changes
         predicate $ any isRight mSortCols
@@ -620,11 +621,11 @@ inlineSortColsWinFun q =
     [| do
         let (f, part, sortCols, frameSpec) = $(v "args")
 
-        orders@(_:_) <- pOrder <$> bu <$> properties $(v "q1")
+        orders@(_:_) <- pOrder . bu <$> properties $(v "q1")
 
         -- For each sorting column, try to find the original
         -- order-defining sorting columns.
-        let mSortCols = map (flip lookupSortCol orders) sortCols
+        let mSortCols = map (`lookupSortCol` orders) sortCols
 
         -- The rewrite should only fire if something actually changes
         predicate $ any isRight mSortCols
@@ -638,7 +639,7 @@ inlineSortColsWinFun q =
 
 isKeyPrefix :: S.Set PKey -> [SortSpec] -> Bool
 isKeyPrefix keys orderCols =
-    case mapM mColE $ map fst orderCols of
+    case mapM (mColE . fst) orderCols of
         Just cols -> S.fromList cols `S.member` keys
         Nothing   -> False
 
@@ -649,7 +650,7 @@ keyPrefixOrdering q =
   $(dagPatMatch 'q "RowNum args (q1)"
     [| do
         (resCol, sortCols, []) <- return $(v "args")
-        keys                   <- pKeys <$> bu <$> properties $(v "q1")
+        keys                   <- pKeys . bu <$> properties $(v "q1")
 
         predicate $ not $ null sortCols
 
@@ -782,7 +783,7 @@ inlineExpr proj expr =
                            $impossible
 
 mergeProjections :: [Proj] -> [Proj] -> [Proj]
-mergeProjections proj1 proj2 = map (\(c, e) -> (c, inlineExpr proj2 e)) proj1
+mergeProjections proj1 proj2 = map (second (inlineExpr proj2)) proj1
 
 stackedProject :: TARule ()
 stackedProject q =
@@ -837,7 +838,7 @@ pullProjectAggr q =
           -- Check that the original name in a grouping projection
           -- does not collide with one of the output names for
           -- aggregates.
-          predicate $ null $ (map snd gnps) `intersect` (map snd as)
+          predicate $ null $ map snd gnps `intersect` map snd as
 
           return $ do
               logRewrite "Basic.PullProject.Aggr" q
@@ -845,7 +846,7 @@ pullProjectAggr q =
               let gs'  = nub $ gps ++ map (\(_, c) -> (c, ColE c)) gnps
                   proj = map (\(_, c) -> (c, ColE c)) as
                          ++ map (\(c, _) -> (c, ColE c)) gps
-                         ++ map (\(c, c') -> (c, ColE c')) gnps
+                         ++ map (second ColE) gnps
 
               aggrNode <- insert $ UnOp (Aggr (as, gs')) $(v "q1")
               void $ replaceWithNew q $ UnOp (Project proj) aggrNode |])
@@ -862,7 +863,7 @@ pullProjectWinFun q =
 
           -- If the window function result overwrites one of the
           -- projection columns, we can't pull.
-          predicate $ resCol `notElem` (map fst $(v "proj"))
+          predicate $ resCol `notElem` map fst $(v "proj")
 
           return $ do
               logRewrite "Basic.PullProject.WinFun" q
@@ -871,7 +872,7 @@ pullProjectWinFun q =
               -- arguments and ordering expressions.
               let f'        = mapWinFun (inlineExpr $(v "proj")) f
 
-                  sortSpec' = map (\(e, d) -> (inlineExpr $(v "proj") e, d)) sortSpec
+                  sortSpec' = map (first (inlineExpr $(v "proj"))) sortSpec
 
                   proj'     = $(v "proj") ++ [(resCol, ColE resCol)]
 
@@ -909,7 +910,7 @@ mergeProjIntoSortSpec :: (Attr, [SortSpec], [PartExpr])
                       -> (Attr, [SortSpec], [PartExpr])
 mergeProjIntoSortSpec (attr, sortSpec, partSpec) proj = (attr, sortSpec', partSpec')
   where
-    sortSpec' = map (\(e, dir) -> (inlineExpr proj e, dir)) sortSpec
+    sortSpec' = map (first (inlineExpr proj)) sortSpec
     partSpec' = map (inlineExpr proj) partSpec
 
 pullProjectRownum :: TARule ()
@@ -934,12 +935,12 @@ pullProjectRownum q =
               void $ replaceWithNew q $ UnOp (Project p'') rownumNode |])
 
 inlineJoinPredRight :: [Proj] -> [(Expr, Expr, JoinRel)] -> [(Expr, Expr, JoinRel)]
-inlineJoinPredRight proj p = map inlineConjunct p
+inlineJoinPredRight proj = map inlineConjunct
   where
     inlineConjunct (le, re, rel) = (le, inlineExpr proj re, rel)
 
 inlineJoinPredLeft :: [Proj] -> [(Expr, Expr, JoinRel)] -> [(Expr, Expr, JoinRel)]
-inlineJoinPredLeft proj p = map inlineConjunct p
+inlineJoinPredLeft proj = map inlineConjunct
   where
     inlineConjunct (le, re, rel) = (inlineExpr proj le, re, rel)
 
@@ -1034,8 +1035,8 @@ inlineProjectAggr q =
       [| do
           let (as, gs) = $(v "args")
           let inline = inlineExpr $(v "p")
-          let as' = map (\(a, c) -> (mapAggrFun inline a, c)) as
-              gs' = map (\(c, e) -> (c, inline e)) gs
+          let as' = map (first (mapAggrFun inline)) as
+              gs' = map (second inline) gs
 
           return $ do
               logRewrite "Basic.PullProject.Aggr" q

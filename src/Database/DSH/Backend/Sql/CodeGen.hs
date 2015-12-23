@@ -78,8 +78,8 @@ data SqlVector = SqlVector
     }
 
 instance RelationalVector SqlVector where
-    rvKeyCols vec  = map kc $ [1..unKey (vecKey vec)]
-    rvRefCols vec  = map rc $ [1..unRef (vecRef vec)]
+    rvKeyCols vec  = map kc [1..unKey (vecKey vec)]
+    rvRefCols vec  = map rc [1..unRef (vecRef vec)]
     rvItemCols vec = V.generate (unItems (vecItems vec)) (ic . (+ 1))
 
 unwrapSql :: BackendCode SqlBackend -> SqlCode
@@ -101,7 +101,7 @@ generateSqlQueries taPlan = renderSql $ queryShape taPlan
     nodeToQuery  = zip roots (map SqlCode sqlQueries)
 
     lookupNode :: AlgNode -> SqlCode
-    lookupNode n = maybe $impossible id $ lookup n nodeToQuery
+    lookupNode n = fromMaybe $impossible $ lookup n nodeToQuery
 
     -- We do not need order columns to reconstruct results: order information is
     -- encoded in the SQL queries' ORDER BY clause. We rely on the physical
@@ -155,13 +155,13 @@ insertSerialize g = g >>= traverseShape
                 dvec' <- insertOp dvec noRef noKey noOrd
                 return $ SShape dvec' lyt
 
-    traverseLayout :: (Layout TADVec) -> TAVecBuild (Maybe (Layout TADVec))
+    traverseLayout :: Layout TADVec -> TAVecBuild (Maybe (Layout TADVec))
     traverseLayout LCol          = return Nothing
     traverseLayout (LTuple lyts) = do
         mLyts <- mapM traverseLayout lyts
         if all isNothing mLyts
             then return Nothing
-            else return $ Just $ LTuple $ zipWith (\l ml -> maybe l id ml) lyts mLyts
+            else return $ Just $ LTuple $ zipWith fromMaybe lyts mLyts
     traverseLayout (LNest dvec lyt) = do
         mLyt' <- traverseLayout lyt
         case mLyt' of
@@ -253,7 +253,7 @@ instance Backend SqlBackend where
         return fileName
 
     transactionally (SqlBackend conn) ma =
-        H.withTransaction conn (\c -> ma (SqlBackend c))
+        H.withTransaction conn (ma . SqlBackend)
 
 --------------------------------------------------------------------------------
 -- Encoding of vector rows in SQL result rows.
@@ -320,12 +320,12 @@ instance Row (BackendRow SqlBackend) where
     boolVal (SqlScalar v)                   = error $ printf "boolVal: %s" (show v)
 
     charVal (SqlScalar (H.SqlChar !c))       = charE c
-    charVal (SqlScalar (H.SqlString (!c:_))) = charE c
-    charVal (SqlScalar (H.SqlByteString !c)) = charE $! (head $ T.unpack $ TE.decodeUtf8 c)
+    charVal (SqlScalar (H.SqlString (c:_)))  = charE c
+    charVal (SqlScalar (H.SqlByteString !c)) = charE $! head (T.unpack $ TE.decodeUtf8 c)
     charVal _                                = $impossible
 
-    textVal (SqlScalar (H.SqlString !t))     = textE $! (T.pack t)
-    textVal (SqlScalar (H.SqlByteString !s)) = textE $! (TE.decodeUtf8 s)
+    textVal (SqlScalar (H.SqlString !t))     = textE $! T.pack t
+    textVal (SqlScalar (H.SqlByteString !s)) = textE $! TE.decodeUtf8 s
     textVal _                                = $impossible
 
     -- FIXME this is an incredibly crude method to convert HDBC's
