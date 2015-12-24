@@ -811,6 +811,7 @@ instance VL.VectorAlgebra TableAlgebra where
         let gl = length groupExprs
         let o1 = VecOrder (map (const Asc) groupExprs)
             k1 = VecKey gl
+            -- NOTE: empty seg
             r1 = VecRef 0
             i1 = VecItems gl
 
@@ -1006,7 +1007,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
     vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 _ i2) = do
         -- We have to use synthetic rownum-generated order and keys
-        -- because left and right inputs might have non-compapibl
+        -- because left and right inputs might have non-compatible
         -- order and keys.
         --
         -- FIXME Reference columns might also not be aligned. Append should only
@@ -1259,7 +1260,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAKVec qk (VecTransSrc $ unKey k2) (VecTransDst $ unKey k1)
                )
 
-    vecDistSng (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
+    vecReplicateScalar (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
         let o = o2
             k = k2
             r = r2
@@ -1282,7 +1283,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qr s d
                )
 
-    vecDistLift (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
+    vecReplicateNest (TADVec q1 _ k1 _ i1) (TADVec q2 o2 k2 r2 i2) = do
         let o = o2
             k = k2
             r = r2
