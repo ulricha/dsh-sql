@@ -27,17 +27,17 @@ inferWorker :: NodeMap TableAlgebra -> TableAlgebra -> AlgNode -> NodeMap Bottom
 inferWorker _ op n pm =
     let res =
            case op of
-                TerOp _ _ _ _ -> $impossible
+                TerOp{}        -> $impossible
                 BinOp vl c1 c2 ->
                   let c1Props = lookupUnsafe pm "no children properties" c1
                       c2Props = lookupUnsafe pm "no children properties" c2
                   in inferBinOp vl c1Props c2Props
-                UnOp vl c ->
+                UnOp vl c      ->
                   let cProps = lookupUnsafe pm "no children properties" c
                   in inferUnOp vl cProps
-                NullaryOp vl -> inferNullOp vl
+                NullaryOp vl   -> inferNullOp vl
     in case res of
-            Left msg -> error $ "Inference failed at node " ++ (show n) ++ ": " ++ msg
+            Left msg -> error $ "Inference failed at node " ++ show n ++ ": " ++ msg
             Right props -> props
 
 inferNullOp :: NullOp -> Either String BottomUpProps
@@ -52,15 +52,15 @@ inferNullOp op = do
       opConst    = inferConstNullOp op
       opNullable = inferNullableNullOp op
       opFDs      = inferFDNullOp opCols opKeys op
-  return $ BUProps { pCols     = opCols
-                   , pKeys     = opKeys
-                   , pEmpty    = opEmpty
-                   , pCard1    = opCard1
-                   , pOrder    = opOrder
-                   , pConst    = opConst
-                   , pNullable = opNullable
-                   , pFunDeps  = opFDs
-                   }
+  return BUProps { pCols     = opCols
+                 , pKeys     = opKeys
+                 , pEmpty    = opEmpty
+                 , pCard1    = opCard1
+                 , pOrder    = opOrder
+                 , pConst    = opConst
+                 , pNullable = opNullable
+                 , pFunDeps  = opFDs
+                 }
 
 inferUnOp :: UnOp -> BottomUpProps -> Either String BottomUpProps
 inferUnOp op cProps = do
@@ -72,15 +72,15 @@ inferUnOp op cProps = do
       opConst    = inferConstUnOp (pConst cProps) op
       opNullable = inferNullableUnOp (pNullable cProps) op
       opFDs      = inferFDUnOp cProps op
-  return $ BUProps { pCols     = opCols
-                   , pKeys     = opKeys
-                   , pEmpty    = opEmpty
-                   , pCard1    = opCard1
-                   , pOrder    = opOrder
-                   , pConst    = opConst
-                   , pNullable = opNullable
-                   , pFunDeps  = opFDs
-                   }
+  return BUProps { pCols     = opCols
+                 , pKeys     = opKeys
+                 , pEmpty    = opEmpty
+                 , pCard1    = opCard1
+                 , pOrder    = opOrder
+                 , pConst    = opConst
+                 , pNullable = opNullable
+                 , pFunDeps  = opFDs
+                 }
 
 inferBinOp :: BinOp -> BottomUpProps -> BottomUpProps -> Either String BottomUpProps
 inferBinOp op c1Props c2Props = do
@@ -92,15 +92,15 @@ inferBinOp op c1Props c2Props = do
       opConst    = inferConstBinOp (pConst c1Props) (pConst c2Props) op
       opNullable = inferNullableBinOp c1Props c2Props op
       opFDs      = inferFDBinOp c1Props c2Props opKeys opCols op
-  return $ BUProps { pCols     = opCols
-                   , pKeys     = opKeys
-                   , pEmpty    = opEmpty
-                   , pCard1    = opCard1
-                   , pOrder    = opOrder
-                   , pConst    = opConst
-                   , pNullable = opNullable
-                   , pFunDeps  = opFDs
-                   }
+  return BUProps { pCols     = opCols
+                 , pKeys     = opKeys
+                 , pEmpty    = opEmpty
+                 , pCard1    = opCard1
+                 , pOrder    = opOrder
+                 , pConst    = opConst
+                 , pNullable = opNullable
+                 , pFunDeps  = opFDs
+                 }
 
 inferBottomUpProperties :: AlgebraDag TableAlgebra -> NodeMap BottomUpProps
-inferBottomUpProperties dag = inferBottomUpGeneral inferWorker dag
+inferBottomUpProperties = inferBottomUpGeneral inferWorker

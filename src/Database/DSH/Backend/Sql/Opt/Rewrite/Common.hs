@@ -26,8 +26,7 @@ inferAll :: TARewrite (NodeMap AllProps)
 inferAll = do
   to <- topsort
   buPropMap <- infer inferBottomUpProperties
-  props <- infer (inferAllProperties buPropMap to)
-  return props
+  infer (inferAllProperties buPropMap to)
 
 noProps :: Monad m => m (M.IntMap a)
 noProps = return M.empty

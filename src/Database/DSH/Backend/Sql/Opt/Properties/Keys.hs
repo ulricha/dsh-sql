@@ -52,8 +52,9 @@ rowRankKeys resCol sortCols childCard1 childKeys =
 -- | Update a key under a projection. If one attribute is mapped to
 -- multiple attributes, the key is replicated.
 updateKey :: M.Map Attr (S.Set Attr) -> PKey -> S.Set PKey
-updateKey m k = go S.empty k
+updateKey m = go S.empty
   where
+    -- FIXME this doesn't look right: keySuffix' unused, go not recursive.
     go :: S.Set PKey -> PKey -> S.Set PKey
     go keyPrefixes keySuffix =
         let (b, keySuffix') = S.deleteFindMin keySuffix

@@ -70,7 +70,7 @@ mapCol _                             = Nothing
 -- its new names after projection. Only attributes that are simply
 -- renamed are considered.
 mapColMulti :: [Proj] -> M.Map Attr (S.Set Attr)
-mapColMulti projs = L.foldl' insertMap M.empty projs
+mapColMulti = L.foldl' insertMap M.empty
   where
     insertMap m (a, ColE b)                   = M.insertWith S.union b (ss a) m
     insertMap m (a, UnAppE (Cast _) (ColE b)) = M.insertWith S.union b (ss a) m

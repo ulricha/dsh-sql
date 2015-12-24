@@ -31,10 +31,9 @@ inferFDNullOp tcs ks op =
 -- | Update an attribute set with new names. All attributes must find
 -- a new name.
 updateSetAll :: [(Attr, Attr)] -> S.Set Attr -> Maybe (S.Set Attr)
-updateSetAll colMap cs =
+updateSetAll colMap =
     S.foldr' (\c mcs -> S.insert <$> lookup c colMap <*> mcs)
              (Just S.empty)
-             cs
 
 -- | Update an attribute set with new names. Attributes for which no
 -- new name exists are removed.
@@ -63,7 +62,7 @@ addFunDeps :: S.Set Attr -> S.Set Attr -> FDSet -> FDSet
 addFunDeps cs cs' (FDSet m) = FDSet $ M.insertWith S.union cs cs' m
 
 cols :: BottomUpProps -> S.Set Attr
-cols p = fmap fst $ pCols p
+cols p = fst <$> pCols p
 
 inferFDUnOp :: BottomUpProps -> UnOp -> FDSet
 inferFDUnOp p op =
@@ -106,18 +105,18 @@ inferFDBinOp p1 p2 ks cs op =
         -- collisions in the functional dependencies during unioning.
         Cross _ -> FDSet $
             -- Dependencies from either side are still valid after the product
-            (fdsRep $ pFunDeps p1)
+            fdsRep (pFunDeps p1)
             `M.union`
-            (fdsRep $ pFunDeps p2)
+            fdsRep (pFunDeps p2)
             `M.union`
             -- The new combined keys determine all result columns of the product.
-            (foldr (\k m -> M.insert k ((fmap fst cs) S.\\ k) m) M.empty ks)
+            foldr (\k m -> M.insert k (fmap fst cs S.\\ k) m) M.empty ks
         ThetaJoin _ -> FDSet $
-            (fdsRep $ pFunDeps p1)
+            fdsRep (pFunDeps p1)
             `M.union`
-            (fdsRep $ pFunDeps p2)
+            fdsRep (pFunDeps p2)
             `M.union`
-            (foldr (\k m -> M.insert k ((fmap fst cs) S.\\ k) m) M.empty ks)
+            foldr (\k m -> M.insert k (fmap fst cs S.\\ k) m) M.empty ks
         SemiJoin _ -> pFunDeps p1
         AntiJoin _ -> pFunDeps p1
         LeftOuterJoin _ -> pFunDeps p1

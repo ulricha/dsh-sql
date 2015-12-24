@@ -43,7 +43,7 @@ overwrite (resCol, ordExprs) os =
 -- [[a, b, c], [], [f]]     => []
 ordCombinations :: [[Attr]] -> [[Attr]]
 ordCombinations []        = $impossible
-ordCombinations (s : [])  = map (: []) s
+ordCombinations [s]       = map (: []) s
 ordCombinations (s : scs) = dist s (ordCombinations scs)
 
   where
@@ -74,7 +74,7 @@ inferOrderUnOp childOrder op =
                -- Only consider ascending sorting
                && all ((== Asc) . snd) scs
                -- Avoid circular references
-               && (ColE oc) `notElem` (map fst scs)
+               && ColE oc `notElem` map fst scs
                                           -> overwrite (oc, map fst scs) childOrder
              | otherwise
                                           -> invalidate oc childOrder
