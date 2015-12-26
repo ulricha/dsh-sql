@@ -452,6 +452,11 @@ constAggrKey q =
 
          predicate $ not $ null prunedKeys
 
+         -- Some grouping column has to remain. Eliminating all grouping columns
+         -- would effectively remove the GROUP BY clause and change the
+         -- semantics of the SQL query (NULL values instead of an empty result).
+         predicate $ not $ null keyCols'
+
          return $ do
              logRewrite "Basic.Const.Aggr" q
              let necessaryKeys = prunedKeys `intersect` neededCols
