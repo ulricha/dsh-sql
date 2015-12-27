@@ -63,6 +63,7 @@ cleanupRulesTopDown = [ unreferencedBaseTableCols
                       -- , inlineSortColsSerialize
                       , inlineSortColsWinFun
                       , keyPrefixOrdering
+                      , constJoinPred
                       , constAggrKey
                       , constRownumCol
                       , constRowRankCol
@@ -437,6 +438,39 @@ pruneSerializeSortCols q =
 
 isConstExpr :: [ConstCol] -> Expr -> Bool
 isConstExpr constCols e = isJust $ constExpr constCols e
+
+constTrueJoinConjunct :: [ConstCol] -> [ConstCol] -> (Expr, Expr, JoinRel) -> Bool
+constTrueJoinConjunct constColsLeft constColsRight (leftExpr, rightExpr, op) =
+    fromMaybe False $ isConstantTrue op
+                          <$> constExpr constColsLeft leftExpr
+                          <*> constExpr constColsRight rightExpr
+
+  where
+    isConstantTrue EqJ v1 v2 = v1 == v2
+    isConstantTrue GtJ v1 v2 = v1 >  v2
+    isConstantTrue GeJ v1 v2 = v1 >= v2
+    isConstantTrue LtJ v1 v2 = v1 <  v2
+    isConstantTrue LeJ v1 v2 = v1 <= v2
+    isConstantTrue NeJ v1 v2 = v1 /= v2
+
+-- | Eliminate conjuncts from join predicates that are constant true.
+constJoinPred :: TARule AllProps
+constJoinPred q =
+  $(dagPatMatch 'q "(q1) [ThetaJoin | AntiJoin | SemiJoin]@joinOp p (q2)"
+    [| do
+        constColsLeft  <- pConst . bu <$> properties $(v "q1")
+        constColsRight <- pConst . bu <$> properties $(v "q1")
+        let p' = filter (not . constTrueJoinConjunct constColsLeft constColsRight) $(v "p")
+        predicate $ length p' < length $(v "p")
+        -- FIXME if all conjuncts are constant, we can replace the join operator
+        -- with either a cartesian product (thetajoin), the original left input
+        -- (semijoin) or a constant false selection (antijoin).
+        predicate $ not $ null p'
+
+        return $ do
+            logRewrite "Basic.Const.Join" q
+            void $ replaceWithNew q $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
+        |])
 
 -- | Prune const columns from aggregation keys
 constAggrKey :: TARule AllProps
