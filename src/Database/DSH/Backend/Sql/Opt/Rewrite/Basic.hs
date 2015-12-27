@@ -459,7 +459,7 @@ constJoinPred q =
   $(dagPatMatch 'q "(q1) [ThetaJoin | AntiJoin | SemiJoin]@joinOp p (q2)"
     [| do
         constColsLeft  <- pConst . bu <$> properties $(v "q1")
-        constColsRight <- pConst . bu <$> properties $(v "q1")
+        constColsRight <- pConst . bu <$> properties $(v "q2")
         let p' = filter (not . constTrueJoinConjunct constColsLeft constColsRight) $(v "p")
         predicate $ length p' < length $(v "p")
         -- FIXME if all conjuncts are constant, we can replace the join operator
