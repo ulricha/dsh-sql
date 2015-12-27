@@ -933,7 +933,7 @@ instance VL.VectorAlgebra TableAlgebra where
             -- from either left or right side. Both will retain their
             -- key property as we are doing a 1:1 join.
             o = VecOrder [Asc]
-            k = k1 <> k2
+            k = k1
             r = r1
             i = i1 <> i2
 
