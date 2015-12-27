@@ -749,6 +749,7 @@ instance VL.VectorAlgebra TableAlgebra where
     vecAggr a (TADVec q _ _ _ _) = do
         let o = VecOrder [Asc]
             k = VecKey 1
+            -- FIXME don't throw away references
             r = VecRef 0
             i = VecItems 1
 
@@ -1005,22 +1006,18 @@ instance VL.VectorAlgebra TableAlgebra where
         return $ TADVec qr o k r i
 
 
-    vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 _ i2) = do
+    vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         -- We have to use synthetic rownum-generated order and keys
         -- because left and right inputs might have non-compatible
         -- order and keys.
-        --
-        -- FIXME Reference columns might also not be aligned. Append should only
-        -- be applied to outermost vectors, so that we can safely remove
-        -- references. However, we should look at this more carefully.
 
         -- Create synthetic order keys based on the original order
         -- columns and a marker column for left and right inputs.
         qs1 <- projM ([eP usc (ConstE $ VInt 1), cP soc]
-                      ++ ordProj o1 ++ keyProj k1 ++ itemProj i1)
+                      ++ ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj i1)
                $ rownum' soc (synthOrder o1) [] q1
 
-        -- Generate a rekeying vector that maps old keys to
+        -- Generate a rekeying vector that maps old keys to new synthetic ones.
         qk1 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
                      ++
                      keySrcProj k1) qs1
@@ -1029,19 +1026,19 @@ instance VL.VectorAlgebra TableAlgebra where
         -- marker column together with the rownum-generated values as
         -- order and keys.
         qu1 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
-                     ++ itemProj i1)
+                     ++ refProj r1 ++ itemProj i1)
                     qs1
 
         -- Do the same for the right input.
         qs2 <- projM ([eP usc (ConstE $ VInt 2), cP soc]
-                      ++ ordProj o2 ++ keyProj k2 ++ itemProj i2)
+                      ++ ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i2)
                $ rownum' soc (synthOrder o2) [] q2
         qk2 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
                      ++
                      keySrcProj k2) qs2
 
         qu2 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
-                     ++ itemProj i2)
+                     ++ refProj r2 ++ itemProj i2)
                     qs2
 
         -- With synthetic order and key values, both inputs are
