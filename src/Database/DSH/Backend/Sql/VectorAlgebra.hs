@@ -964,7 +964,7 @@ instance VL.VectorAlgebra TableAlgebra where
         return $ TADVec qp o k r (VecItems $ length items)
 
     vecTableRef tableName schema = do
-        q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj)
+        q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj ++ baseRefProj)
              $ dbTable tableName taColumns taKeys
         return $ TADVec q order key ref items
 
@@ -986,11 +986,12 @@ instance VL.VectorAlgebra TableAlgebra where
                              | c <- N.toList baseKeyCols
                              ]
         baseItemProj = [ mP (ic i) c | i <- [1..] | (c, _) <- taColumns ]
+        baseRefProj  = [ eP (rc 1) (ConstE $ int 1) ]
 
         items = VecItems $ N.length $ L.tableCols schema
         order = VecOrder $ const Asc <$> N.toList baseKeyCols
         key   = VecKey $ N.length baseKeyCols
-        ref   = VecRef 0
+        ref   = VecRef 1
 
     vecLit tys vs = do
         let o = VecOrder [Asc]
