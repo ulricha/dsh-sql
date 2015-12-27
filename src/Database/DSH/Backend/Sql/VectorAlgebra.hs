@@ -394,7 +394,7 @@ segAggrDefault qo qa ok r defaultValue =
 
 aggrDefault :: AlgNode -> AVal -> Build TableAlgebra AlgNode
 aggrDefault qa defaultVal =
-    proj [cP (oc 1), cP (kc 1), eP (ic 1) defaultExpr] qa
+    proj [cP (oc 1), cP (kc 1), cP (rc 1), eP (ic 1) defaultExpr] qa
 
   where
     defaultExpr = BinAppE Coalesce (ColE (ic 1)) (ConstE defaultVal)
@@ -749,13 +749,12 @@ instance VL.VectorAlgebra TableAlgebra where
     vecAggr a (TADVec q _ _ _ _) = do
         let o = VecOrder [Asc]
             k = VecKey 1
-            -- FIXME don't throw away references
-            r = VecRef 0
+            r = VecRef 1
             i = VecItems 1
 
         let oneE = ConstE $ int 1
 
-        qa <- projM [eP (oc 1) oneE, eP (kc 1) oneE, cP (ic 1)]
+        qa <- projM [eP (oc 1) oneE, eP (kc 1) oneE, eP (rc 1) oneE, cP (ic 1)]
               $ aggr [(aggrFun a, ic 1)] [] q
 
         qd <- case a of
