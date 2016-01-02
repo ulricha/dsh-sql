@@ -253,7 +253,8 @@ unOp (L.SUNumOp L.ACos)             = ACos
 unOp (L.SUNumOp L.ATan)             = ATan
 unOp (L.SUNumOp L.Sqrt)             = Sqrt
 unOp (L.SUNumOp L.Exp)              = Exp
-unOp (L.SUNumOp L.Log)              = Log
+-- DSH uses the Haskell meaning of log, namely the natural logarithm.
+unOp (L.SUNumOp L.Log)              = Ln
 unOp (L.SUTextOp (L.SubString f t)) = SubString f t
 unOp (L.SUDateOp L.DateDay)         = DateDay
 unOp (L.SUDateOp L.DateMonth)       = DateMonth
