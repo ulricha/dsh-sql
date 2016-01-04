@@ -472,6 +472,10 @@ constJoinPred q =
             void $ replaceWithNew q $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
         |])
 
+constMap :: [ConstCol] -> [Proj] -> [(Attr, AVal)]
+constMap constCols =
+    mapMaybe (\(c, e) -> (,) <$> pure c <*> constExpr constCols e)
+
 -- | Prune const columns from aggregation keys
 constAggrKey :: TARule AllProps
 constAggrKey q =
@@ -495,7 +499,7 @@ constAggrKey q =
              logRewrite "Basic.Const.Aggr" q
              let necessaryKeys = prunedKeys `intersect` neededCols
 
-                 constProj c   = lookup c constCols >>= \val -> return (c, ConstE val)
+                 constProj c   = (\v -> (c, ConstE v)) <$> lookup c (constMap constCols keyCols)
 
                  constProjs    = mapMaybe constProj necessaryKeys
 
