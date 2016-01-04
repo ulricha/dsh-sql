@@ -70,6 +70,9 @@ instance (RoughlyEq a, RoughlyEq b) => RoughlyEq (a, b) where
 instance (RoughlyEq a, RoughlyEq b, RoughlyEq c) => RoughlyEq (a, b, c) where
     (a, b, c) ~== (a', b', c') = a ~== a' && b ~== b' && c ~== c'
 
+instance (RoughlyEq a, RoughlyEq b, RoughlyEq c, RoughlyEq d) => RoughlyEq (a, b, c, d) where
+    (a, b, c, d) ~== (a', b', c', d') = a ~== a' && b ~== b' && c ~== c' && d ~== d'
+
 makeEqAssertion :: (Show a, RoughlyEq a, Q.QA a, Backend c)
                 => String
                 -> Q.Q a
@@ -133,11 +136,17 @@ q3Test = makeEqAssertion "q3" q3Default res
           , ((2300070, C.fromGregorian 1995 03 13, 0), 367371.1452)
           ]
 
+q15Test :: Backend c => c -> H.Assertion
+q15Test = makeEqAssertion "q15" q15Default res
+  where
+    res = [ (8449, ("Supplier#000008449", "Wp34zim9qYFbVctdW", "20-469-856-8873", 1772627.2087))]
+
 tests :: Backend c => c -> [F.Test]
 tests c =
     [ testCase "q1" (q1Test c)
     , testCase "q2" (q2Test c)
     , testCase "q3" (q3Test c)
+    , testCase "q15" (q15Test c)
     ]
 
 main :: IO ()
