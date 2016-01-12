@@ -57,6 +57,7 @@ unAppTy ASin        = ADouble
 unAppTy ACos        = ADouble
 unAppTy ATan        = ADouble
 unAppTy Log         = ADouble
+unAppTy Ln          = ADouble
 unAppTy Sqrt        = ADouble
 unAppTy Exp         = ADouble
 unAppTy SubString{} = AStr
