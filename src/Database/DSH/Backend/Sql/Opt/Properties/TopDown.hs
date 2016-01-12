@@ -6,6 +6,7 @@ import           Control.Monad.State
 
 import qualified Data.IntMap                                   as M
 import           Data.List
+import           Data.Maybe
 import qualified Data.Set.Monad                                as S
 
 import qualified Database.Algebra.Dag                          as D
@@ -15,8 +16,8 @@ import           Database.Algebra.Table.Lang
 import           Database.DSH.Backend.Sql.Opt.Properties.ICols
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 -- import           Database.DSH.Backend.Sql.Opt.Properties.Use
-import           Database.DSH.Common.Opt
 import           Database.DSH.Common.Impossible
+import           Database.DSH.Common.Opt
 
 
 seed :: TopDownProps
@@ -69,7 +70,14 @@ inferChildProperties buPropMap d n = do
             cp <- lookupProps c
             let cp' = inferUnOp ownProps cp op
             replaceProps c cp'
-        BinOp op c1 c2 | c1 /= c2 -> do
+        -- Special case: If both children refer to the same node, look up child
+        -- properties only once.
+        BinOp op c1 c2 | c1 == c2 -> do
+            cp <- lookupProps c1
+            let buProps = lookupUnsafe buPropMap "TopDown.inferChildProperties" c1
+            let (cp1', cp2') = inferBinOp buProps buProps ownProps cp cp op
+            replaceProps c1 (mergeTDProps cp1' cp2')
+        BinOp op c1 c2 -> do
             cp1 <- lookupProps c1
             cp2 <- lookupProps c2
             let buProps1 = lookupUnsafe buPropMap "TopDown.inferChildProperties" c1
@@ -77,12 +85,7 @@ inferChildProperties buPropMap d n = do
             let (cp1', cp2') = inferBinOp buProps1 buProps2 ownProps cp1 cp2 op
             replaceProps c1 cp1'
             replaceProps c2 cp2'
-        BinOp op c1 c2 | otherwise -> do
-            cp <- lookupProps c1
-            let buProps = lookupUnsafe buPropMap "TopDown.inferChildProperties" c1
-            let (cp1', cp2') = inferBinOp buProps buProps ownProps cp cp op
-            replaceProps c1 (mergeTDProps cp1' cp2')
-        TerOp _ _ _ _ -> $impossible
+        TerOp{} -> $impossible
 
 -- | Infer properties during a top-down traversal.
 inferAllProperties :: NodeMap BottomUpProps
@@ -90,9 +93,7 @@ inferAllProperties :: NodeMap BottomUpProps
                    -> D.AlgebraDag TableAlgebra
                    -> NodeMap AllProps
 inferAllProperties buPropMap topOrderedNodes d =
-    case mergeProps buPropMap tdPropMap of
-        Just ps -> ps
-        Nothing -> $impossible
+    fromMaybe $impossible (mergeProps buPropMap tdPropMap)
   where
     tdPropMap = execState action initialMap
     action = mapM_ (inferChildProperties buPropMap d) topOrderedNodes
