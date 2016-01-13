@@ -194,7 +194,9 @@ tests c =
     , testCase "q5" (q5Test c)
     , testCase "q6" (q5Test c)
     , testCase "q15" (q15Test c)
-    , testCase "q21" (q21Test c)
+    -- test disabled: PostgreSQL currently (13-01-16) generates a really bad
+    -- plan and the query does not run in acceptable time.
+    -- , testCase "q21" (q21Test c)
     ]
 
 main :: IO ()
