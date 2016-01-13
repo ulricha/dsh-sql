@@ -136,6 +136,31 @@ q3Test = makeEqAssertion "q3" q3Default res
           , ((2300070, C.fromGregorian 1995 03 13, 0), 367371.1452)
           ]
 
+q4Test :: Backend c => c -> H.Assertion
+q4Test = makeEqAssertion "q4" q4Default res
+  where
+    res = [ ("1-URGENT", 10594)
+          , ("2-HIGH", 10476)
+          , ("3-MEDIUM", 10410)
+          , ("4-NOT SPECIFIED", 10556)
+          , ("5-LOW", 10487)
+          ]
+
+q5Test :: Backend c => c -> H.Assertion
+q5Test = makeEqAssertion "q5" q5Default res
+  where
+    res = [ ("INDONESIA", 55502041.1697)
+          , ("VIETNAM", 55295086.9967)
+          , ("CHINA", 53724494.2566)
+          , ("INDIA", 52035512.0002)
+          , ("JAPAN", 45410175.69540)
+          ]
+
+q6Test :: Backend c => c -> H.Assertion
+q6Test = makeEqAssertion "q6" q6Default res
+  where
+    res = 123141078.23
+
 q15Test :: Backend c => c -> H.Assertion
 q15Test = makeEqAssertion "q15" q15Default res
   where
@@ -165,6 +190,9 @@ tests c =
     [ testCase "q1" (q1Test c)
     , testCase "q2" (q2Test c)
     , testCase "q3" (q3Test c)
+    , testCase "q4" (q4Test c)
+    , testCase "q5" (q5Test c)
+    , testCase "q6" (q5Test c)
     , testCase "q15" (q15Test c)
     , testCase "q21" (q21Test c)
     ]
