@@ -789,21 +789,38 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qd o k r i
 
-    vecGroupAggr groupExprs aggrFuns (TADVec q _ _ _ _) = do
+    -- Group and aggregate each segment individually
+    vecGroupAggr groupExprs aggrFuns (TADVec q _ _ r _) = do
         let gl = length groupExprs
-        let o' = VecOrder $ replicate gl Asc
-            k' = VecKey gl
-            r' = VecRef 0
+
+        let -- Under the per-segment order regime, we need to specify the order for
+            -- each segment of the input individually. Therefore, we can use the
+            -- grouping keys for each segment.
+            o' = VecOrder $ replicate gl Asc
+
+            -- Grouping keys are keys for each individual segment. By combining
+            -- them with segment identifiers, we obtain a key that is valid for
+            -- the complete vector.
+            k' = VecKey $ unRef r + gl
+
+            -- We keep the segment structure of the original input vector.
+            r' = r
+
             i' = VecItems $ length groupExprs + N.length aggrFuns
 
-        let parts = [ eP (ic c) (taExpr e) | e <- groupExprs | c <- [1..]]
+        let parts = [ cP (rc c) | c <- [1..unRef r] ]
+                    ++
+                    [ eP (ic c) (taExpr e) | e <- groupExprs | c <- [1..] ]
 
             aggrs = [ (aggrFun a, ic i) | a <- N.toList aggrFuns | i <- [gl+1..] ]
 
-        let ordProjs = [ mP (oc c) (ic c) | c <- [1..unItems i'] ]
-            keyProjs = [ mP (kc c) (ic c) | c <- [1..unItems i'] ]
+        let ordProjs = [ mP (oc c) (ic c) | c <- [1..gl] ]
+            keyProjs = [ mP (kc c) (rc c) | c <- [1..unRef r] ]
+                       ++
+                       [ mP (kc $ unRef r + c) (ic c) | c <- [1..gl] ]
+            refProjs = [ cP (rc c) | c <- [1..unRef r] ]
 
-        qa <- projM (ordProjs ++ keyProjs ++ itemProj i')
+        qa <- projM (ordProjs ++ keyProjs ++ refProjs ++ itemProj i')
               $ aggr aggrs parts q
 
         return $ TADVec qa o' k' r' i'
