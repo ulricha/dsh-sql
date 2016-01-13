@@ -136,17 +136,67 @@ q3Test = makeEqAssertion "q3" q3Default res
           , ((2300070, C.fromGregorian 1995 03 13, 0), 367371.1452)
           ]
 
+q4Test :: Backend c => c -> H.Assertion
+q4Test = makeEqAssertion "q4" q4Default res
+  where
+    res = [ ("1-URGENT", 10594)
+          , ("2-HIGH", 10476)
+          , ("3-MEDIUM", 10410)
+          , ("4-NOT SPECIFIED", 10556)
+          , ("5-LOW", 10487)
+          ]
+
+q5Test :: Backend c => c -> H.Assertion
+q5Test = makeEqAssertion "q5" q5Default res
+  where
+    res = [ ("INDONESIA", 55502041.1697)
+          , ("VIETNAM", 55295086.9967)
+          , ("CHINA", 53724494.2566)
+          , ("INDIA", 52035512.0002)
+          , ("JAPAN", 45410175.69540)
+          ]
+
+q6Test :: Backend c => c -> H.Assertion
+q6Test = makeEqAssertion "q6" q6Default res
+  where
+    res = 123141078.23
+
 q15Test :: Backend c => c -> H.Assertion
 q15Test = makeEqAssertion "q15" q15Default res
   where
     res = [ (8449, ("Supplier#000008449", "Wp34zim9qYFbVctdW", "20-469-856-8873", 1772627.2087))]
+
+q21Test :: Backend c => c -> H.Assertion
+q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
+  where
+    p1 xs = length xs == 100
+    p2 xs = take 4 xs ~== r1
+    p3 xs = drop (length xs - 4) xs ~== r2
+
+    r1 = [ ("Supplier#000002829", 20)
+         , ("Supplier#000005808", 18)
+         , ("Supplier#000000262", 17)
+         , ("Supplier#000000496", 17)
+         ]
+
+    r2 = [ ("Supplier#000001925", 12)
+         , ("Supplier#000002039", 12)
+         , ("Supplier#000002357", 12)
+         , ("Supplier#000002483", 12)
+         ]
 
 tests :: Backend c => c -> [F.Test]
 tests c =
     [ testCase "q1" (q1Test c)
     , testCase "q2" (q2Test c)
     , testCase "q3" (q3Test c)
+    , testCase "q4" (q4Test c)
+    , testCase "q5" (q5Test c)
+    , testCase "q6" (q5Test c)
     , testCase "q15" (q15Test c)
+    -- test disabled: PostgreSQL currently (13-01-16) generates a really bad
+    -- plan and the query does not run in acceptable time.
+    -- , testCase "q21" (q21Test c)
     ]
 
 main :: IO ()

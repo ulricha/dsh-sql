@@ -335,17 +335,12 @@ unreferencedGroupingCols q =
         fds               <- pFunDeps . bu <$> properties $(v "q1")
         (aggrs, partCols) <- return $(v "args")
 
-        -- trace ("AGGR PARTCOLS " ++ show partCols) $ return ()
-        -- trace ("AGGR ICOLS " ++ show neededCols) $ return ()
-        -- trace ("AGGR FDS " ++ show fds) $ return ()
-
         predicate $ not $ S.null $ S.fromList (map fst partCols) S.\\ neededCols
         predicate $ length partCols > 1
 
         let partCols' = prunePartExprs neededCols partCols fds
 
         predicate $ length partCols' < length partCols
-        -- trace ("AGGR GROUP " ++ show partCols'') $ return ()
 
         return $ do
           logRewrite "Basic.ICols.Aggr.PruneGroupingCols" q
@@ -359,7 +354,7 @@ pruneOrdColsFD :: FDSet -> [OrdCol] -> [OrdCol]
 pruneOrdColsFD fds = go S.empty
   where
     go :: S.Set Attr -> [OrdCol] -> [OrdCol]
-    go cs (OrdCol c@(_, d) (ColE oc) : ocs)
+    go cs (OrdCol c (ColE oc) : ocs)
         | any (coveredCol fds oc) dets
             = go cs ocs
         | otherwise
@@ -499,7 +494,7 @@ constAggrKey q =
              logRewrite "Basic.Const.Aggr" q
              let necessaryKeys = prunedKeys `intersect` neededCols
 
-                 constProj c   = (\v -> (c, ConstE v)) <$> lookup c (constMap constCols keyCols)
+                 constProj c   = (\val -> (c, ConstE val)) <$> lookup c (constMap constCols keyCols)
 
                  constProjs    = mapMaybe constProj necessaryKeys
 

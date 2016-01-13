@@ -1223,7 +1223,7 @@ instance VL.VectorAlgebra TableAlgebra where
         qk <- proj (mapSrcProj ++ mapDstProj) q
         return $ TAKVec qk (VecTransSrc $ unKey k) (VecTransDst $ unRef r)
 
-    vecSegment (TADVec q o k r i) = do
+    vecSegment (TADVec q o k _ i) = do
         let mapRefProj = [ mP (rc c) (kc c) | c <- [1..unKey k]]
         qi <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
         return $ TADVec qi o k (VecRef $ unKey k) i
