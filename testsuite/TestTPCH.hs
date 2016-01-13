@@ -141,12 +141,32 @@ q15Test = makeEqAssertion "q15" q15Default res
   where
     res = [ (8449, ("Supplier#000008449", "Wp34zim9qYFbVctdW", "20-469-856-8873", 1772627.2087))]
 
+q21Test :: Backend c => c -> H.Assertion
+q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
+  where
+    p1 xs = length xs == 100
+    p2 xs = take 4 xs ~== r1
+    p3 xs = drop (length xs - 4) xs ~== r2
+
+    r1 = [ ("Supplier#000002829", 20)
+         , ("Supplier#000005808", 18)
+         , ("Supplier#000000262", 17)
+         , ("Supplier#000000496", 17)
+         ]
+
+    r2 = [ ("Supplier#000001925", 12)
+         , ("Supplier#000002039", 12)
+         , ("Supplier#000002357", 12)
+         , ("Supplier#000002483", 12)
+         ]
+
 tests :: Backend c => c -> [F.Test]
 tests c =
     [ testCase "q1" (q1Test c)
     , testCase "q2" (q2Test c)
     , testCase "q3" (q3Test c)
     , testCase "q15" (q15Test c)
+    , testCase "q21" (q21Test c)
     ]
 
 main :: IO ()
