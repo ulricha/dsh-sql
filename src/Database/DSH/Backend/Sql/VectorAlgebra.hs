@@ -489,29 +489,6 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecCartProduct v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
-        let o = o1 <> o2   -- New order is defined by both left and right
-            k = k1 <> k2   -- New key is defined by both left and right
-
-            -- FIXME we should be able to statically tell that
-            -- argument vectors of thetajoin do not have
-            -- (non-constant) ref columns
-            r = r1         -- The left vector defines the reference
-            i = i1 <> i2   -- We need items from left and right
-
-        qj  <- projM (vecProj o k r i)
-               $ crossM
-                     (return q1)
-                     (proj (shiftAll v1 v2) q2)
-
-        qp1 <- proj (prodTransProjLeft k1 k2) qj
-        qp2 <- proj (prodTransProjRight k1 k2) qj
-
-        return ( TADVec qj o k r i
-               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
-               )
-
     vecCartProductS v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
@@ -563,25 +540,6 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qf (VecFilter $ unKey k1)
                )
 
-    vecNestJoin p v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
-        let o = o1 <> o2   -- New order is defined by both left and right
-            k = k1 <> k2   -- New key is defined by both left and right
-            r = keyRef k1  -- nesting operator: left key defines reference
-            i = i1 <> i2   -- We need items from left and right
-
-        qj  <- projM (ordProj o ++ keyProj k ++ keyRefProj k1 ++ itemProj i)
-               $ thetaJoinM (joinPredicate i1 p)
-                     (return q1)
-                     (proj (shiftAll v1 v2) q2)
-
-        qp1 <- proj (prodTransProjLeft k1 k2) qj
-        qp2 <- proj (prodTransProjRight k1 k2) qj
-
-        return ( TADVec qj o k r i
-               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
-               )
-
     vecNestJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
@@ -597,23 +555,6 @@ instance VL.VectorAlgebra TableAlgebra where
         qp2 <- proj (prodTransProjRight k1 k2) qj
 
         return ( TADVec qd o k r i
-               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
-               )
-
-    vecNestProduct v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
-        let o = o1 <> o2   -- New order is defined by both left and right
-            k = k1 <> k2   -- New key is defined by both left and right
-            r = keyRef k1  -- nesting operator: left key defines reference
-            i = i1 <> i2   -- We need items from left and right
-
-        qj  <- projM (ordProj o ++ keyProj k ++ keyRefProj k1 ++ itemProj i)
-               $ crossM (return q1) (proj (shiftAll v1 v2) q2)
-
-        qp1 <- proj (prodTransProjLeft k1 k2) qj
-        qp2 <- proj (prodTransProjRight k1 k2) qj
-
-        return ( TADVec qj o k r i
                , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
