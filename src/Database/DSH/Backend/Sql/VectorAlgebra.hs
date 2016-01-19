@@ -1179,6 +1179,11 @@ instance VL.VectorAlgebra TableAlgebra where
         qk <- proj (mapSrcProj ++ mapDstProj) q
         return $ TAKVec qk (VecTransSrc $ unKey k) (VecTransDst $ unRef r)
 
+    vecUnsegment (TADVec q o k _ i) = do
+        let unitRefProj = [eP (rc 1) (ConstE $ int 1)]
+        qi <- proj (ordProj o ++ keyProj k ++ unitRefProj ++ itemProj i) q
+        return $ TADVec qi o k (VecRef 1) i
+
     vecSegment (TADVec q o k _ i) = do
         let mapRefProj = [ mP (rc c) (kc c) | c <- [1..unKey k]]
         qi <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
