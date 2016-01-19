@@ -425,15 +425,6 @@ instance VL.VectorAlgebra TableAlgebra where
         qw <- winFun (winCol, wfun) [] (synthOrder o) (Just frameSpec) q
         return $ TADVec qw o k r (i <> VecItems 1)
 
-    vecUnique (TADVec q o k r i) = do
-        -- Create groups based on the items and select the first
-        -- member of each group
-        qu <- projM (ordProj o ++ keyProj k ++ refProj r ++ itemProj i)
-              $ selectM (BinAppE Eq (ColE soc) (ConstE $ VInt 1))
-              $ rownum soc (ordCols o) (map ColE $ itemCols i) q
-
-        return $ TADVec qu o k r i
-
     vecUniqueS (TADVec q o k r i) = do
         -- Create per-segment groups based on the items and select the
         -- first member of each group
@@ -442,13 +433,6 @@ instance VL.VectorAlgebra TableAlgebra where
               $ rownum soc (ordCols o) (map ColE $ refCols r ++ itemCols i) q
 
         return $ TADVec qu o k r i
-
-    vecNumber (TADVec q o@(VecOrder ds) k r i) = do
-        let i' = VecItems (unItems i + 1)
-            nc = ic (unItems i + 1)
-
-        qn <- rownum' nc [ (ColE c, d) | c <- ordCols o | d <- ds ] [] q
-        return $ TADVec qn o k r i'
 
     -- FIXME we might have key order for inner vectors. include the
     -- key here.
@@ -463,13 +447,11 @@ instance VL.VectorAlgebra TableAlgebra where
 
     -- FIXME does flipping the direction really implement reversing of
     -- the order?
-    vecReverse (TADVec q (VecOrder ds) k r i) = do
+    vecReverseS (TADVec q (VecOrder ds) k r i) = do
         let o' = VecOrder $ map flipDir ds
         return ( TADVec q o' k r i
                , TASVec
                )
-
-    vecReverseS = VL.vecReverse
 
     vecSort sortExprs (TADVec q o k r i) = do
         let o'       = VecOrder (map (const Asc) sortExprs) <> o
