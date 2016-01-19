@@ -453,7 +453,9 @@ instance VL.VectorAlgebra TableAlgebra where
                , TASVec
                )
 
-    vecSort sortExprs (TADVec q o k r i) = do
+    -- Implement per-segment sorting. Note that we use relative per-segment
+    -- order and do not establish a global per-vector order of tuples.
+    vecSortS sortExprs (TADVec q o k r i) = do
         let o'       = VecOrder (map (const Asc) sortExprs) <> o
             -- Include the old order columns. This implements stable
             -- sorting and guarantees a strict total order of columns.
@@ -467,11 +469,6 @@ instance VL.VectorAlgebra TableAlgebra where
         return ( TADVec qe o' k r i
                , TASVec
                )
-
-    -- Per-segment sorting is no different from regular sorting
-    -- because we require only relative per-segment order in inner
-    -- vectors.
-    vecSortS = VL.vecSort
 
     vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
@@ -806,46 +803,6 @@ instance VL.VectorAlgebra TableAlgebra where
               $ aggr aggrs parts q
 
         return $ TADVec qa o' k' r' i'
-
-    vecGroup groupExprs (TADVec q o k r i) = do
-        let gl = length groupExprs
-        let o1 = VecOrder (map (const Asc) groupExprs)
-            k1 = VecKey gl
-            -- NOTE: empty seg
-            r1 = VecRef 0
-            i1 = VecItems gl
-
-        let o2 = o
-            k2 = k
-            r2 = VecRef gl
-            i2 = i
-
-        -- Apply the grouping expressions
-        let groupCols  = [ gc c | c <- [1..] | _ <- groupExprs ]
-            groupProj  = [ eP g (taExpr ge) | g <- groupCols | ge <- groupExprs ]
-
-        qg <- proj (vecProj o k r i ++ groupProj) q
-
-        -- Generate the outer vector: one tuple per distinct values of
-        -- the grouping columns.
-        let outerKeyProj = [ mP (kc c) g | c <- [1..] | g <- groupCols ]
-            outerOrdProj = [ mP (oc c) g | c <- [1..] | g <- groupCols ]
-            outerItemProj = [ mP (ic c) g | c <- [1..] | g <- groupCols ]
-
-        qo <- projM (outerOrdProj ++ outerKeyProj ++ outerItemProj)
-              $ distinctM
-              $ proj [ cP g | g <- groupCols ] qg
-
-        -- Generate the inner vector that references the groups in the
-        -- outer vector.
-        let innerRefProj = [ mP (rc c) g | c <- [1..] | g <- groupCols ]
-
-        qi <- proj (ordProj o ++ keyProj k ++ innerRefProj ++ itemProj i) qg
-
-        return ( TADVec qo o1 k1 r1 i1
-               , TADVec qi o2 k2 r2 i2
-               , TASVec
-               )
 
     vecGroupS groupExprs (TADVec q o k r i) = do
         let gl = length groupExprs
