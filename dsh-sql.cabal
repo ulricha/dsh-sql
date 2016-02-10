@@ -153,6 +153,27 @@ executable bench-tpch
                        dsh-example-queries
   ghc-options:         -Wall -O2
 
+executable bench-micro
+  default-language:    Haskell2010
+  main-is:             bench/BenchMicro.hs
+  build-depends:       base,
+                       containers,
+                       mwc-random,
+                       vector,
+                       cassava,
+                       bytestring,
+                       time,
+                       text,
+                       Decimal,
+                       semigroups,
+                       criterion,
+                       HDBC,
+                       HDBC-odbc,
+                       deepseq,
+                       DSH,
+                       dsh-sql
+  ghc-options:         -Wall -O2
+
 source-repository head
     type:     git
     location: https://github.com/ulricha/dsh-sql
