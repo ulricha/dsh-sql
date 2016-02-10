@@ -833,7 +833,7 @@ instance VL.VectorAlgebra TableAlgebra where
             litSchema = [(rc 1, intT), (kc 1, intT)]
                         ++
                         [ (ic c, algTy t) | c <- [1..] | t <- tys ]
-            cols   = refCol : keyCol : VL.vectorCols segments
+            cols   = refCol : keyCol : VL.vectorCols tys segments
             rows   = transpose cols
 
         qr <- projM ([mP (oc 1) (kc 1), cP (kc 1), cP (rc 1)] ++ itemProj i)
