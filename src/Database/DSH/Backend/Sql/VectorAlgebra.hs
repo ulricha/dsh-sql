@@ -12,6 +12,7 @@ module Database.DSH.Backend.Sql.VectorAlgebra
     ) where
 
 import           Control.Exception.Base
+import           Data.List                        (transpose)
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as N
 import           Data.Monoid                      hiding (All, Any, Sum)
@@ -819,18 +820,38 @@ instance VL.VectorAlgebra TableAlgebra where
         key   = VecKey $ N.length baseKeyCols
         ref   = VecRef 0
 
-    vecLit tys vs = do
+    vecLit tys frame segments = do
         let o = VecOrder [Asc]
             k = VecKey 1
             r = VecRef 1
             i = VecItems (length tys)
-        let litSchema = [(rc 1, intT), (kc 1, intT)]
+
+        let refCol = mkRefCol segments
+            keyCol = map (L.IntV . snd) $ zip refCol [1..]
+            -- The schema for a vector literal consists of key and ref columns
+            -- and all payload columns.
+            litSchema = [(rc 1, intT), (kc 1, intT)]
                         ++
                         [ (ic c, algTy t) | c <- [1..] | t <- tys ]
+            cols   = refCol : keyCol : VL.vectorCols segments
+            rows   = transpose cols
+
         qr <- projM ([mP (oc 1) (kc 1), cP (kc 1), cP (rc 1)] ++ itemProj i)
-              $ litTable' (map (map algVal) vs) litSchema
+              $ litTable' (map (map algVal) rows) litSchema
         return $ TADVec qr o k r i
 
+      where
+        -- Create a ref column with the proper length from the segment
+        -- description.
+        mkRefCol (VL.UnitSeg _) = replicate (VL.frameLen frame) (L.IntV 1)
+        -- For a vector with multiple segments, we enumerate the segments to get
+        -- segment identifiers and replicate those according to the length of
+        -- the segment. Note that segments also contain empty segments, i.e.
+        -- every segment identifier is obtained from the list of segments and
+        -- matches the key in the outer vector.
+        mkRefCol (VL.Segs segs) = concat [ replicate (VL.segLen s) (L.IntV si)
+                                         | (s, si) <- zip segs [1..]
+                                         ]
 
     vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         -- We have to use synthetic rownum-generated order and keys
