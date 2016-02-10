@@ -69,11 +69,15 @@ inferKeysNullOp op =
         -- FIXME check all combinations of columns for uniqueness
         LitTable (vals, schema)  -> S.fromList
                                     $ map (ss . snd)
-                                    $ filter (isUnique . fst)
+                                    $ filter (isKey . fst)
                                     $ zip (transpose vals) (map fst schema)
           where
-            isUnique :: [AVal] -> Bool
-            isUnique vs = (length $ nub vs) == (length vs)
+            isKey :: [AVal] -> Bool
+            isKey vs = not $ hasDuplicates $ sort vs
+
+            hasDuplicates :: [AVal] -> Bool
+            hasDuplicates (v1:v2:vs) = v1 == v2 || hasDuplicates (v2:vs)
+            hasDuplicates _          = False
 
         TableRef (_, _, keys) -> S.fromList $ map (\(Key k) -> ls k) keys
 
