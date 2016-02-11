@@ -1074,11 +1074,6 @@ instance VL.VectorAlgebra TableAlgebra where
         qi <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
         return $ TADVec qi o k (VecRef $ unKey k) i
 
-    vecUnsegment (TADVec q o k _ i) = do
-        let constRefProj = [ eP (rc 1) (ConstE $ int 1) ]
-        qi <- proj (ordProj o ++ keyProj k ++ constRefProj ++ itemProj i) q
-        return $ TADVec qi o k (VecRef 1) i
-
     vecNest (TADVec q o k _ i) = do
         qo <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
         let constRef = [eP (rc 1) (ConstE (int 1))]
