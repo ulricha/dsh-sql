@@ -12,7 +12,6 @@ module Database.DSH.Backend.Sql.VectorAlgebra
     ) where
 
 import           Control.Exception.Base
-import qualified Data.Foldable                    as F
 import           Data.List                        (transpose)
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as N
@@ -834,7 +833,7 @@ instance VL.VectorAlgebra TableAlgebra where
             litSchema = [(rc 1, intT), (kc 1, intT)]
                         ++
                         [ (ic c, algTy t) | c <- [1..] | t <- tys ]
-            cols   = refCol : keyCol : map F.toList (VL.vectorCols tys segments)
+            cols   = refCol : keyCol : VL.vectorCols tys segments
             rows   = transpose cols
 
         qr <- projM ([mP (oc 1) (kc 1), cP (kc 1), cP (rc 1)] ++ itemProj i)
