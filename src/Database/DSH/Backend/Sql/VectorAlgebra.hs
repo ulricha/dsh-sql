@@ -455,8 +455,9 @@ instance VL.VectorAlgebra TableAlgebra where
                , TASVec
                )
 
-    -- Implement per-segment sorting. Note that we use relative per-segment
-    -- order and do not establish a global per-vector order of tuples.
+    -- Per-segment sorting is no different from regular sorting
+    -- because we require only relative per-segment order in inner
+    -- vectors.
     vecSortS sortExprs (TADVec q o k r i) = do
         let o'       = VecOrder (map (const Asc) sortExprs) <> o
             -- Include the old order columns. This implements stable
@@ -656,38 +657,21 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qd o k r i
 
-    -- Group and aggregate each segment individually
-    vecGroupAggr groupExprs aggrFuns (TADVec q _ _ r _) = do
+    vecGroupAggr groupExprs aggrFuns (TADVec q _ _ _ _) = do
         let gl = length groupExprs
-
-        let -- Under the per-segment order regime, we need to specify the order for
-            -- each segment of the input individually. Therefore, we can use the
-            -- grouping keys for each segment.
-            o' = VecOrder $ replicate gl Asc
-
-            -- Grouping keys are keys for each individual segment. By combining
-            -- them with segment identifiers, we obtain a key that is valid for
-            -- the complete vector.
-            k' = VecKey $ unRef r + gl
-
-            -- We keep the segment structure of the original input vector.
-            r' = r
-
+        let o' = VecOrder $ replicate gl Asc
+            k' = VecKey gl
+            r' = VecRef 0
             i' = VecItems $ length groupExprs + N.length aggrFuns
 
-        let parts = [ cP (rc c) | c <- [1..unRef r] ]
-                    ++
-                    [ eP (ic c) (taExpr e) | e <- groupExprs | c <- [1..] ]
+        let parts = [ eP (ic c) (taExpr e) | e <- groupExprs | c <- [1..]]
 
             aggrs = [ (aggrFun a, ic i) | a <- N.toList aggrFuns | i <- [gl+1..] ]
 
-        let ordProjs = [ mP (oc c) (ic c) | c <- [1..gl] ]
-            keyProjs = [ mP (kc c) (rc c) | c <- [1..unRef r] ]
-                       ++
-                       [ mP (kc $ unRef r + c) (ic c) | c <- [1..gl] ]
-            refProjs = [ cP (rc c) | c <- [1..unRef r] ]
+        let ordProjs = [ mP (oc c) (ic c) | c <- [1..unItems i'] ]
+            keyProjs = [ mP (kc c) (ic c) | c <- [1..unItems i'] ]
 
-        qa <- projM (ordProjs ++ keyProjs ++ refProjs ++ itemProj i')
+        qa <- projM (ordProjs ++ keyProjs ++ itemProj i')
               $ aggr aggrs parts q
 
         return $ TADVec qa o' k' r' i'
@@ -809,7 +793,7 @@ instance VL.VectorAlgebra TableAlgebra where
         return $ TADVec qp o k r (VecItems $ length items)
 
     vecTableRef tableName schema = do
-        q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj ++ baseRefProj)
+        q <- projM (baseKeyProj ++ baseOrdProj ++ baseItemProj)
              $ dbTable tableName taColumns taKeys
         return $ TADVec q order key ref items
 
@@ -831,12 +815,11 @@ instance VL.VectorAlgebra TableAlgebra where
                              | c <- N.toList baseKeyCols
                              ]
         baseItemProj = [ mP (ic i) c | i <- [1..] | (c, _) <- taColumns ]
-        baseRefProj  = [ eP (rc 1) (ConstE $ int 1) ]
 
         items = VecItems $ N.length $ L.tableCols schema
         order = VecOrder $ const Asc <$> N.toList baseKeyCols
         key   = VecKey $ N.length baseKeyCols
-        ref   = VecRef 1
+        ref   = VecRef 0
 
     vecLit tys frame segments = do
         let o = VecOrder [Asc]
