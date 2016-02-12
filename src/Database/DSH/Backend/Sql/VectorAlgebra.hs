@@ -1098,10 +1098,10 @@ instance VL.VectorAlgebra TableAlgebra where
         return $ TADVec qi o k (VecRef 1) i
 
     vecNest (TADVec q o k _ i) = do
-        qo <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
+        qo <- litTable' [[int 1, int 1, int 1]] [(oc 1, intT), (kc 1, intT), (rc 1, intT)]
         let constRef = [eP (rc 1) (ConstE (int 1))]
         qi <- proj (ordProj o ++ keyProj k ++ constRef ++ itemProj i) q
-        return ( TADVec qo (VecOrder [Asc]) (VecKey 1) (VecRef 0) (VecItems 0)
+        return ( TADVec qo (VecOrder [Asc]) (VecKey 1) (VecRef 1) (VecItems 0)
                , TADVec qi o k (VecRef 1) i
                )
 
