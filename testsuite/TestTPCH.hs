@@ -161,6 +161,19 @@ q6Test = makeEqAssertion "q6" q6Default res
   where
     res = 123141078.23
 
+q7Test :: Backend c => c -> H.Assertion
+q7Test = makeEqAssertion "q7" q7Default res
+  where
+    res = [ (("FRANCE", "GERMANY", 1995), 54639732.7336)
+          , (("FRANCE", "GERMANY", 1996), 54633083.3076)
+          , (("GERMANY", "FRANCE", 1995), 52531746.6697)
+          , (("GERMANY", "FRANCE", 1996), 52520549.0224) ]
+
+q8Test :: Backend c => c -> H.Assertion
+q8Test = makeEqAssertion "q8" q8Default res
+  where
+    res = [(1995, 0.03443589040665479743), (1996, 0.04148552129353032075)]
+
 q15Test :: Backend c => c -> H.Assertion
 q15Test = makeEqAssertion "q15" q15Default res
   where
