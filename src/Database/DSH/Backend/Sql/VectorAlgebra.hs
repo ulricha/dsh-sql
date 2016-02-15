@@ -12,6 +12,8 @@ module Database.DSH.Backend.Sql.VectorAlgebra
     ) where
 
 import           Control.Exception.Base
+import qualified Data.Foldable                    as F
+import           Data.List                        (transpose)
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as N
 import           Data.Monoid                      hiding (All, Any, Sum)
@@ -425,15 +427,6 @@ instance VL.VectorAlgebra TableAlgebra where
         qw <- winFun (winCol, wfun) [] (synthOrder o) (Just frameSpec) q
         return $ TADVec qw o k r (i <> VecItems 1)
 
-    vecUnique (TADVec q o k r i) = do
-        -- Create groups based on the items and select the first
-        -- member of each group
-        qu <- projM (ordProj o ++ keyProj k ++ refProj r ++ itemProj i)
-              $ selectM (BinAppE Eq (ColE soc) (ConstE $ VInt 1))
-              $ rownum soc (ordCols o) (map ColE $ itemCols i) q
-
-        return $ TADVec qu o k r i
-
     vecUniqueS (TADVec q o k r i) = do
         -- Create per-segment groups based on the items and select the
         -- first member of each group
@@ -442,13 +435,6 @@ instance VL.VectorAlgebra TableAlgebra where
               $ rownum soc (ordCols o) (map ColE $ refCols r ++ itemCols i) q
 
         return $ TADVec qu o k r i
-
-    vecNumber (TADVec q o@(VecOrder ds) k r i) = do
-        let i' = VecItems (unItems i + 1)
-            nc = ic (unItems i + 1)
-
-        qn <- rownum' nc [ (ColE c, d) | c <- ordCols o | d <- ds ] [] q
-        return $ TADVec qn o k r i'
 
     -- FIXME we might have key order for inner vectors. include the
     -- key here.
@@ -486,34 +472,6 @@ instance VL.VectorAlgebra TableAlgebra where
                , TASVec
                )
 
-    -- Per-segment sorting is no different from regular sorting
-    -- because we require only relative per-segment order in inner
-    -- vectors.
-    vecSortS = VL.vecSort
-
-    vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
-        let o = o1 <> o2   -- New order is defined by both left and right
-            k = k1 <> k2   -- New key is defined by both left and right
-
-            -- FIXME we should be able to statically tell that
-            -- argument vectors of thetajoin do not have
-            -- (non-constant) ref columns
-            r = r1         -- The left vector defines the reference
-            i = i1 <> i2   -- We need items from left and right
-
-        qj  <- projM (vecProj o k r i)
-               $ thetaJoinM (joinPredicate i1 p)
-                     (return q1)
-                     (proj (shiftAll v1 v2) q2)
-
-        qp1 <- proj (prodTransProjLeft k1 k2) qj
-        qp2 <- proj (prodTransProjRight k1 k2) qj
-
-        return ( TADVec qj o k r i
-               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
-               )
-
     vecThetaJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
@@ -522,29 +480,6 @@ instance VL.VectorAlgebra TableAlgebra where
 
         qj  <- projM (vecProj o k r i)
                $ thetaJoinM (refJoinPred r1 ++ joinPredicate i1 p)
-                     (return q1)
-                     (proj (shiftAll v1 v2) q2)
-
-        qp1 <- proj (prodTransProjLeft k1 k2) qj
-        qp2 <- proj (prodTransProjRight k1 k2) qj
-
-        return ( TADVec qj o k r i
-               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
-               )
-
-    vecCartProduct v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
-        let o = o1 <> o2   -- New order is defined by both left and right
-            k = k1 <> k2   -- New key is defined by both left and right
-
-            -- FIXME we should be able to statically tell that
-            -- argument vectors of thetajoin do not have
-            -- (non-constant) ref columns
-            r = r1         -- The left vector defines the reference
-            i = i1 <> i2   -- We need items from left and right
-
-        qj  <- projM (vecProj o k r i)
-               $ crossM
                      (return q1)
                      (proj (shiftAll v1 v2) q2)
 
@@ -575,22 +510,6 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecSemiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
-        let o = o1
-            k = k1
-            r = r1
-            i = i1
-
-        qj <- semiJoinM (joinPredicate i1 p)
-                    (return q1)
-                    (proj (shiftAll v1 v2) q2)
-
-        qf <- proj (filterProj k1) qj
-
-        return ( TADVec qj o k r i
-               , TAFVec qf (VecFilter $ unKey k1)
-               )
-
     vecSemiJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
@@ -598,22 +517,6 @@ instance VL.VectorAlgebra TableAlgebra where
             i = i1
 
         qj <- semiJoinM (refJoinPred r1 ++ joinPredicate i1 p)
-                    (return q1)
-                    (proj (shiftAll v1 v2) q2)
-
-        qf <- proj (filterProj k1) qj
-
-        return ( TADVec qj o k r i
-               , TAFVec qf (VecFilter $ unKey k1)
-               )
-
-    vecAntiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
-        let o = o1
-            k = k1
-            r = r1
-            i = i1
-
-        qj <- antiJoinM (joinPredicate i1 p)
                     (return q1)
                     (proj (shiftAll v1 v2) q2)
 
@@ -639,25 +542,6 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qf (VecFilter $ unKey k1)
                )
 
-    vecNestJoin p v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
-        let o = o1 <> o2   -- New order is defined by both left and right
-            k = k1 <> k2   -- New key is defined by both left and right
-            r = keyRef k1  -- nesting operator: left key defines reference
-            i = i1 <> i2   -- We need items from left and right
-
-        qj  <- projM (ordProj o ++ keyProj k ++ keyRefProj k1 ++ itemProj i)
-               $ thetaJoinM (joinPredicate i1 p)
-                     (return q1)
-                     (proj (shiftAll v1 v2) q2)
-
-        qp1 <- proj (prodTransProjLeft k1 k2) qj
-        qp2 <- proj (prodTransProjRight k1 k2) qj
-
-        return ( TADVec qj o k r i
-               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
-               )
-
     vecNestJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
@@ -673,23 +557,6 @@ instance VL.VectorAlgebra TableAlgebra where
         qp2 <- proj (prodTransProjRight k1 k2) qj
 
         return ( TADVec qd o k r i
-               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
-               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
-               )
-
-    vecNestProduct v1@(TADVec q1 o1 k1 _ i1) v2@(TADVec q2 o2 k2 _ i2) = do
-        let o = o1 <> o2   -- New order is defined by both left and right
-            k = k1 <> k2   -- New key is defined by both left and right
-            r = keyRef k1  -- nesting operator: left key defines reference
-            i = i1 <> i2   -- We need items from left and right
-
-        qj  <- projM (ordProj o ++ keyProj k ++ keyRefProj k1 ++ itemProj i)
-               $ crossM (return q1) (proj (shiftAll v1 v2) q2)
-
-        qp1 <- proj (prodTransProjLeft k1 k2) qj
-        qp2 <- proj (prodTransProjRight k1 k2) qj
-
-        return ( TADVec qj o k r i
                , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
@@ -825,46 +692,6 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qa o' k' r' i'
 
-    vecGroup groupExprs (TADVec q o k r i) = do
-        let gl = length groupExprs
-        let o1 = VecOrder (map (const Asc) groupExprs)
-            k1 = VecKey gl
-            -- NOTE: empty seg
-            r1 = VecRef 0
-            i1 = VecItems gl
-
-        let o2 = o
-            k2 = k
-            r2 = VecRef gl
-            i2 = i
-
-        -- Apply the grouping expressions
-        let groupCols  = [ gc c | c <- [1..] | _ <- groupExprs ]
-            groupProj  = [ eP g (taExpr ge) | g <- groupCols | ge <- groupExprs ]
-
-        qg <- proj (vecProj o k r i ++ groupProj) q
-
-        -- Generate the outer vector: one tuple per distinct values of
-        -- the grouping columns.
-        let outerKeyProj = [ mP (kc c) g | c <- [1..] | g <- groupCols ]
-            outerOrdProj = [ mP (oc c) g | c <- [1..] | g <- groupCols ]
-            outerItemProj = [ mP (ic c) g | c <- [1..] | g <- groupCols ]
-
-        qo <- projM (outerOrdProj ++ outerKeyProj ++ outerItemProj)
-              $ distinctM
-              $ proj [ cP g | g <- groupCols ] qg
-
-        -- Generate the inner vector that references the groups in the
-        -- outer vector.
-        let innerRefProj = [ mP (rc c) g | c <- [1..] | g <- groupCols ]
-
-        qi <- proj (ordProj o ++ keyProj k ++ innerRefProj ++ itemProj i) qg
-
-        return ( TADVec qo o1 k1 r1 i1
-               , TADVec qi o2 k2 r2 i2
-               , TASVec
-               )
-
     vecGroupS groupExprs (TADVec q o k r i) = do
         let gl = length groupExprs
         let o1 = VecOrder $ replicate gl Asc
@@ -985,18 +812,38 @@ instance VL.VectorAlgebra TableAlgebra where
         key   = VecKey $ N.length baseKeyCols
         ref   = VecRef 1
 
-    vecLit tys vs = do
+    vecLit tys frame segments = do
         let o = VecOrder [Asc]
             k = VecKey 1
             r = VecRef 1
             i = VecItems (length tys)
-        let litSchema = [(rc 1, intT), (kc 1, intT)]
+
+        let refCol = mkRefCol segments
+            keyCol = map (L.IntV . snd) $ zip refCol [1..]
+            -- The schema for a vector literal consists of key and ref columns
+            -- and all payload columns.
+            litSchema = [(rc 1, intT), (kc 1, intT)]
                         ++
                         [ (ic c, algTy t) | c <- [1..] | t <- tys ]
+            cols   = refCol : keyCol : map F.toList (VL.vectorCols tys segments)
+            rows   = transpose cols
+
         qr <- projM ([mP (oc 1) (kc 1), cP (kc 1), cP (rc 1)] ++ itemProj i)
-              $ litTable' (map (map algVal) vs) litSchema
+              $ litTable' (map (map algVal) rows) litSchema
         return $ TADVec qr o k r i
 
+      where
+        -- Create a ref column with the proper length from the segment
+        -- description.
+        mkRefCol (VL.UnitSeg _) = replicate (VL.frameLen frame) (L.IntV 1)
+        -- For a vector with multiple segments, we enumerate the segments to get
+        -- segment identifiers and replicate those according to the length of
+        -- the segment. Note that segments also contain empty segments, i.e.
+        -- every segment identifier is obtained from the list of segments and
+        -- matches the key in the outer vector.
+        mkRefCol (VL.Segs segs) = concat [ replicate (VL.segLen s) (L.IntV si)
+                                         | (s, si) <- zip segs [1..]
+                                         ]
 
     vecAppendS (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         -- We have to use synthetic rownum-generated order and keys
@@ -1174,6 +1021,11 @@ instance VL.VectorAlgebra TableAlgebra where
         let mapRefProj = [ mP (rc c) (kc c) | c <- [1..unKey k]]
         qi <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
         return $ TADVec qi o k (VecRef $ unKey k) i
+
+    vecUnsegment (TADVec q o k _ i) = do
+        let constRefProj = [ eP (rc 1) (ConstE $ int 1) ]
+        qi <- proj (ordProj o ++ keyProj k ++ constRefProj ++ itemProj i) q
+        return $ TADVec qi o k (VecRef 1) i
 
     vecNest (TADVec q o k _ i) = do
         qo <- litTable' [[int 1, int 1, int 1]] [(oc 1, intT), (kc 1, intT), (rc 1, intT)]
