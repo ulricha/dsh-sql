@@ -919,32 +919,6 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qr (VecFilter $ unKey k)
                )
 
-    vecZip (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 _ i2) = do
-        let -- The result vector uses synthetic rownum-generated order
-            -- and keys
-            o = VecOrder [Asc]
-            k = VecKey 1
-            r = r1
-            i = i1 <> i2
-
-        qj <- thetaJoinM [(ColE lsoc, ColE rsoc, EqJ)]
-                  (rownum' lsoc (synthOrder o1) [] q1)
-                  (projM ([cP rsoc] ++ shiftKey k1 k2 ++ shiftItems i1 i2)
-                   $ rownum' rsoc (synthOrder o2) [] q2)
-
-        let keyProj1 = mP (dc 1) lsoc : [ mP (sc c) (kc c) | c <- [1..unKey k1]]
-            keyProj2 = mP (dc 1) lsoc
-                       :
-                       [ mP (sc c) (kc $ c + unKey k1) | c <- [1..unKey k2] ]
-        qk1 <- proj keyProj1 qj
-        qk2 <- proj keyProj2 qj
-        qd  <- proj ([mP (oc 1) lsoc, mP (kc 1) lsoc] ++ refProj r1 ++ itemProj i) qj
-
-        return ( TADVec qd o k r i
-               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 1)
-               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 1)
-               )
-
     vecZipS (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         let -- The result vector uses synthetic rownum-generated
             -- per-segment order. As key, we can simply use the key
@@ -1023,50 +997,6 @@ instance VL.VectorAlgebra TableAlgebra where
               $ litTable' (map (map algVal) vs) litSchema
         return $ TADVec qr o k r i
 
-
-    vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
-        -- We have to use synthetic rownum-generated order and keys
-        -- because left and right inputs might have non-compatible
-        -- order and keys.
-
-        -- Create synthetic order keys based on the original order
-        -- columns and a marker column for left and right inputs.
-        qs1 <- projM ([eP usc (ConstE $ VInt 1), cP soc]
-                      ++ ordProj o1 ++ keyProj k1 ++ refProj r1 ++ itemProj i1)
-               $ rownum' soc (synthOrder o1) [] q1
-
-        -- Generate a rekeying vector that maps old keys to new synthetic ones.
-        qk1 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
-                     ++
-                     keySrcProj k1) qs1
-
-        -- Generate the union input for the left side: We use the
-        -- marker column together with the rownum-generated values as
-        -- order and keys.
-        qu1 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
-                     ++ refProj r1 ++ itemProj i1)
-                    qs1
-
-        -- Do the same for the right input.
-        qs2 <- projM ([eP usc (ConstE $ VInt 2), cP soc]
-                      ++ ordProj o2 ++ keyProj k2 ++ refProj r2 ++ itemProj i2)
-               $ rownum' soc (synthOrder o2) [] q2
-        qk2 <- proj ([mP (dc 1) usc, mP (dc 2) soc]
-                     ++
-                     keySrcProj k2) qs2
-
-        qu2 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
-                     ++ refProj r2 ++ itemProj i2)
-                    qs2
-
-        -- With synthetic order and key values, both inputs are
-        -- schema-compatible and can be used in a union.
-        qu <- qu1 `union` qu2
-
-        return ( TADVec qu (VecOrder [Asc, Asc]) (VecKey 2) r1 i1
-               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst 2)
-               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst 2)
-               )
 
     vecAppendS (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         -- We have to use synthetic rownum-generated order and keys
@@ -1246,10 +1176,10 @@ instance VL.VectorAlgebra TableAlgebra where
         return $ TADVec qi o k (VecRef $ unKey k) i
 
     vecNest (TADVec q o k _ i) = do
-        qo <- litTable' [[int 1, int 1]] [(oc 1, intT), (kc 1, intT)]
+        qo <- litTable' [[int 1, int 1, int 1]] [(oc 1, intT), (kc 1, intT), (rc 1, intT)]
         let constRef = [eP (rc 1) (ConstE (int 1))]
         qi <- proj (ordProj o ++ keyProj k ++ constRef ++ itemProj i) q
-        return ( TADVec qo (VecOrder [Asc]) (VecKey 1) (VecRef 0) (VecItems 0)
+        return ( TADVec qo (VecOrder [Asc]) (VecKey 1) (VecRef 1) (VecItems 0)
                , TADVec qi o k (VecRef 1) i
                )
 
