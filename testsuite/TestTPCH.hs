@@ -7,6 +7,8 @@
 -- expected result.
 module Main where
 
+import           Debug.Trace
+
 import           System.Environment
 import           System.Exit
 
@@ -34,20 +36,23 @@ eps = 0.01
 stripWSSuffix :: T.Text -> T.Text
 stripWSSuffix = T.dropWhileEnd (== ' ')
 
-class RoughlyEq a where
+
+(~===) :: (RoughlyEq a, Show a) => a -> a -> Bool
+a ~=== b | a ~== b    = True
+        | otherwise = trace (show a ++ " /= " ++ show b) False
+
+class Eq a => RoughlyEq a where
     (~==) :: a -> a -> Bool
+    (~==) = (==)
 
 instance RoughlyEq T.Text where
     a ~== b = stripWSSuffix a == stripWSSuffix b
 
 instance RoughlyEq Integer where
-    (~==) = (==)
 
 instance RoughlyEq Char where
-    (~==) = (==)
 
 instance RoughlyEq () where
-    (~==) = (==)
 
 instance RoughlyEq Double where
     a ~== b = abs (a - b) < eps
@@ -56,10 +61,9 @@ instance RoughlyEq Decimal where
     a ~== b = abs (a - b) < eps
 
 instance RoughlyEq Q.Day where
-    (~==) = (==)
 
-instance RoughlyEq a => RoughlyEq [a] where
-    as ~== bs = length as == length bs && and (zipWith (~==) as bs)
+instance (RoughlyEq a, Show a) => RoughlyEq [a] where
+    as ~== bs = length as == length bs && and (zipWith (~===) as bs)
 
 instance (RoughlyEq a, RoughlyEq b ,RoughlyEq c, RoughlyEq d, RoughlyEq e, RoughlyEq f, RoughlyEq g, RoughlyEq h) => RoughlyEq (a, b, c, d, e, f, g, h) where
     (a, b, c, d, e, f, g, h) ~== (a', b', c', d', e', f', g', h') = a ~== a' && b ~== b' && c ~== c' && d ~== d' && e ~== e' && f ~== f' && g ~== g' && h ~== h'
@@ -81,7 +85,7 @@ makeEqAssertion :: (Show a, RoughlyEq a, Q.QA a, Backend c)
                 -> H.Assertion
 makeEqAssertion msg q expRes conn = do
     actualRes <- runQ conn q
-    H.assertBool msg $ actualRes ~== expRes
+    H.assertBool msg $ actualRes ~=== expRes
 
 makePredAssertion :: (Show a, RoughlyEq a, Q.QA a, Backend c)
                   => String
@@ -105,8 +109,8 @@ q1Test = makeEqAssertion "q1" q1Default res
 q2Test :: Backend c => c -> H.Assertion
 q2Test = makePredAssertion "q2" q2Default [p1, p2]
   where
-    p1 xs = take 4 xs  ~== r1
-    p2 xs = drop (length xs - 4) xs ~== r2
+    p1 xs = take 4 xs ~=== r1
+    p2 xs = drop (length xs - 4) xs ~=== r2
 
     r1 = [ (9938.53, "Supplier#000005359","UNITED KINGDOM",185358,"Manufacturer#4","QKuHYh,vZGiwu2FWEJoLDx04","33-429-790-6131","uriously regular requests hag")
          , (9937.84, "Supplier#000005969","ROMANIA",108438,"Manufacturer#1","ANDENSOSmk,miq23Xfb5RWt6dvUcvt6Qa","29-520-692-3537","efully express instructions. regular requests against the slyly fin")
@@ -202,8 +206,8 @@ q11Test :: Backend c => c -> H.Assertion
 q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
   where
     p1 xs = length xs == 1048
-    p2 xs = take 10 xs ~== r1
-    p3 xs = drop (length xs - 4) xs ~== r2
+    p2 xs = take 10 xs ~=== r1
+    p3 xs = drop (length xs - 4) xs ~=== r2
 
     r1 = [ (129760, 17538456.86)
          , (166726, 16503353.92)
@@ -221,6 +225,11 @@ q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
          , (72073, 7877736.11)
          , (5182, 7874521.73) ]
 
+q12Test :: Backend c => c -> H.Assertion
+q12Test = makeEqAssertion "q12" q12Default res
+  where
+    res = undefined
+
 q15Test :: Backend c => c -> H.Assertion
 q15Test = makeEqAssertion "q15" q15Default res
   where
@@ -230,8 +239,8 @@ q21Test :: Backend c => c -> H.Assertion
 q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
   where
     p1 xs = length xs == 100
-    p2 xs = take 4 xs ~== r1
-    p3 xs = drop (length xs - 4) xs ~== r2
+    p2 xs = take 4 xs ~=== r1
+    p3 xs = drop (length xs - 4) xs ~=== r2
 
     r1 = [ ("Supplier#000002829", 20)
          , ("Supplier#000005808", 18)
