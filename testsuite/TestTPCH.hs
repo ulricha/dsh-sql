@@ -203,7 +203,7 @@ q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
   where
     p1 xs = length xs == 1048
     p2 xs = take 10 xs ~== r1
-    p2 xs = drop (length xs - 4) ~== r2
+    p3 xs = drop (length xs - 4) ~== r2
 
     r1 = [ (129760, 17538456.86)
          , (166726, 16503353.92)
