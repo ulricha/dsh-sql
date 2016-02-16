@@ -196,7 +196,7 @@ q10Test = makeEqAssertion "q10" q10Default res
           , (142549, "Customer#000142549", 563537.2368, 5085.99, "INDONESIA", "ChqEoK43OysjdHbtKCp6dKqjNyvvi9", "19-955-562-2398", "sleep pending courts. ironic deposits against the carefully unusual platelets cajole carefully express accounts.")
           , (146149, "Customer#000146149", 557254.9865, 1791.55, "ROMANIA", "s87fvzFQpU", "29-744-164-6487", "of the slyly silent accounts. quickly final accounts across the")
           , (52528, "Customer#000052528", 556397.3509, 551.79, "ARGENTINA", "NFztyTOR10UOJ", "11-208-192-3205", "deposits hinder. blithely pending asymptotes breach slyly regular re")
-          , (23431, "Customer#000023431", 554269.5360, 3381.86, "ROMANIA", "HgiV0phqhaIa9aydNoIlb", "29-915-458-2654", "nusual, even instructions: furiously stealthy nm")]
+          , (23431, "Customer#000023431", 554269.5360, 3381.86, "ROMANIA", "HgiV0phqhaIa9aydNoIlb", "29-915-458-2654", "nusual, even instructions: furiously stealthy n")]
 
 q11Test :: Backend c => c -> H.Assertion
 q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
