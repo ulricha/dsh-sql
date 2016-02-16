@@ -203,7 +203,7 @@ q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
   where
     p1 xs = length xs == 1048
     p2 xs = take 10 xs ~== r1
-    p3 xs = drop (length xs - 4) ~== r2
+    p3 xs = drop (length xs - 4) xs ~== r2
 
     r1 = [ (129760, 17538456.86)
          , (166726, 16503353.92)
@@ -220,6 +220,11 @@ q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
          , (51968, 7879102.21)
          , (72073, 7877736.11)
          , (5182, 7874521.73) ]
+
+q15Test :: Backend c => c -> H.Assertion
+q15Test = makeEqAssertion "q15" q15Default res
+  where
+    res = [ (8449, ("Supplier#000008449", "Wp34zim9qYFbVctdW", "20-469-856-8873", 1772627.2087))]
 
 q21Test :: Backend c => c -> H.Assertion
 q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
@@ -247,7 +252,11 @@ tests c =
     , testCase "q3" (q3Test c)
     , testCase "q4" (q4Test c)
     , testCase "q5" (q5Test c)
-    , testCase "q6" (q5Test c)
+    , testCase "q6" (q6Test c)
+    , testCase "q7" (q7Test c)
+    , testCase "q8" (q8Test c)
+    , testCase "q10" (q10Test c)
+    , testCase "q11" (q11Test c)
     , testCase "q15" (q15Test c)
     -- test disabled: PostgreSQL currently (13-01-16) generates a really bad
     -- plan and the query does not run in acceptable time.
