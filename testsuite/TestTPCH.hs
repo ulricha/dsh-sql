@@ -228,7 +228,59 @@ q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
 q12Test :: Backend c => c -> H.Assertion
 q12Test = makeEqAssertion "q12" q12Default res
   where
-    res = undefined
+    res = [ ("MAIL", 6202, 9324)
+          , ("SHIP", 6200, 9262) ]
+
+q13Test :: Backend c => c -> H.Assertion
+q13Test = makeEqAssertion "q13" q13Default res
+  where
+    res = [ (0, 50005)
+          , (9, 6641)
+          , (10, 6532)
+          , (11, 6014)
+          , (8, 5937)
+          , (12, 5639)
+          , (13, 5024)
+          , (19, 4793)
+          , (7, 4687)
+          , (17, 4587)
+          , (18, 4529)
+          , (20, 4516)
+          , (15, 4505)
+          , (14, 4446)
+          , (16, 4273)
+          , (21, 4190)
+          , (22, 3623)
+          , (6, 3265)
+          , (23, 3225)
+          , (24, 2742)
+          , (25, 2086)
+          , (5, 1948)
+          , (26, 1612)
+          , (27, 1179)
+          , (4, 1007)
+          , (28, 893)
+          , (29, 593)
+          , (3, 415)
+          , (30, 376)
+          , (31, 226)
+          , (32, 148)
+          , (2, 134)
+          , (33, 75)
+          , (34, 50)
+          , (35, 37)
+          , (1, 17)
+          , (36, 14)
+          , (38, 5)
+          , (37, 5)
+          , (40, 4)
+          , (41, 2)
+          , (39, 1) ]
+
+q14Test :: Backend c => c -> H.Assertion
+q14Test = makeEqAssertion "q14" q14Default res
+  where
+    res = 16.3807786263955401
 
 q15Test :: Backend c => c -> H.Assertion
 q15Test = makeEqAssertion "q15" q15Default res
@@ -266,6 +318,9 @@ tests c =
     , testCase "q8" (q8Test c)
     , testCase "q10" (q10Test c)
     , testCase "q11" (q11Test c)
+    , testCase "q12" (q12Test c)
+    , testCase "q13" (q13Test c)
+    , testCase "q14" (q14Test c)
     , testCase "q15" (q15Test c)
     -- test disabled: PostgreSQL currently (13-01-16) generates a really bad
     -- plan and the query does not run in acceptable time.
