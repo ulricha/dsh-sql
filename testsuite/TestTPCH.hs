@@ -77,6 +77,9 @@ instance (RoughlyEq a, RoughlyEq b, RoughlyEq c) => RoughlyEq (a, b, c) where
 instance (RoughlyEq a, RoughlyEq b, RoughlyEq c, RoughlyEq d) => RoughlyEq (a, b, c, d) where
     (a, b, c, d) ~== (a', b', c', d') = a ~== a' && b ~== b' && c ~== c' && d ~== d'
 
+instance (RoughlyEq a, RoughlyEq b, RoughlyEq c, RoughlyEq d, RoughlyEq e) => RoughlyEq (a, b, c, d, e) where
+    (a, b, c, d, e) ~== (a', b', c', d', e') = a ~== a' && b ~== b' && c ~== c' && d ~== d' && e ~== e'
+
 makeEqAssertion :: (Show a, RoughlyEq a, Q.QA a, Backend c)
                 => String
                 -> Q.Q a
@@ -178,6 +181,45 @@ q8Test = makeEqAssertion "q8" q8Default res
   where
     res = [(1995, 0.03443589040665479743), (1996, 0.04148552129353032075)]
 
+q9Test :: Backend c => c -> H.Assertion
+q9Test = makePredAssertion "q9" q9Default [p1, p2, p3]
+  where
+    p1 xs = length xs == 175
+    p2 xs = take 19 xs ~== r1
+    p3 xs = drop (length xs - 11) xs ~== r2
+
+    r1 = [ ("ALGERIA", 1998, 27136900.1803)
+         , ("ALGERIA", 1997, 48611833.4962)
+         , ("ALGERIA", 1996, 48285482.6782)
+         , ("ALGERIA", 1995, 44402273.5999)
+         , ("ALGERIA", 1994, 48694008.0668)
+         , ("ALGERIA", 1993, 46044207.7838)
+         , ("ALGERIA", 1992, 45636849.4881)
+         , ("ARGENTINA", 1998, 28341663.7848)
+         , ("ARGENTINA", 1997, 47143964.1176)
+         , ("ARGENTINA", 1996, 45255278.6021)
+         , ("ARGENTINA", 1995, 45631769.2054)
+         , ("ARGENTINA", 1994, 48268856.3547)
+         , ("ARGENTINA", 1993, 48605593.6162)
+         , ("ARGENTINA", 1992, 46654240.7487)
+         , ("BRAZIL", 1998, 26527736.3960)
+         , ("BRAZIL", 1997, 45640660.7677)
+         , ("BRAZIL", 1996, 45090647.1630)
+         , ("BRAZIL", 1995, 44015888.5132)
+         , ("BRAZIL", 1994, 44854218.8932) ]
+
+    r2 = [ ("UNITED STATES", 1995, 48951591.6156)
+         , ("UNITED STATES", 1994, 45099092.0598)
+         , ("UNITED STATES", 1993, 46181600.5278)
+         , ("UNITED STATES", 1992, 46168214.0901)
+         , ("VIETNAM", 1998, 27281931.0011)
+         , ("VIETNAM", 1997, 48735914.1796)
+         , ("VIETNAM", 1996, 47824595.9040)
+         , ("VIETNAM", 1995, 48235135.8016)
+         , ("VIETNAM", 1994, 47729256.3324)
+         , ("VIETNAM", 1993, 45352676.8672)
+         , ("VIETNAM", 1992, 47846355.6485) ]
+
 q10Test :: Backend c => c -> H.Assertion
 q10Test = makeEqAssertion "q10" q10Default res
   where
@@ -217,8 +259,8 @@ q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
          , (139035, 15907078.34)
          , (9403, 15451755.62)
          , (154358, 15212937.88)
-         , ( 38823, 15064802.86)
-         , ( 85606, 15053957.15) ]
+         , (38823, 15064802.86)
+         , (85606, 15053957.15) ]
 
     r2 = [ (101674, 7879324.60)
          , (51968, 7879102.21)
@@ -287,6 +329,231 @@ q15Test = makeEqAssertion "q15" q15Default res
   where
     res = [ (8449, ("Supplier#000008449", "Wp34zim9qYFbVctdW", "20-469-856-8873", 1772627.2087))]
 
+q16Test :: Backend c => c -> H.Assertion
+q16Test = makePredAssertion "q16" q16Default [p1, p2, p3]
+  where
+    p1 xs = length xs == 18314
+    p2 xs = take 12 xs ~== r1
+    p3 xs = drop (length xs - 15) xs ~== r2
+
+    r1 = [ (("Brand#41", "MEDIUM BRUSHED TIN", 3), 28)
+         , (("Brand#54", "STANDARD BRUSHED COPPER", 14), 27)
+         , (("Brand#11", "STANDARD BRUSHED TIN", 23), 24)
+         , (("Brand#11", "STANDARD BURNISHED BRASS", 36), 24)
+         , (("Brand#15", "MEDIUM ANODIZED NICKEL", 3), 24)
+         , (("Brand#15", "SMALL ANODIZED BRASS", 45), 24)
+         , (("Brand#15", "SMALL BURNISHED NICKEL", 19), 24)
+         , (("Brand#21", "MEDIUM ANODIZED COPPER", 3), 24)
+         , (("Brand#22", "SMALL BRUSHED NICKEL", 3), 24)
+         , (("Brand#22", "SMALL BURNISHED BRASS", 19), 24)
+         , (("Brand#25", "MEDIUM BURNISHED COPPER ", 36), 24)
+         , (("Brand#31", "PROMO POLISHED COPPER", 36), 24) ]
+
+    r2 = [ (("Brand#11", "SMALL BRUSHED TIN", 19), 3)
+         , (("Brand#15", "LARGE PLATED NICKEL", 45), 3)
+         , (("Brand#15", "LARGE POLISHED NICKEL", 9), 3)
+         , (("Brand#21", "PROMO BURNISHED STEEL", 45), 3)
+         , (("Brand#22", "STANDARD PLATED STEEL", 23), 3)
+         , (("Brand#25", "LARGE PLATED STEEL", 19), 3)
+         , (("Brand#32", "STANDARD ANODIZED COPPER", 23), 3)
+         , (("Brand#33", "SMALL ANODIZED BRASS", 9), 3)
+         , (("Brand#35", "MEDIUM ANODIZED TIN", 19), 3)
+         , (("Brand#51", "SMALL PLATED BRASS", 23), 3)
+         , (("Brand#52", "MEDIUM BRUSHED BRASS", 45), 3)
+         , (("Brand#53", "MEDIUM BRUSHED TIN", 45), 3)
+         , (("Brand#54", "ECONOMY POLISHED BRASS", 9), 3)
+         , (("Brand#55", "PROMO PLATED BRASS", 19), 3)
+         , (("Brand#55", "STANDARD PLATED TIN", 49), 3) ]
+
+q17Test :: Backend c => c -> H.Assertion
+q17Test = makeEqAssertion "q17" q17Default res
+  where
+    res = 348406.05
+
+q18Test :: Backend c => c -> H.Assertion
+q18Test = makeEqAssertion "q18" q18Default res
+  where
+    res = [ (("Customer#000128120", 128120, 4722021, C.fromGregorian 1994 04 07, 544089.09), 323.00)
+          , (("Customer#000144617", 144617, 3043270, C.fromGregorian 1997 02 12, 530604.44), 317.00)
+          , (("Customer#000013940", 13940, 2232932, C.fromGregorian 1997 04 13, 522720.61), 304.00)
+          , (("Customer#000066790", 66790, 2199712, C.fromGregorian 1996 09 30, 515531.82), 327.00)
+          , (("Customer#000046435", 46435, 4745607, C.fromGregorian 1997 07 03, 508047.99), 309.00)
+          , (("Customer#000015272", 15272, 3883783, C.fromGregorian 1993 07 28, 500241.33), 302.00)
+          , (("Customer#000146608", 146608, 3342468, C.fromGregorian 1994 06 12, 499794.58), 303.00)
+          , (("Customer#000096103", 96103, 5984582, C.fromGregorian 1992 03 16, 494398.79), 312.00)
+          , (("Customer#000024341", 24341, 1474818, C.fromGregorian 1992 11 15, 491348.26), 302.00)
+          , (("Customer#000137446", 137446, 5489475, C.fromGregorian 1997 05 23, 487763.25), 311.00)
+          , (("Customer#000107590", 107590, 4267751, C.fromGregorian 1994 11 04, 485141.38), 301.00)
+          , (("Customer#000050008", 50008, 2366755, C.fromGregorian 1996 12 09, 483891.26), 302.00)
+          , (("Customer#000015619", 15619, 3767271, C.fromGregorian 1996 08 07, 480083.96), 318.00)
+          , (("Customer#000077260", 77260, 1436544, C.fromGregorian 1992 09 12, 479499.43), 307.00)
+          , (("Customer#000109379", 109379, 5746311, C.fromGregorian 1996 10 10, 478064.11), 302.00)
+          , (("Customer#000054602", 54602, 5832321, C.fromGregorian 1997 02 09, 471220.08), 307.00)
+          , (("Customer#000105995", 105995, 2096705, C.fromGregorian 1994 07 03, 469692.58), 307.00)
+          , (("Customer#000148885", 148885, 2942469, C.fromGregorian 1992 05 31, 469630.44), 313.00)
+          , (("Customer#000114586", 114586, 551136, C.fromGregorian 1993 05 19, 469605.59), 308.00)
+          , (("Customer#000105260", 105260, 5296167, C.fromGregorian 1996 09 06, 469360.57), 303.00)
+          , (("Customer#000147197", 147197, 1263015, C.fromGregorian 1997 02 02, 467149.67), 320.00)
+          , (("Customer#000064483", 64483, 2745894, C.fromGregorian 1996 07 04, 466991.35), 304.00)
+          , (("Customer#000136573", 136573, 2761378, C.fromGregorian 1996 05 31, 461282.73), 301.00)
+          , (("Customer#000016384", 16384, 502886, C.fromGregorian 1994 04 12, 458378.92), 312.00)
+          , (("Customer#000117919", 117919, 2869152, C.fromGregorian 1996 06 20, 456815.92), 317.00)
+          , (("Customer#000012251", 12251, 735366, C.fromGregorian 1993 11 24, 455107.26), 309.00)
+          , (("Customer#000120098", 120098, 1971680, C.fromGregorian 1995 06 14, 453451.23), 308.00)
+          , (("Customer#000066098", 66098, 5007490, C.fromGregorian 1992 08 07, 453436.16), 304.00)
+          , (("Customer#000117076", 117076, 4290656, C.fromGregorian 1997 02 05, 449545.85), 301.00)
+          , (("Customer#000129379", 129379, 4720454, C.fromGregorian 1997 06 07, 448665.79), 303.00)
+          , (("Customer#000126865", 126865, 4702759, C.fromGregorian 1994 11 07, 447606.65), 320.00)
+          , (("Customer#000088876", 88876, 983201, C.fromGregorian 1993 12 30, 446717.46), 304.00)
+          , (("Customer#000036619", 36619, 4806726, C.fromGregorian 1995 01 17, 446704.09), 328.00)
+          , (("Customer#000141823", 141823, 2806245, C.fromGregorian 1996 12 29, 446269.12), 310.00)
+          , (("Customer#000053029", 53029, 2662214, C.fromGregorian 1993 08 13, 446144.49), 302.00)
+          , (("Customer#000018188", 18188, 3037414, C.fromGregorian 1995 01 25, 443807.22), 308.00)
+          , (("Customer#000066533", 66533, 29158, C.fromGregorian 1995 10 21, 443576.50), 305.00)
+          , (("Customer#000037729", 37729, 4134341, C.fromGregorian 1995 06 29, 441082.97), 309.00)
+          , (("Customer#000003566", 3566, 2329187, C.fromGregorian 1998 01 04, 439803.36), 304.00)
+          , (("Customer#000045538", 45538, 4527553, C.fromGregorian 1994 05 22, 436275.31), 305.00)
+          , (("Customer#000081581", 81581, 4739650, C.fromGregorian 1995 11 04, 435405.90), 305.00)
+          , (("Customer#000119989", 119989, 1544643, C.fromGregorian 1997 09 20, 434568.25), 320.00)
+          , (("Customer#000003680", 3680, 3861123, C.fromGregorian 1998 07 03, 433525.97), 301.00)
+          , (("Customer#000113131", 113131, 967334, C.fromGregorian 1995 12 15, 432957.75), 301.00)
+          , (("Customer#000141098", 141098, 565574, C.fromGregorian 1995 09 24, 430986.69), 301.00)
+          , (("Customer#000093392", 93392, 5200102, C.fromGregorian 1997 01 22, 425487.51), 304.00)
+          , (("Customer#000015631", 15631, 1845057, C.fromGregorian 1994 05 12, 419879.59), 302.00)
+          , (("Customer#000112987", 112987, 4439686, C.fromGregorian 1996 09 17, 418161.49), 305.00)
+          , (("Customer#000012599", 12599, 4259524, C.fromGregorian 1998 02 12, 415200.61), 304.00)
+          , (("Customer#000105410", 105410, 4478371, C.fromGregorian 1996 03 05, 412754.51), 302.00)
+          , (("Customer#000149842", 149842, 5156581, C.fromGregorian 1994 05 30, 411329.35), 302.00)
+          , (("Customer#000010129", 10129, 5849444, C.fromGregorian 1994 03 21, 409129.85), 309.00)
+          , (("Customer#000069904", 69904, 1742403, C.fromGregorian 1996 10 19, 408513.00), 305.00)
+          , (("Customer#000017746", 17746, 6882, C.fromGregorian 1997 04 09, 408446.93), 303.00)
+          , (("Customer#000013072", 13072, 1481925, C.fromGregorian 1998 03 15, 399195.47), 301.00)
+          , (("Customer#000082441", 82441, 857959, C.fromGregorian 1994 02 07, 382579.74), 305.00)
+          , (("Customer#000088703", 88703, 2995076, C.fromGregorian 1994 01 30, 363812.12), 302.00) ]
+
+q19Test :: Backend c => c -> H.Assertion
+q19Test = makeEqAssertion "q19" q19Default res
+  where
+    res = 3083843.0578
+
+q20Test :: Backend c => c -> H.Assertion
+q20Test = makeEqAssertion "q20" q20Default res
+  where
+    res = [ ("Supplier#000000020", "iybAE,RmTymrZVYaFZva2SH,j")
+          , ("Supplier#000000091", "YV45D7TknOOZ7q9QxkyGUapU1oOWU6q3")
+          , ("Supplier#000000205", "rF uV8d0JNEk")
+          , ("Supplier#000000285", "Br7e1nnt1yxrw6ImgpJ7YdhFDjuBf")
+          , ("Supplier#000000287", "7a9SP7qW5Yku5PvSg")
+          , ("Supplier#000000354", "w8fOo5W,aS")
+          , ("Supplier#000000378", "FfbhyCxWvcPrO8ltp9")
+          , ("Supplier#000000402", "i9Sw4DoyMhzhKXCH9By,AYSgmD")
+          , ("Supplier#000000530", "0qwCMwobKY OcmLyfRXlagA8ukENJv,")
+          , ("Supplier#000000555", "TfB,a5bfl3Ah 3Z 74GqnNs6zKVGM")
+          , ("Supplier#000000640", "mvvtlQKsTOsJj5Ihk7,cq")
+          , ("Supplier#000000729", "pqck2ppy758TQpZCUAjPvlU55K3QjfL7Bi")
+          , ("Supplier#000000736", "l6i2nMwVuovfKnuVgaSGK2rDy65DlAFLegiL7")
+          , ("Supplier#000000761", "zlSLelQUj2XrvTTFnv7WAcYZGvvMTx882d4")
+          , ("Supplier#000000887", "urEaTejH5POADP2ARrf")
+          , ("Supplier#000000935", "ij98czM 2KzWe7dDTOxB8sq0UfCdvrX")
+          , ("Supplier#000000975", ",AC e,tBpNwKb5xMUzeohxlRn, hdZJo73gFQF8y")
+          , ("Supplier#000001263", "rQWr6nf8ZhB2TAiIDIvo5Io")
+          , ("Supplier#000001367", "42YSkFcAXMMcucsqeEefOE4HeCC")
+          , ("Supplier#000001426", "bPOCc086oFm8sLtS,fGrH")
+          , ("Supplier#000001446", "lch9HMNU1R7a0LIybsUodVknk6")
+          , ("Supplier#000001500", "wDmF5xLxtQch9ctVu,")
+          , ("Supplier#000001602", "uKNWIeafaM644")
+          , ("Supplier#000001626", "UhxNRzUu1dtFmp0")
+          , ("Supplier#000001682", "pXTkGxrTQVyH1Rr")
+          , ("Supplier#000001700", "7hMlCof1Y5zLFg")
+          , ("Supplier#000001726", "TeRY7TtTH24sEword7yAaSkjx8")
+          , ("Supplier#000001730", "Rc8e,1Pybn r6zo0VJIEiD0UD vhk")
+          , ("Supplier#000001746", "qWsendlOekQG1aW4uq06uQaCm51se8lirv7 hBRd")
+          , ("Supplier#000001806", "M934fuZSnLW")
+          , ("Supplier#000001855", "MWk6EAeozXb")
+          , ("Supplier#000001931", "FpJbMU2h6ZR2eBv8I9NIxF")
+          , ("Supplier#000002022", " dwebGX7Id2pc25YvY33")
+          , ("Supplier#000002036", "20ytTtVObjKUUI2WCB0A")
+          , ("Supplier#000002096", "kuxseyLtq QPLXxm9ZUrnB6Kkh92JtK5cQzzXNU")
+          , ("Supplier#000002117", "MRtkgKolHJ9Wh X9J,urANHKDzvjr")
+          , ("Supplier#000002204", "uYmlr46C06udCqanj0KiRsoTQakZsEyssL")
+          , ("Supplier#000002218", "nODZw5q4dx kp0K5")
+          , ("Supplier#000002243", "nSOEV3JeOU79")
+          , ("Supplier#000002245", "hz2qWXWVjOyKhqPYMoEwz6zFkrTaDM")
+          , ("Supplier#000002282", "ES21K9dxoW1I1TzWCj7ekdlNwSWnv1Z  6mQ,BKn")
+          , ("Supplier#000002303", "nCoWfpB6YOymbgOht7ltfklpkHl")
+          , ("Supplier#000002331", "WRh2w5WFvRg7Z0S1AvSvHCL")
+          , ("Supplier#000002373", "RzHSxOTQmElCjxIBiVA52Z JB58rJhPRylR")
+          , ("Supplier#000002419", "qydBQd14I5l5mVXa4fYY")
+          , ("Supplier#000002571", "JZUugz04c iJFLrlGsz9O N,W 1rVHNIReyq")
+          , ("Supplier#000002585", "CsPoKpw2QuTY4AV1NkWuttneIa4SN")
+          , ("Supplier#000002629", "0Bw,q5Zp8su9XrzoCngZ3cAEXZwZ")
+          , ("Supplier#000002721", "HVdFAN2JHMQSpKm")
+          , ("Supplier#000002730", "lIFxR4fzm31C6,muzJwl84z")
+          , ("Supplier#000002775", "yDclaDaBD4ihH")
+          , ("Supplier#000002799", "lwr, 6L3gdfc79PQut,4XO6nQsTJY63cAyYO")
+          , ("Supplier#000002934", "m,trBENywSArwg3DhB")
+          , ("Supplier#000002941", "Naddba 8YTEKekZyP0")
+          , ("Supplier#000003028", "jouzgX0WZjhNMWLaH4fy")
+          , ("Supplier#000003095", "HxON3jJhUi3zjt,r mTD")
+          , ("Supplier#000003143", "hdolgh608uTkHh7t6qfSqkifKaiFjnCH")
+          , ("Supplier#000003185", "hMa535Cbf2mj1Nw4OWOKWVrsK0VdDkJURrdjSIJe")
+          , ("Supplier#000003189", "DWdPxt7 RnkZv6VOByR0em")
+          , ("Supplier#000003201", "E87yws6I,t0qNs4QW7UzExKiJnJDZWue")
+          , ("Supplier#000003213", "pxrRP4irQ1VoyfQ,dTf3")
+          , ("Supplier#000003275", "9xO4nyJ2QJcX6vGf")
+          , ("Supplier#000003288", "EDdfNt7E5Uc,xLTupoIgYL4yY7ujh,")
+          , ("Supplier#000003314", "jnisU8MzqO4iUB3zsPcrysMw3DDUojS4q7LD")
+          , ("Supplier#000003373", "iy8VM48ynpc3N2OsBwAvhYakO2us9R1bi")
+          , ("Supplier#000003421", "Sh3dt9W5oeofFWovnFhrg,")
+          , ("Supplier#000003422", "DJoCEapUeBXoV1iYiCcPFQvzsTv2ZI960")
+          , ("Supplier#000003441", "zvFJIzS,oUuShHjpcX")
+          , ("Supplier#000003590", "sy79CMLxqb,Cbo")
+          , ("Supplier#000003607", "lNqFHQYjwSAkf")
+          , ("Supplier#000003625", "qY588W0Yk5iaUy1RXTgNrEKrMAjBYHcKs")
+          , ("Supplier#000003723", "jZEp0OEythCLcS OmJSrFtxJ66bMlzSp")
+          , ("Supplier#000003849", "KgbZEaRk,6Q3mWvwh6uptrs1KRUHg 0")
+          , ("Supplier#000003894", "vvGC rameLOk")
+          , ("Supplier#000003941", "Pmb05mQfBMS618O7WKqZJ 9vyv")
+          , ("Supplier#000004059", "umEYZSq9RJ2WEzdsv9meU8rmqwzVLRgiZwC")
+          , ("Supplier#000004207", "tF64pwiOM4IkWjN3mS,e06WuAjLx")
+          , ("Supplier#000004236", "dl,HPtJmGipxYsSqn9wmqkuWjst,mCeJ8O6T")
+          , ("Supplier#000004278", "bBddbpBxIVp Di9")
+          , ("Supplier#000004281", "1OwPHh Pgiyeus,iZS5eA23JDOipwk")
+          , ("Supplier#000004304", "hQCAz59k,HLlp2CKUrcBIL")
+          , ("Supplier#000004346", "S3076LEOwo")
+          , ("Supplier#000004406", "Ah0ZaLu6VwufPWUz,7kbXgYZhauEaHqGIg")
+          , ("Supplier#000004430", "yvSsKNSTL5HLXBET4luOsPNLxKzAMk")
+          , ("Supplier#000004527", "p pVXCnxgcklWF6A1o3OHY3qW6")
+          , ("Supplier#000004655", "67NqBc4 t3PG3F8aO IsqWNq4kGaPowYL")
+          , ("Supplier#000004851", "Rj,x6IgLT7kBL99nqp")
+          , ("Supplier#000004884", "42Z1uLye9nsn6aTGBNd dI8 x")
+          , ("Supplier#000004975", "GPq5PMKY6Wy")
+          , ("Supplier#000005076", "Xl7h9ifgvIHmqxFLgWfHK4Gjav BkP")
+          , ("Supplier#000005195", "Woi3b2ZaicPh ZSfu1EfXhE")
+          , ("Supplier#000005256", "Onc3t57VAMchm,pmoVLaU8bONni9NsuaM PzMMFz")
+          , ("Supplier#000005257", "f9g8SEHB7obMj3QXAjXS2vfYY22")
+          , ("Supplier#000005300", "gXG28YqpxU")
+          , ("Supplier#000005323", "tMCkdqbDoyNo8vMIkzjBqYexoRAuv,T6 qzcu")
+          , ("Supplier#000005386", "Ub6AAfHpWLWP")
+          , ("Supplier#000005426", "9Dz2OVT1q sb4BK71ljQ1XjPBYRPvO")
+          , ("Supplier#000005465", "63cYZenZBRZ613Q1FaoG0,smnC5zl9")
+          , ("Supplier#000005484", "saFdOR qW7AFY,3asPqiiAa11Mo22pCoN0BtPrKo")
+          , ("Supplier#000005505", "d2sbjG43KwMPX")
+          , ("Supplier#000005506", "On f5ypzoWgB")
+          , ("Supplier#000005631", "14TVrjlzo2SJEBYCDgpMwTlvwSqC")
+          , ("Supplier#000005642", "ZwKxAv3V40tW E8P7Qwu,zlu,kPsL")
+          , ("Supplier#000005686", "f2RBKec2T1NIi7yS M")
+          , ("Supplier#000005730", "5rkb0PSews HvxkL8JaD41UpnSF2cg8H1")
+          , ("Supplier#000005736", "2dq XTYhtYWSfp")
+          , ("Supplier#000005737", "dmEWcS32C3kx,d,B95 OmYn48")
+          , ("Supplier#000005797", ",o,OebwRbSDmVl9gN9fpWPCiqB UogvlSR")
+          , ("Supplier#000005875", "lK,sYiGzB94hSyHy9xvSZFbVQNCZe2LXZuGbS")
+          , ("Supplier#000005974", "REhR5jE,lLusQXvf54SwYySgsSSVFhu")
+          , ("Supplier#000006059", "4m0cv8MwJ9yX2vlwI Z")
+          , ("Supplier#000006065", "UiI2Cy3W4Tu5sLk LuvXLRy6KihlGv")
+          , ("Supplier#000006093", "KJNUg1odUT2wtCS2s6PrH3D6")
+          , ("Supplier#000004871", ",phpt6AWEnUS8t4Avb50rF") ]
+
 q21Test :: Backend c => c -> H.Assertion
 q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
   where
@@ -306,6 +573,17 @@ q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
          , ("Supplier#000002483", 12)
          ]
 
+q22Test :: Backend c => c -> H.Assertion
+q22Test = makeEqAssertion "q22" q22Default res
+  where
+    res = [ ("13", 888, 6737713.99)
+          , ("17", 861, 6460573.72)
+          , ("18", 964, 7236687.40)
+          , ("23", 892, 6701457.95)
+          , ("29", 948, 7158866.63)
+          , ("30", 909, 6808436.13)
+          , ("31", 922, 6806670.18) ]
+
 tests :: Backend c => c -> [F.Test]
 tests c =
     [ testCase "q1" (q1Test c)
@@ -316,15 +594,23 @@ tests c =
     , testCase "q6" (q6Test c)
     , testCase "q7" (q7Test c)
     , testCase "q8" (q8Test c)
+    , testCase "q9" (q9Test c)
     , testCase "q10" (q10Test c)
     , testCase "q11" (q11Test c)
     , testCase "q12" (q12Test c)
     , testCase "q13" (q13Test c)
     , testCase "q14" (q14Test c)
     , testCase "q15" (q15Test c)
-    -- test disabled: PostgreSQL currently (13-01-16) generates a really bad
+    , testCase "q16" (q16Test c)
+    , testCase "q17" (q17Test c)
+    , testCase "q18" (q18Test c)
+    -- test disabled: DSH unnesting fail.
+    -- , testCase "q19" (q19Test c)
+    -- tests disabled: PostgreSQL currently (13-01-16) generates a really bad
     -- plan and the query does not run in acceptable time.
+    -- , testCase "q20" (q20Test c)
     -- , testCase "q21" (q21Test c)
+    , testCase "q22" (q22Test c)
     ]
 
 main :: IO ()
