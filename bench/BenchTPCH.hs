@@ -60,8 +60,8 @@ benchmarks c =
         , benchmarkDSH "q13" c q13Default
         , benchmarkDSH "q14" c q14Default
         , benchmarkDSH "q15" c q15Default
-        , benchmarkDSH "q16" c q16
-        , benchmarkDSH "q17" c q17
+        , benchmarkDSH "q16" c q16Default
+        , benchmarkDSH "q17" c q17Default
         , benchmarkDSH "q18" c q18Default
         -- , benchmarkDSH "q19" c q19Default
         , benchmarkDSH "q20" c q20Default
