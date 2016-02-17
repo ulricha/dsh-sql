@@ -42,7 +42,7 @@ cleanupRules = [ stackedProject
                , pullProjectAggr
                , pullProjectSemiJoinLeft
                , pullProjectSemiJoinRight
-               , inlineProjectAggr
+               -- , inlineProjectAggr
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
                -- , duplicateSortingCriteriaSerialize
