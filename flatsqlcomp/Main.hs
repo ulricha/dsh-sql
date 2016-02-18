@@ -42,7 +42,7 @@ options =
            "Show help"
     ]
 
-printQueries :: Shape SqlCode -> IO ()
+printQueries :: Shape SqlVector -> IO ()
 printQueries shape = BL.hPut stdout (encode shape)
 
 main :: IO ()

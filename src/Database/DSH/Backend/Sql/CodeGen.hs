@@ -13,6 +13,7 @@ module Database.DSH.Backend.Sql.CodeGen
     ( sqlBackend
     , SqlBackend
     , SqlCode
+    , SqlVector
     , unSql
     , unwrapSql
     , comprehensionCodeGen
@@ -26,6 +27,7 @@ import           Database.HDBC.ODBC
 import           Control.Monad
 import           Control.Monad.State
 import           Data.Aeson
+import           Data.Aeson.TH
 import qualified Data.ByteString.Char8                    as BS
 import qualified Data.ByteString.Lex.Fractional           as BD
 import qualified Data.ByteString.Lex.Integral             as BI
@@ -77,6 +79,8 @@ data SqlVector = SqlVector
     , vecItems :: VecItems
     }
 
+deriveToJSON defaultOptions ''SqlVector
+
 instance RelationalVector SqlVector where
     rvKeyCols vec  = map kc [1..unKey (vecKey vec)]
     rvRefCols vec  = map rc [1..unRef (vecRef vec)]
@@ -109,8 +113,8 @@ generateSqlQueries taPlan = renderSql $ queryShape taPlan
     renderSql = fmap (\(TADVec q _ k r i) -> BC $ SqlVector (lookupNode q) k r i)
 
 -- | Generate SQL queries from a comprehension expression
-comprehensionCodeGen :: CL.Expr -> Shape SqlCode
-comprehensionCodeGen q = fmap (\(BC vec) -> vecCode vec) shape
+comprehensionCodeGen :: CL.Expr -> Shape SqlVector
+comprehensionCodeGen q = fmap (\(BC vec) -> vec) shape
   where
     shape = generateSqlQueries $ optimizeTA $ implementVectorOps $ compileOptQ q
 
