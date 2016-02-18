@@ -3,6 +3,7 @@
 module Database.DSH.Backend.Sql.Vector where
 
 import           Data.Aeson.TH
+import           Data.Aeson
 
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
@@ -29,10 +30,17 @@ instance Monoid VecKey where
     mempty = VecKey 0
     mappend (VecKey k1) (VecKey k2) = VecKey (k1 + k2)
 
+instance ToJSON VecKey where
+    toJSON (VecKey ks) = toJSON [ "k" ++ show k | k <- [1..ks] ]
+
 --------------------------------------------------------------------------------
 
 -- | Outer key reference columns
 newtype VecRef      = VecRef { unRef :: Int }
+
+-- FIXME use rc constructor
+instance ToJSON VecRef where
+    toJSON (VecRef rs) = toJSON [ "r" ++ show r | r <- [1..rs] ]
 
 -- | Derive inner references from an outer key.
 keyRef :: VecKey -> VecRef
@@ -50,6 +58,9 @@ newtype VecItems    = VecItems { unItems :: Int }
 instance Monoid VecItems where
     mempty = VecItems 0
     mappend (VecItems i1) (VecItems i2) = VecItems (i1 + i2)
+
+instance ToJSON VecItems where
+    toJSON (VecItems is) = toJSON [ "i" ++ show i | i <- [1..is] ]
 
 --------------------------------------------------------------------------------
 
@@ -90,14 +101,11 @@ instance DagVector TADVec where
 
 --------------------------------------------------------------------------------
 
-$(deriveJSON defaultOptions ''VecOrder)
-$(deriveJSON defaultOptions ''VecKey)
-$(deriveJSON defaultOptions ''VecRef)
-$(deriveJSON defaultOptions ''VecItems)
-$(deriveJSON defaultOptions ''VecTransSrc)
-$(deriveJSON defaultOptions ''VecTransDst)
-$(deriveJSON defaultOptions ''TADVec)
-$(deriveJSON defaultOptions ''TAKVec)
-$(deriveJSON defaultOptions ''TARVec)
+$(deriveToJSON defaultOptions ''VecOrder)
+$(deriveToJSON defaultOptions ''VecTransSrc)
+$(deriveToJSON defaultOptions ''VecTransDst)
+$(deriveToJSON defaultOptions ''TADVec)
+$(deriveToJSON defaultOptions ''TAKVec)
+$(deriveToJSON defaultOptions ''TARVec)
 
 --------------------------------------------------------------------------------
