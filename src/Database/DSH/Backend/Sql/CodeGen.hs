@@ -129,10 +129,10 @@ type TAVecBuild a = VecBuild TA.TableAlgebra
                              (SVec TA.TableAlgebra)
                              a
 
--- | Insert SerializeRel operators in TA.TableAlgebra plans to define
--- descr and order columns as well as the required payload columns.
--- FIXME: once we are a bit more flexible wrt surrogates, determine the
--- surrogate (i.e. descr) columns from information in NDVec.
+-- | Insert SerializeRel operators in TA.TableAlgebra plans to define key, ref
+-- and order columns as well as the required payload columns. 'insertSerialize'
+-- decides whether key, ref and order columns are actually needed based on the
+-- position of the vector in a shape or layout.
 insertSerialize :: TAVecBuild (Shape (DVec TA.TableAlgebra))
                 -> TAVecBuild (Shape (DVec TA.TableAlgebra))
 insertSerialize g = g >>= traverseShape
@@ -178,40 +178,52 @@ insertSerialize g = g >>= traverseShape
 
     -- | Insert a Serialize node for the given vector
     insertOp :: TADVec
-             -> (VecRef -> [TA.RefCol])
-             -> (VecKey -> [TA.KeyCol])
-             -> (VecOrder -> [TA.OrdCol])
+             -> (VecRef -> VecRef)
+             -> (VecKey -> VecKey)
+             -> (VecOrder -> VecOrder)
              -> TAVecBuild TADVec
-    insertOp (TADVec q o k r i) mkRef mkKey mkOrd = do
-        let op = TA.Serialize (mkRef r, mkKey k, mkOrd o, needItems i)
+    insertOp (TADVec q o k r i) updateRef updateKey updateOrd = do
+        let o' = updateOrd o
+            k' = updateKey k
+            r' = updateRef r
+        let op = TA.Serialize ( mkRef r', mkKey k', mkOrd o', mkItems i)
 
         qp   <- lift $ B.insert $ UnOp op q
-        return $ TADVec qp o k r i
+        return $ TADVec qp o' k' r' i
 
-    needRef :: VecRef -> [TA.RefCol]
-    needRef (VecRef 0) = []
-    needRef (VecRef i) = [ TA.RefCol (rc c) (TA.ColE $ rc c) | c <- [1..i] ]
+    mkRef :: VecRef -> [TA.RefCol]
+    mkRef (VecRef 0) = []
+    mkRef (VecRef i) = [ TA.RefCol (rc c) (TA.ColE $ rc c) | c <- [1..i] ]
 
-    noRef :: VecRef -> [TA.RefCol]
-    noRef = const []
+    needRef :: VecRef -> VecRef
+    needRef = id
 
-    needOrd :: VecOrder -> [TA.OrdCol]
-    needOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) (TA.ColE $ oc i)
-                            | i <- [1..] | d <- ds
-                            ]
+    noRef :: VecRef -> VecRef
+    noRef = const (VecRef 0)
 
-    noOrd :: VecOrder -> [TA.OrdCol]
-    noOrd = const []
+    mkOrd :: VecOrder -> [TA.OrdCol]
+    mkOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) (TA.ColE $ oc i)
+                          | i <- [1..] | d <- ds
+                          ]
 
-    needKey :: VecKey -> [TA.KeyCol]
-    needKey (VecKey i) = [ TA.KeyCol (kc c) (TA.ColE $ kc c) | c <- [1..i] ]
+    needOrd :: VecOrder -> VecOrder
+    needOrd = id
 
-    noKey :: VecKey -> [TA.KeyCol]
-    noKey = const []
+    noOrd :: VecOrder -> VecOrder
+    noOrd = const (VecOrder [])
 
-    needItems :: VecItems -> [TA.PayloadCol]
-    needItems (VecItems 0) = []
-    needItems (VecItems i) = [ TA.PayloadCol (ic c) (TA.ColE $ ic c) | c <- [1..i] ]
+    mkKey :: VecKey -> [TA.KeyCol]
+    mkKey (VecKey i) = [ TA.KeyCol (kc c) (TA.ColE $ kc c) | c <- [1..i] ]
+
+    needKey :: VecKey -> VecKey
+    needKey = id
+
+    noKey :: VecKey -> VecKey
+    noKey = const (VecKey 0)
+
+    mkItems :: VecItems -> [TA.PayloadCol]
+    mkItems (VecItems 0) = []
+    mkItems (VecItems i) = [ TA.PayloadCol (ic c) (TA.ColE $ ic c) | c <- [1..i] ]
 
 -- | Implement vector operators with relational algebra operators
 implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
