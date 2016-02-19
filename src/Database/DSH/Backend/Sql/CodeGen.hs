@@ -25,7 +25,6 @@ import qualified Database.HDBC                            as H
 import           Database.HDBC.ODBC
 
 import           Control.Monad
-import           Control.Monad.State
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.ByteString.Char8                    as BS
@@ -39,7 +38,6 @@ import qualified Data.Text.Encoding                       as TE
 import qualified Data.Vector                              as V
 
 import qualified Database.Algebra.Dag                     as D
-import qualified Database.Algebra.Dag.Build               as B
 import           Database.Algebra.Dag.Common
 import           Database.Algebra.SQL.Compatibility
 import           Database.Algebra.SQL.Materialization.CTE
@@ -48,14 +46,15 @@ import qualified Database.Algebra.Table.Lang              as TA
 
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Opt.OptimizeTA
+import           Database.DSH.Backend.Sql.Serialize
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Backend.Sql.VectorAlgebra
+import qualified Database.DSH.CL                          as CL
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Vector
 import           Database.DSH.Compiler
 import           Database.DSH.VL
-import qualified Database.DSH.CL as CL
 
 --------------------------------------------------------------------------------
 
@@ -121,109 +120,6 @@ comprehensionCodeGen q = fmap (\(BC vec) -> vec) shape
 --------------------------------------------------------------------------------
 -- Relational implementation of vector operators.
 
-type TAVecBuild a = VecBuild TA.TableAlgebra
-                             (DVec TA.TableAlgebra)
-                             (RVec TA.TableAlgebra)
-                             (KVec TA.TableAlgebra)
-                             (FVec TA.TableAlgebra)
-                             (SVec TA.TableAlgebra)
-                             a
-
--- | Insert SerializeRel operators in TA.TableAlgebra plans to define key, ref
--- and order columns as well as the required payload columns. 'insertSerialize'
--- decides whether key, ref and order columns are actually needed based on the
--- position of the vector in a shape or layout.
-insertSerialize :: TAVecBuild (Shape (DVec TA.TableAlgebra))
-                -> TAVecBuild (Shape (DVec TA.TableAlgebra))
-insertSerialize g = g >>= traverseShape
-
-  where
-    traverseShape :: Shape TADVec -> TAVecBuild (Shape TADVec)
-    traverseShape (VShape dvec lyt) = do
-        mLyt' <- traverseLayout lyt
-        case mLyt' of
-            Just lyt' -> do
-                dvec' <- insertOp dvec noRef needKey needOrd
-                return $ VShape dvec' lyt'
-            Nothing   -> do
-                dvec' <- insertOp dvec noRef noKey needOrd
-                return $ VShape dvec' lyt
-
-    traverseShape (SShape dvec lyt)     = do
-        mLyt' <- traverseLayout lyt
-        case mLyt' of
-            Just lyt' -> do
-                dvec' <- insertOp dvec noRef needKey noOrd
-                return $ SShape dvec' lyt'
-            Nothing   -> do
-                dvec' <- insertOp dvec noRef noKey noOrd
-                return $ SShape dvec' lyt
-
-    traverseLayout :: Layout TADVec -> TAVecBuild (Maybe (Layout TADVec))
-    traverseLayout LCol          = return Nothing
-    traverseLayout (LTuple lyts) = do
-        mLyts <- mapM traverseLayout lyts
-        if all isNothing mLyts
-            then return Nothing
-            else return $ Just $ LTuple $ zipWith fromMaybe lyts mLyts
-    traverseLayout (LNest dvec lyt) = do
-        mLyt' <- traverseLayout lyt
-        case mLyt' of
-            Just lyt' -> do
-                dvec' <- insertOp dvec needRef needKey needOrd
-                return $ Just $ LNest dvec' lyt'
-            Nothing   -> do
-                dvec' <- insertOp dvec needRef noKey needOrd
-                return $ Just $ LNest dvec' lyt
-
-    -- | Insert a Serialize node for the given vector
-    insertOp :: TADVec
-             -> (VecRef -> VecRef)
-             -> (VecKey -> VecKey)
-             -> (VecOrder -> VecOrder)
-             -> TAVecBuild TADVec
-    insertOp (TADVec q o k r i) updateRef updateKey updateOrd = do
-        let o' = updateOrd o
-            k' = updateKey k
-            r' = updateRef r
-        let op = TA.Serialize ( mkRef r', mkKey k', mkOrd o', mkItems i)
-
-        qp   <- lift $ B.insert $ UnOp op q
-        return $ TADVec qp o' k' r' i
-
-    mkRef :: VecRef -> [TA.RefCol]
-    mkRef (VecRef 0) = []
-    mkRef (VecRef i) = [ TA.RefCol (rc c) (TA.ColE $ rc c) | c <- [1..i] ]
-
-    needRef :: VecRef -> VecRef
-    needRef = id
-
-    noRef :: VecRef -> VecRef
-    noRef = const (VecRef 0)
-
-    mkOrd :: VecOrder -> [TA.OrdCol]
-    mkOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) (TA.ColE $ oc i)
-                          | i <- [1..] | d <- ds
-                          ]
-
-    needOrd :: VecOrder -> VecOrder
-    needOrd = id
-
-    noOrd :: VecOrder -> VecOrder
-    noOrd = const (VecOrder [])
-
-    mkKey :: VecKey -> [TA.KeyCol]
-    mkKey (VecKey i) = [ TA.KeyCol (kc c) (TA.ColE $ kc c) | c <- [1..i] ]
-
-    needKey :: VecKey -> VecKey
-    needKey = id
-
-    noKey :: VecKey -> VecKey
-    noKey = const (VecKey 0)
-
-    mkItems :: VecItems -> [TA.PayloadCol]
-    mkItems (VecItems 0) = []
-    mkItems (VecItems i) = [ TA.PayloadCol (ic c) (TA.ColE $ ic c) | c <- [1..i] ]
 
 -- | Implement vector operators with relational algebra operators
 implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
