@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Database.DSH.Backend.Sql.Opt.Properties.Empty where
 
 import           Database.Algebra.Table.Lang

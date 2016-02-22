@@ -36,7 +36,7 @@ type ConstCol = (Attr, AVal)
 newtype FDSet = FDSet { fdsRep :: M.Map (S.Set Attr) (S.Set Attr) }
 
 emptyFDSet :: FDSet
-emptyFDSet = FDSet $ M.empty
+emptyFDSet = FDSet M.empty
 
 showSet :: Ord a => (a -> String) -> S.Set a -> String
 showSet f s = "{" ++ intercalate "," (map f $ S.toList s) ++ "}"
@@ -67,6 +67,6 @@ data AllProps = AllProps
 
 typeOf :: Attr -> S.Set TypedAttr -> ATy
 typeOf k s =
-    case S.toList $ [ b | (a, b) <- s, k == a ] of
+    case S.toList [ b | (a, b) <- s, k == a ] of
         [b] -> b
         _   -> $impossible

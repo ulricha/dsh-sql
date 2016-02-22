@@ -31,6 +31,8 @@ import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.Impossible
 import qualified Database.DSH.VL                  as VL
 
+{-# ANN module "HLint: ignore Reduce duplication" #-}
+
 keyCols :: VecKey -> [Attr]
 keyCols (VecKey i) = [ kc c | c <- [1..i] ]
 

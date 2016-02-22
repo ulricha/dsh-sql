@@ -27,6 +27,8 @@ import           Database.DSH.Backend.Sql.Opt.Rewrite.Common
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.Opt
 
+{-# ANN module "HLint: ignore Reduce duplication" #-}
+
 cleanup :: TARewrite Bool
 cleanup = iteratively $ sequenceRewrites [ applyToAll noProps cleanupRules
                                          , applyToAll inferAll cleanupRulesTopDown
@@ -154,7 +156,7 @@ unreferencedAggrCols q =
 
         predicate $ length neededAggrs < length aggrs
 
-        return $ do
+        return $
           case neededAggrs of
               -- If the output of all aggregate functions is not
               -- required, we can replace it with a distinct operator
@@ -826,8 +828,7 @@ mergeProjections proj1 proj2 = map (second (inlineExpr proj2)) proj1
 stackedProject :: TARule ()
 stackedProject q =
   $(dagPatMatch 'q "Project ps1 (Project ps2 (qi))"
-    [| do
-         return $ do
+    [| return $ do
            let ps = mergeProjections $(v "ps1") $(v "ps2")
            logRewrite "Basic.Project.Merge" q
            void $ replaceWithNew q $ UnOp (Project ps) $(v "qi") |])
@@ -920,28 +921,26 @@ pullProjectWinFun q =
 pullProjectSerialize :: TARule ()
 pullProjectSerialize q =
     $(dagPatMatch 'q "Serialize args (Project proj (q1))"
-      [| do
-          return $ do
-              logRewrite "Basic.PullProject.Serialize" q
-              let (rcs, kcs, ocs, pcs) = $(v "args")
-              let rcs' = [ RefCol c (inlineExpr $(v "proj") e) | RefCol c e <- rcs ]
-                  kcs' = [ KeyCol c (inlineExpr $(v "proj") e) | KeyCol c e <- kcs ]
-                  ocs' = [ OrdCol c (inlineExpr $(v "proj") e) | OrdCol c e <- ocs ]
-                  pcs' = [ PayloadCol c (inlineExpr $(v "proj") e)
-                         | PayloadCol c e <- pcs
-                         ]
+      [| return $ do
+             logRewrite "Basic.PullProject.Serialize" q
+             let (rcs, kcs, ocs, pcs) = $(v "args")
+             let rcs' = [ RefCol c (inlineExpr $(v "proj") e) | RefCol c e <- rcs ]
+                 kcs' = [ KeyCol c (inlineExpr $(v "proj") e) | KeyCol c e <- kcs ]
+                 ocs' = [ OrdCol c (inlineExpr $(v "proj") e) | OrdCol c e <- ocs ]
+                 pcs' = [ PayloadCol c (inlineExpr $(v "proj") e)
+                        | PayloadCol c e <- pcs
+                        ]
 
-              void $ replaceWithNew q $ UnOp (Serialize (rcs', kcs', ocs', pcs')) $(v "q1") |])
+             void $ replaceWithNew q $ UnOp (Serialize (rcs', kcs', ocs', pcs')) $(v "q1") |])
 
 pullProjectSelect :: TARule ()
 pullProjectSelect q =
     $(dagPatMatch 'q "Select p (Project proj (q1))"
-      [| do
-          return $ do
-              logRewrite "Basic.PullProject.Select" q
-              let p' = inlineExpr $(v "proj") $(v "p")
-              selectNode <- insert $ UnOp (Select p') $(v "q1")
-              void $ replaceWithNew q $ UnOp (Project $(v "proj")) selectNode |])
+      [| return $ do
+             logRewrite "Basic.PullProject.Select" q
+             let p' = inlineExpr $(v "proj") $(v "p")
+             selectNode <- insert $ UnOp (Select p') $(v "q1")
+             void $ replaceWithNew q $ UnOp (Project $(v "proj")) selectNode |])
 
 mergeProjIntoSortSpec :: (Attr, [SortSpec], [PartExpr])
                       -> [(Attr, Expr)]
@@ -985,28 +984,26 @@ inlineJoinPredLeft proj = map inlineConjunct
 pullProjectSemiJoinLeft :: TARule ()
 pullProjectSemiJoinLeft q =
     $(dagPatMatch 'q "(Project proj (q1)) [SemiJoin | AntiJoin]@joinOp p (q2)"
-      [| do
-          return $ do
-              logRewrite "Basic.PullProject.SemiJoin.Left" q
-              let p' = inlineJoinPredLeft $(v "proj") $(v "p")
-              joinNode <- insert $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
-              void $ replaceWithNew q $ UnOp (Project $(v "proj")) joinNode |])
+      [| return $ do
+             logRewrite "Basic.PullProject.SemiJoin.Left" q
+             let p' = inlineJoinPredLeft $(v "proj") $(v "p")
+             joinNode <- insert $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
+             void $ replaceWithNew q $ UnOp (Project $(v "proj")) joinNode |])
 
 pullProjectSemiJoinRight :: TARule ()
 pullProjectSemiJoinRight q =
     $(dagPatMatch 'q "(q1) [SemiJoin | AntiJoin]@jop p (Project proj (q2))"
-      [| do
-          return $ do
-              logRewrite "Basic.PullProject.SemiJoin.Right" q
-              let p' = inlineJoinPredRight $(v "proj") $(v "p")
-              void $ replaceWithNew q $ BinOp ($(v "jop") p') $(v "q1") $(v "q2") |])
+      [| return $ do
+             logRewrite "Basic.PullProject.SemiJoin.Right" q
+             let p' = inlineJoinPredRight $(v "proj") $(v "p")
+             void $ replaceWithNew q $ BinOp ($(v "jop") p') $(v "q1") $(v "q2") |])
 
 pullProjectThetaJoinLeft :: TARule AllProps
 pullProjectThetaJoinLeft q =
     $(dagPatMatch 'q "(Project p (q1)) [ThetaJoin | LeftOuterJoin]@op jp (q2)"
       [| do
-          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
-          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          colsLeft  <- fmap fst . pCols . bu <$> properties $(v "q1")
+          colsRight <- fmap fst . pCols . bu <$> properties $(v "q2")
           predicate $ S.null $ S.intersection colsLeft colsRight
 
           return $ do
@@ -1022,8 +1019,8 @@ pullProjectThetaJoinRight :: TARule AllProps
 pullProjectThetaJoinRight q =
     $(dagPatMatch 'q "(q1) [ThetaJoin | LeftOuterJoin]@op jp (Project p (q2))"
       [| do
-          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
-          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          colsLeft  <- fmap fst . pCols . bu <$> properties $(v "q1")
+          colsRight <- fmap fst . pCols . bu <$> properties $(v "q2")
           predicate $ S.null $ S.intersection colsLeft colsRight
 
           return $ do
@@ -1039,8 +1036,8 @@ pullProjectCrossLeft :: TARule AllProps
 pullProjectCrossLeft q =
     $(dagPatMatch 'q "(Project p (q1)) Cross _ (q2)"
       [| do
-          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
-          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          colsLeft  <- fmap fst . pCols . bu <$> properties $(v "q1")
+          colsRight <- fmap fst . pCols . bu <$> properties $(v "q2")
           predicate $ S.null $ S.intersection colsLeft colsRight
 
           return $ do
@@ -1055,8 +1052,8 @@ pullProjectCrossRight :: TARule AllProps
 pullProjectCrossRight q =
     $(dagPatMatch 'q "(q1) Cross _ (Project p (q2))"
       [| do
-          colsLeft  <- fmap fst <$> pCols <$> bu <$> properties $(v "q1")
-          colsRight <- fmap fst <$> pCols <$> bu <$> properties $(v "q2")
+          colsLeft  <- fmap fst . pCols . bu <$> properties $(v "q1")
+          colsRight <- fmap fst . pCols . bu <$> properties $(v "q2")
           predicate $ S.null $ S.intersection colsLeft colsRight
 
           return $ do
