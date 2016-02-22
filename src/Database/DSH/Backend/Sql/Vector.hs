@@ -1,5 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE ParallelListComp #-}
 
+-- | Definition of relational vector implementations.
 module Database.DSH.Backend.Sql.Vector where
 
 import           Data.Aeson.TH
@@ -31,16 +33,15 @@ instance Monoid VecKey where
     mappend (VecKey k1) (VecKey k2) = VecKey (k1 + k2)
 
 instance ToJSON VecKey where
-    toJSON (VecKey ks) = toJSON [ "k" ++ show k | k <- [1..ks] ]
+    toJSON (VecKey ks) = toJSON $ map kc [1..ks]
 
 --------------------------------------------------------------------------------
 
 -- | Outer key reference columns
 newtype VecRef      = VecRef { unRef :: Int }
 
--- FIXME use rc constructor
 instance ToJSON VecRef where
-    toJSON (VecRef rs) = toJSON [ "r" ++ show r | r <- [1..rs] ]
+    toJSON (VecRef rs) = toJSON $ map rc [1..rs]
 
 -- | Derive inner references from an outer key.
 keyRef :: VecKey -> VecRef
@@ -60,7 +61,7 @@ instance Monoid VecItems where
     mappend (VecItems i1) (VecItems i2) = VecItems (i1 + i2)
 
 instance ToJSON VecItems where
-    toJSON (VecItems is) = toJSON [ "i" ++ show i | i <- [1..is] ]
+    toJSON (VecItems is) = toJSON $ map ic [1..is]
 
 --------------------------------------------------------------------------------
 
@@ -100,6 +101,59 @@ instance DagVector TADVec where
         | otherwise = TADVec q o k r i
 
 --------------------------------------------------------------------------------
+-- Definition of column names
+
+-- | Item columns
+ic :: Int -> TA.Attr
+ic i = "i" ++ show i
+
+-- | Key columns
+kc :: Int -> TA.Attr
+kc i = "k" ++ show i
+
+-- | Order columns
+oc :: Int -> TA.Attr
+oc i = "o" ++ show i
+
+-- | Ref columns
+rc :: Int -> TA.Attr
+rc i = "r" ++ show i
+
+-- | (Key) source columns
+sc :: Int -> TA.Attr
+sc i = "s" ++ show i
+
+-- | (Key) destination columns
+dc :: Int -> TA.Attr
+dc i = "d" ++ show i
+
+-- | Grouping columns
+gc :: Int -> TA.Attr
+gc i = "g" ++ show i
+
+-- | Filter columns
+fc :: Int -> TA.Attr
+fc i = "f" ++ show i
+
+-- | Synthesized order column (left)
+lsoc :: TA.Attr
+lsoc = "lso"
+
+-- | Synthesized order column (right)
+rsoc :: TA.Attr
+rsoc = "rso"
+
+-- | Synthesized order column
+soc :: TA.Attr
+soc = "so"
+
+-- | Union side marker
+usc :: TA.Attr
+usc = "us"
+
+
+--------------------------------------------------------------------------------
+-- JSON serialization
 
 $(deriveToJSON defaultOptions ''VecOrder)
 $(deriveToJSON defaultOptions ''VecTransSrc)

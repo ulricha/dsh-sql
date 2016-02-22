@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE ParallelListComp  #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE ParallelListComp  #-}
 
 -- | Insert 'Serialize' operators into table algebra plans.
 module Database.DSH.Backend.Sql.Serialize
@@ -18,7 +18,7 @@ import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang            as TA
 
 import           Database.DSH.Backend.Sql.Vector
-import           Database.DSH.Backend.Sql.VectorAlgebra
+import           Database.DSH.Backend.Sql.VectorAlgebra ()
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.VL
 
@@ -86,14 +86,13 @@ insertOp (TADVec q o k r i) updateRef updateKey updateOrd = do
     let o' = updateOrd o
         k' = updateKey k
         r' = updateRef r
-    let op = TA.Serialize ( mkRef r', mkKey k', mkOrd o', mkItems i)
+    let op = TA.Serialize (mkRef r', mkKey k', mkOrd o', mkItems i)
 
     qp   <- lift $ B.insert $ UnOp op q
     return $ TADVec qp o' k' r' i
 
-mkRef :: VecRef -> [TA.RefCol]
-mkRef (VecRef 0) = []
-mkRef (VecRef i) = [ TA.RefCol (rc c) (TA.ColE $ rc c) | c <- [1..i] ]
+--------------------------------------------------------------------------------
+-- Declaring need for key, ref and ord columns.
 
 needRef :: VecRef -> VecRef
 needRef = id
@@ -101,25 +100,32 @@ needRef = id
 noRef :: VecRef -> VecRef
 noRef = const (VecRef 0)
 
-mkOrd :: VecOrder -> [TA.OrdCol]
-mkOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) (TA.ColE $ oc i)
-                      | i <- [1..] | d <- ds
-                      ]
-
 needOrd :: VecOrder -> VecOrder
 needOrd = id
 
 noOrd :: VecOrder -> VecOrder
 noOrd = const (VecOrder [])
 
-mkKey :: VecKey -> [TA.KeyCol]
-mkKey (VecKey i) = [ TA.KeyCol (kc c) (TA.ColE $ kc c) | c <- [1..i] ]
-
 needKey :: VecKey -> VecKey
 needKey = id
 
 noKey :: VecKey -> VecKey
 noKey = const (VecKey 0)
+
+--------------------------------------------------------------------------------
+-- Creating actual columns from vector meta data
+
+mkRef :: VecRef -> [TA.RefCol]
+mkRef (VecRef 0) = []
+mkRef (VecRef i) = [ TA.RefCol (rc c) (TA.ColE $ rc c) | c <- [1..i] ]
+
+mkOrd :: VecOrder -> [TA.OrdCol]
+mkOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) (TA.ColE $ oc i)
+                      | i <- [1..] | d <- ds
+                      ]
+
+mkKey :: VecKey -> [TA.KeyCol]
+mkKey (VecKey i) = [ TA.KeyCol (kc c) (TA.ColE $ kc c) | c <- [1..i] ]
 
 mkItems :: VecItems -> [TA.PayloadCol]
 mkItems (VecItems 0) = []

@@ -31,57 +31,6 @@ import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.Impossible
 import qualified Database.DSH.VL                  as VL
 
---------------------------------------------------------------------------------
--- Column names
-
--- | Item columns
-ic :: Int -> Attr
-ic i = "i" ++ show i
-
--- | Key columns
-kc :: Int -> Attr
-kc i = "k" ++ show i
-
--- | Order columns
-oc :: Int -> Attr
-oc i = "o" ++ show i
-
--- | Ref columns
-rc :: Int -> Attr
-rc i = "r" ++ show i
-
--- | (Key) source columns
-sc :: Int -> Attr
-sc i = "s" ++ show i
-
--- | (Key) destination columns
-dc :: Int -> Attr
-dc i = "d" ++ show i
-
--- | Grouping columns
-gc :: Int -> Attr
-gc i = "g" ++ show i
-
--- | Filter columns
-fc :: Int -> Attr
-fc i = "f" ++ show i
-
--- | Synthesized order column (left)
-lsoc :: Attr
-lsoc = "lso"
-
--- | Synthesized order column (right)
-rsoc :: Attr
-rsoc = "rso"
-
--- | Synthesized order column
-soc :: Attr
-soc = "so"
-
--- | Union side marker
-usc :: Attr
-usc = "us"
-
 keyCols :: VecKey -> [Attr]
 keyCols (VecKey i) = [ kc c | c <- [1..i] ]
 

@@ -48,7 +48,6 @@ import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.Serialize
 import           Database.DSH.Backend.Sql.Vector
-import           Database.DSH.Backend.Sql.VectorAlgebra
 import qualified Database.DSH.CL                          as CL
 import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
