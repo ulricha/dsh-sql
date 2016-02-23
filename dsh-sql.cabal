@@ -75,6 +75,7 @@ Library
                      Database.DSH.Backend.Sql.Opt.OptimizeTA
                      Database.DSH.Backend.Sql.VectorAlgebra
                      Database.DSH.Backend.Sql.Vector
+                     Database.DSH.Backend.Sql.Serialize
 
 Executable flatsqlcomp
     Hs-Source-Dirs: flatsqlcomp

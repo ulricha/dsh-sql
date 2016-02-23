@@ -1,8 +1,11 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE ParallelListComp #-}
 
+-- | Definition of relational vector implementations.
 module Database.DSH.Backend.Sql.Vector where
 
 import           Data.Aeson.TH
+import           Data.Aeson
 
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
@@ -29,10 +32,16 @@ instance Monoid VecKey where
     mempty = VecKey 0
     mappend (VecKey k1) (VecKey k2) = VecKey (k1 + k2)
 
+instance ToJSON VecKey where
+    toJSON (VecKey ks) = toJSON $ map kc [1..ks]
+
 --------------------------------------------------------------------------------
 
 -- | Outer key reference columns
 newtype VecRef      = VecRef { unRef :: Int }
+
+instance ToJSON VecRef where
+    toJSON (VecRef rs) = toJSON $ map rc [1..rs]
 
 -- | Derive inner references from an outer key.
 keyRef :: VecKey -> VecRef
@@ -50,6 +59,9 @@ newtype VecItems    = VecItems { unItems :: Int }
 instance Monoid VecItems where
     mempty = VecItems 0
     mappend (VecItems i1) (VecItems i2) = VecItems (i1 + i2)
+
+instance ToJSON VecItems where
+    toJSON (VecItems is) = toJSON $ map ic [1..is]
 
 --------------------------------------------------------------------------------
 
@@ -89,15 +101,65 @@ instance DagVector TADVec where
         | otherwise = TADVec q o k r i
 
 --------------------------------------------------------------------------------
+-- Definition of column names
 
-$(deriveJSON defaultOptions ''VecOrder)
-$(deriveJSON defaultOptions ''VecKey)
-$(deriveJSON defaultOptions ''VecRef)
-$(deriveJSON defaultOptions ''VecItems)
-$(deriveJSON defaultOptions ''VecTransSrc)
-$(deriveJSON defaultOptions ''VecTransDst)
-$(deriveJSON defaultOptions ''TADVec)
-$(deriveJSON defaultOptions ''TAKVec)
-$(deriveJSON defaultOptions ''TARVec)
+-- | Item columns
+ic :: Int -> TA.Attr
+ic i = "i" ++ show i
+
+-- | Key columns
+kc :: Int -> TA.Attr
+kc i = "k" ++ show i
+
+-- | Order columns
+oc :: Int -> TA.Attr
+oc i = "o" ++ show i
+
+-- | Ref columns
+rc :: Int -> TA.Attr
+rc i = "r" ++ show i
+
+-- | (Key) source columns
+sc :: Int -> TA.Attr
+sc i = "s" ++ show i
+
+-- | (Key) destination columns
+dc :: Int -> TA.Attr
+dc i = "d" ++ show i
+
+-- | Grouping columns
+gc :: Int -> TA.Attr
+gc i = "g" ++ show i
+
+-- | Filter columns
+fc :: Int -> TA.Attr
+fc i = "f" ++ show i
+
+-- | Synthesized order column (left)
+lsoc :: TA.Attr
+lsoc = "lso"
+
+-- | Synthesized order column (right)
+rsoc :: TA.Attr
+rsoc = "rso"
+
+-- | Synthesized order column
+soc :: TA.Attr
+soc = "so"
+
+-- | Union side marker
+usc :: TA.Attr
+usc = "us"
+
+
+--------------------------------------------------------------------------------
+-- JSON serialization
+
+$(deriveToJSON defaultOptions ''VecOrder)
+$(deriveToJSON defaultOptions ''VecTransSrc)
+$(deriveToJSON defaultOptions ''VecTransDst)
+$(deriveToJSON defaultOptions ''TADVec)
+$(deriveToJSON defaultOptions ''TAKVec)
+$(deriveToJSON defaultOptions ''TARVec)
 
 --------------------------------------------------------------------------------

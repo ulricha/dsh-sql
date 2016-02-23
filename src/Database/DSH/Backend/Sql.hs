@@ -28,6 +28,8 @@ import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.CodeGen
 import qualified Database.DSH.Compiler                    as C
 
+{-# ANN module "HLint: ignore Reduce duplication" #-}
+
 --------------------------------------------------------------------------------
 
 fileId :: IO String

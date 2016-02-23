@@ -4,14 +4,14 @@
 -- | Infer the output schema of TableAlgebra operators.
 module Database.DSH.Backend.Sql.Opt.Properties.Cols where
 
-import qualified Data.Set.Monad                             as S
-
+import           Control.Arrow
+import qualified Data.Set.Monad                                    as S
 
 import           Database.Algebra.Table.Lang
 
-import           Database.DSH.Common.Impossible
 import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
+import           Database.DSH.Common.Impossible
 
 ----------------------------------------------------------------------------
 -- Type inference for tablealgebra expressions
@@ -135,17 +135,17 @@ inferColsUnOp childCols op =
         RowNum (resCol, _, _) -> S.insert (resCol, AInt) childCols
         RowRank (resCol, _)   -> S.insert (resCol, AInt) childCols
         Rank (resCol, _)      -> S.insert (resCol, AInt) childCols
-        Project projs         -> S.fromList $ map (\(c, e) -> (c, exprTy childCols e)) projs
+        Project projs         -> S.fromList $ map (second (exprTy childCols)) projs
         Select _              -> childCols
         Distinct _            -> childCols
-        Aggr (afuns, pexprs)  -> (S.fromList $ map (aggrTy childCols) afuns)
+        Aggr (afuns, pexprs)  -> S.fromList (map (aggrTy childCols) afuns)
                                  ∪
                                  [ (c, exprTy childCols e) | (c, e) <- S.fromList pexprs ]
         Serialize (ref, key, ord, items) ->
-            let cols = (S.fromList $ map (\(PayloadCol c _) -> c) items)
-                       ∪ (S.fromList $ map (\(RefCol c _) -> c) ref)
-                       ∪ (S.fromList $ map (\(OrdCol (c, _) _) -> c) ord)
-                       ∪ (S.fromList $ map (\(KeyCol c _) -> c) key)
+            let cols = S.fromList (map (\(PayloadCol c _) -> c) items)
+                       ∪ S.fromList (map (\(RefCol c _) -> c) ref)
+                       ∪ S.fromList (map (\(OrdCol (c, _) _) -> c) ord)
+                       ∪ S.fromList (map (\(KeyCol c _) -> c) key)
             in S.map (\c -> (c, typeOf c childCols)) cols
 
 inferColsBinOp :: S.Set TypedAttr -> S.Set TypedAttr -> BinOp -> S.Set TypedAttr

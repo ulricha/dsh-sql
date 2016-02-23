@@ -44,7 +44,7 @@ rowRankKeys resCol sortCols childCard1 childKeys =
     -- If sorting columns form a part of a key, the output column
     -- combined with the key columns that are not sorting columns also
     -- is a key.
-    [ (ss resCol) ∪ (k ∖ sortCols)
+    [ ss resCol ∪ (k ∖ sortCols)
     | k <- childKeys
     , k ∩ sortCols /= S.empty
     ]
@@ -103,7 +103,7 @@ inferKeysUnOp childKeys childCard1 childCols op =
         -- be careful here as not all operators might be injective.
         Project projs           ->
             let m = mapColMulti projs
-            in S.foldr (\k ks -> (updateKey m k) ∪ ks) S.empty childKeys
+            in S.foldr (\k ks -> updateKey m k ∪ ks) S.empty childKeys
         Select _                 -> childKeys
         Distinct _               -> S.insert childCols childKeys
         Aggr (_, [])             -> S.empty
@@ -122,18 +122,18 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                          ∪
                          [ k | k <- rightKeys, leftCard1 ]
                          ∪
-                         [ k | k <- leftKeys, (ss b) ∈ rightKeys ]
+                         [ k | k <- leftKeys, ss b ∈ rightKeys ]
                          ∪
-                         [ k | k <- rightKeys, (ss a) ∈ leftKeys ]
+                         [ k | k <- rightKeys, ss a ∈ leftKeys ]
                          ∪
-                         [ ( k1 ∖ (ss a)) ∪ k2
-                         | (ss b) ∈ rightKeys
+                         [ ( k1 ∖ ss a) ∪ k2
+                         | ss b ∈ rightKeys
                          , k1 <- leftKeys
                          , k2 <- rightKeys
                          ]
                          ∪
-                         [ k1 ∪ (k2 ∖ (ss b))
-                         | (ss a) ∈ leftKeys
+                         [ k1 ∪ k2 ∖ ss b
+                         | ss a ∈ leftKeys
                          , k1 <- leftKeys
                          , k2 <- rightKeys
                          ]
@@ -149,7 +149,7 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                            , (_, be, p) <- S.fromList preds
                            , p == EqJ
                            , b            <- singleCol be
-                           , (ss b) ∈ rightKeys
+                           , ss b ∈ rightKeys
                            ]
                            ∪
                            [ k
@@ -157,7 +157,7 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                            , (ae, _, p) <- S.fromList preds
                            , p == EqJ
                            , a            <- singleCol ae
-                           , (ss a) ∈ leftKeys
+                           , ss a ∈ leftKeys
                            ]
                            ∪
                            [ k1 ∪ k2 | k1 <- leftKeys, k2 <- rightKeys ]
@@ -172,7 +172,7 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                                , (_, be, p) <- S.fromList preds
                                , p == EqJ
                                , b            <- singleCol be
-                               , (ss b) ∈ rightKeys
+                               , ss b ∈ rightKeys
                                ]
 
         SemiJoin _    -> leftKeys

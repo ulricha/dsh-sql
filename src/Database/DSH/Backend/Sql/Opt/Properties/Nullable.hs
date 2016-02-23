@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE MonadComprehensions #-}
 
 module Database.DSH.Backend.Sql.Opt.Properties.Nullable
@@ -57,15 +56,15 @@ inferNullableUnOp ns op =
         Rank (c, _)      -> S.delete c ns
         -- Non-grouped aggregate functions might return NULL if their
         -- input is empty (except for COUNT)
-        Aggr (as, [])    -> ns ∪ (ls [ c | (a, c) <- as, nullableAggr ns a ])
+        Aggr (as, [])    -> ns ∪ ls [ c | (a, c) <- as, nullableAggr ns a ]
         -- For grouped aggregates:
         -- 1. The grouping columns might be NULL if they were nullable in the input.
         --
         -- 2. Aggregate output (except for COUNT) is nullable if the
         -- input expression is nullable
-        Aggr (as, gs)    -> (ls [ c | (c, e) <- gs, nullableExpr ns e ])
+        Aggr (as, gs)    -> ls [ c | (c, e) <- gs, nullableExpr ns e ]
                             ∪
-                            (ls [ c | (a, c) <- as, nullableAggr ns a ])
+                            ls [ c | (a, c) <- as, nullableAggr ns a ]
         -- FIXME under what circumstances does the window aggregate
         -- output get NULL? This is the safe variant that considers
         -- the output always nullable.
@@ -79,7 +78,7 @@ inferNullableBinOp ps1 ps2 op =
         -- shows up in the join predicate can be considered non-null
         -- in the join result (tuples in which the predicate evaluates
         -- to NULL will not be in the result).
-        EqJoin _        -> (pNullable ps1) ∪ (pNullable ps2)
+        EqJoin _        -> pNullable ps1 ∪ pNullable ps2
         ThetaJoin _     -> pNullable ps1 ∪ pNullable ps2
         LeftOuterJoin _ -> pNullable ps1 ∪ [ c | (c, _) <- pCols ps2 ]
         SemiJoin _      -> pNullable ps1

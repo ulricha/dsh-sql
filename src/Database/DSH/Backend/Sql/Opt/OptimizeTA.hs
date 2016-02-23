@@ -17,7 +17,7 @@ defaultPipeline :: [RewriteClass]
 defaultPipeline = [cleanup]
 
 runPipeline :: Dag.AlgebraDag TableAlgebra
-            -> (Shape TADVec)
+            -> Shape TADVec
             -> [RewriteClass]
             -> Bool
             -> (Dag.AlgebraDag TableAlgebra, Log, Shape TADVec)

@@ -1,5 +1,4 @@
 {-# LANGUAGE MonadComprehensions #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Infer the input columns required in TableAlgebra plans.
 module Database.DSH.Backend.Sql.Opt.Properties.ICols where
@@ -9,6 +8,8 @@ import qualified Data.Set.Monad                           as S
 import           Database.Algebra.Table.Lang
 
 import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
+
+{-# ANN module "HLint: ignore Reduce duplication" #-}
 
 inferIColsBinOp :: S.Set Attr  -- ^ columns that are required from us
                 -> S.Set Attr  -- ^ Columns required from the left child
@@ -26,8 +27,8 @@ inferIColsBinOp ownICols leftICols leftCols rightICols rightCols op =
          -- Require columns from the originating side, in addition to the join
          -- columns.
          EqJoin (leftJoinCol, rightJoinCol) ->
-             ( leftICols ∪ (ownICols ∩ leftCols) ∪ (S.singleton leftJoinCol)
-             , rightICols ∪ (ownICols ∩rightCols) ∪ (S.singleton rightJoinCol) )
+             ( leftICols ∪ (ownICols ∩ leftCols) ∪ S.singleton leftJoinCol
+             , rightICols ∪ (ownICols ∩rightCols) ∪ S.singleton rightJoinCol )
          ThetaJoin cs ->
              let leftExprCols = S.unions $ map (\(l, _, _) -> exprCols l) cs
                  rightExprCols = S.unions $ map (\(_, r, _) -> exprCols r) cs
@@ -74,25 +75,25 @@ inferIColsUnOp :: S.Set Attr -> S.Set Attr -> UnOp -> S.Set Attr
 inferIColsUnOp ownICols childICols op =
     case op of
         WinFun ((resCol, fun), partExprs, sortInf, _) ->
-            (S.delete resCol ownICols)
-            ∪ (winFunInput fun)
-            ∪ (S.unions $ map (exprCols . fst) sortInf)
-            ∪ (S.unions $ map exprCols partExprs)
+            S.delete resCol ownICols
+            ∪ winFunInput fun
+            ∪ S.unions (map (exprCols . fst) sortInf)
+            ∪ S.unions (map exprCols partExprs)
             ∪ childICols
         -- Require the sorting columns, if the rownum output is required.
         RowNum (resCol, sortInf, groupExprs) ->
-            (S.delete resCol ownICols)
-            ∪ (S.unions $ map (exprCols . fst) sortInf)
-            ∪ (S.unions $ map exprCols groupExprs)
+            S.delete resCol ownICols
+            ∪ S.unions (map (exprCols . fst) sortInf)
+            ∪ S.unions (map exprCols groupExprs)
             ∪ childICols
 
         RowRank (resCol, sortInf)   ->
-            (S.delete resCol ownICols)
-            ∪ (S.unions $ map (exprCols . fst) sortInf)
+            S.delete resCol ownICols
+            ∪ S.unions (map (exprCols . fst) sortInf)
             ∪ childICols
         Rank (resCol, sortInf)      ->
-            (S.delete resCol ownICols)
-            ∪ (S.unions $ map (exprCols . fst) sortInf)
+            S.delete resCol ownICols
+            ∪ S.unions (map (exprCols . fst) sortInf)
             ∪ childICols
 
         -- For projections we require input columns of expressions, but only for
@@ -104,14 +105,14 @@ inferIColsUnOp ownICols childICols op =
         Select e              -> childICols ∪ ownICols ∪ exprCols e
         Distinct _            -> childICols ∪ ownICols
 
-        Aggr (acols, pexprs)  -> (S.foldr (∪) childICols $ S.fromList $ map (aggrInput . fst) acols)
+        Aggr (acols, pexprs)  -> S.foldr (∪) childICols (S.fromList $ map (aggrInput . fst) acols)
                                  ∪
-                                 (S.foldr (∪) S.empty $ S.fromList $ map (exprCols . snd) pexprs)
+                                 S.foldr (∪) S.empty (S.fromList $ map (exprCols . snd) pexprs)
 
         Serialize cs          ->
             let (ref, key, ord, items) = cs
             in childICols ∪
-               (S.unions (map (\(RefCol _ e) -> exprCols e) ref
+               S.unions (map (\(RefCol _ e) -> exprCols e) ref
                           ++ map (\(KeyCol _ e) -> exprCols e) key
                           ++ map (\(OrdCol _ e) -> exprCols e) ord
-                          ++ map (\(PayloadCol _ e) -> exprCols e) items))
+                          ++ map (\(PayloadCol _ e) -> exprCols e) items)

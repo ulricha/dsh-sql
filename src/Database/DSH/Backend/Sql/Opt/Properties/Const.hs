@@ -1,5 +1,4 @@
 {-# LANGUAGE MonadComprehensions #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 module Database.DSH.Backend.Sql.Opt.Properties.Const
     ( inferConstNullOp
@@ -16,11 +15,11 @@ import           Database.Algebra.Table.Lang
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 
 constExpr :: [ConstCol] -> Expr -> Maybe AVal
-constExpr _         (BinAppE _ _ _) = Nothing
-constExpr _         (UnAppE _ _)    = Nothing
-constExpr constCols (ColE c)        = lookup c constCols
-constExpr _         (ConstE v)      = Just v
-constExpr _         (IfE _ _ _)     = Nothing
+constExpr _         BinAppE{}    = Nothing
+constExpr _         (UnAppE _ _) = Nothing
+constExpr constCols (ColE c)     = lookup c constCols
+constExpr _         (ConstE v)   = Just v
+constExpr _         IfE{}        = Nothing
 
 constProj :: [ConstCol] -> (Attr, Expr) -> Maybe ConstCol
 constProj constCols (c, e) = constExpr constCols e >>= \v -> return (c, v)
