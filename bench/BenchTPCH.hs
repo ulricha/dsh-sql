@@ -78,6 +78,7 @@ benchmarks c =
         , benchmarkDSH "unshippeditemspercustomer" c (unshippedItemsPerCustomer "GERMANY")
         , benchmarkDSH "cheapersuppliersinregion" c (cheaperSuppliersInRegion "EUROPE")
         , benchmarkDSH "cheapersuppliersinregionavg" c (cheaperSuppliersInRegionAvg "EUROPE")
+        , benchmarkDSH "cheapersuppliersinregionavg2" c (cheaperSuppliersInRegionAvg2 "EUROPE")
         ]
     ]
 
