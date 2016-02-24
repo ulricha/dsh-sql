@@ -235,25 +235,27 @@ algTy T.DateT    = dateT
 algTy T.DecimalT = decT
 
 aggrFun :: VL.AggrFun -> AggrType
-aggrFun (VL.AggrSum _ e) = Sum $ taExpr e
-aggrFun (VL.AggrMin e)   = Min $ taExpr e
-aggrFun (VL.AggrMax e)   = Max $ taExpr e
-aggrFun (VL.AggrAvg e)   = Avg $ taExpr e
-aggrFun (VL.AggrAll e)   = All $ taExpr e
-aggrFun (VL.AggrAny e)   = Any $ taExpr e
-aggrFun VL.AggrCount     = CountStar
+aggrFun (VL.AggrSum _ e)         = Sum $ taExpr e
+aggrFun (VL.AggrMin e)           = Min $ taExpr e
+aggrFun (VL.AggrMax e)           = Max $ taExpr e
+aggrFun (VL.AggrAvg e)           = Avg $ taExpr e
+aggrFun (VL.AggrAll e)           = All $ taExpr e
+aggrFun (VL.AggrAny e)           = Any $ taExpr e
+aggrFun (VL.AggrCountDistinct e) = CountDistinct $ taExpr e
+aggrFun VL.AggrCount             = CountStar
 
 -- | Map aggregate functions to relational aggregates for the
 -- groupjoin operator. For Count, we need the first key column of the
 -- right input to account for the NULLs produced by the outer join.:725
 aggrFunGroupJoin :: Int -> VL.AggrFun -> AggrType
-aggrFunGroupJoin _ (VL.AggrSum _ e) = Sum $ taExpr e
-aggrFunGroupJoin _ (VL.AggrMin e)   = Min $ taExpr e
-aggrFunGroupJoin _ (VL.AggrMax e)   = Max $ taExpr e
-aggrFunGroupJoin _ (VL.AggrAvg e)   = Avg $ taExpr e
-aggrFunGroupJoin _ (VL.AggrAll e)   = All $ taExpr e
-aggrFunGroupJoin _ (VL.AggrAny e)   = Any $ taExpr e
-aggrFunGroupJoin c VL.AggrCount     = Count $ ColE (kc c)
+aggrFunGroupJoin _ (VL.AggrSum _ e)         = Sum $ taExpr e
+aggrFunGroupJoin _ (VL.AggrMin e)           = Min $ taExpr e
+aggrFunGroupJoin _ (VL.AggrMax e)           = Max $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAvg e)           = Avg $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAll e)           = All $ taExpr e
+aggrFunGroupJoin _ (VL.AggrAny e)           = Any $ taExpr e
+aggrFunGroupJoin c VL.AggrCount             = Count $ ColE (kc c)
+aggrFunGroupJoin _ (VL.AggrCountDistinct e) = CountDistinct $ taExpr e
 
 -- | Transform a VL join predicate into a TA predicate. Items of the
 -- left input are necessary to account for the pre-join item column
@@ -543,13 +545,14 @@ instance VL.VectorAlgebra TableAlgebra where
                         ]
 
         let join = case a of
-                         VL.AggrSum _ _ -> leftOuterJoinM
-                         VL.AggrAny _   -> leftOuterJoinM
-                         VL.AggrAll _   -> leftOuterJoinM
-                         VL.AggrCount   -> leftOuterJoinM
-                         VL.AggrMax _   -> thetaJoinM
-                         VL.AggrMin _   -> thetaJoinM
-                         VL.AggrAvg _   -> thetaJoinM
+                         VL.AggrSum _ _         -> leftOuterJoinM
+                         VL.AggrAny _           -> leftOuterJoinM
+                         VL.AggrAll _           -> leftOuterJoinM
+                         VL.AggrCount           -> leftOuterJoinM
+                         VL.AggrCountDistinct _ -> leftOuterJoinM
+                         VL.AggrMax _           -> thetaJoinM
+                         VL.AggrMin _           -> thetaJoinM
+                         VL.AggrAvg _           -> thetaJoinM
 
         qa  <- projM (ordProj o ++ keyProj k ++ refProj r1 ++ itemProj i)
                $ aggrM [(aggrFunGroupJoin (unKey k1 + 1) a, acol)] groupCols
