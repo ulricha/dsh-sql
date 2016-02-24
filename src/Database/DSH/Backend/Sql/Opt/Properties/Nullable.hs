@@ -29,14 +29,15 @@ nullableExpr ns e =
 nullableAggr :: S.Set Attr -> AggrType -> Bool
 nullableAggr ns a =
     case a of
-        CountStar -> False
-        Count _   -> False
-        Avg e -> nullableExpr ns e
-        Max e -> nullableExpr ns e
-        Min e -> nullableExpr ns e
-        Sum e -> nullableExpr ns e
-        All e -> nullableExpr ns e
-        Any e -> nullableExpr ns e
+        CountStar       -> False
+        Count _         -> False
+        CountDistinct _ -> False
+        Avg e           -> nullableExpr ns e
+        Max e           -> nullableExpr ns e
+        Min e           -> nullableExpr ns e
+        Sum e           -> nullableExpr ns e
+        All e           -> nullableExpr ns e
+        Any e           -> nullableExpr ns e
 
 inferNullableNullOp :: NullOp -> S.Set Attr
 inferNullableNullOp op =
