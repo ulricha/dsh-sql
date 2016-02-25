@@ -246,7 +246,7 @@ aggrFun VL.AggrCount             = CountStar
 
 -- | Map aggregate functions to relational aggregates for the
 -- groupjoin operator. For Count, we need the first key column of the
--- right input to account for the NULLs produced by the outer join.:725
+-- right input to account for the NULLs produced by the outer join.
 aggrFunGroupJoin :: Int -> VL.AggrFun -> AggrType
 aggrFunGroupJoin _ (VL.AggrSum _ e)         = Sum $ taExpr e
 aggrFunGroupJoin _ (VL.AggrMin e)           = Min $ taExpr e
@@ -560,6 +560,9 @@ instance VL.VectorAlgebra TableAlgebra where
                      (return q1)
                      (proj (shiftAll v1 v2) q2)
 
+        -- Add the default value for empty groups if the aggregate supports it.
+        -- Note that we do not need a default for AggrCount, since COUNT(e) will
+        -- count the non-NULL entries only and produce the 0 directly.
         qd <- case a of
                   VL.AggrSum t _ -> groupJoinDefault qa o k r i1 (snd $ sumDefault t)
                   VL.AggrAny _   -> groupJoinDefault qa o k r i1 (bool False)
@@ -580,13 +583,14 @@ instance VL.VectorAlgebra TableAlgebra where
               $ aggr [(aggrFun a, ic 1)] [] q
 
         qd <- case a of
-                  VL.AggrSum t _ -> aggrDefault qa (snd $ sumDefault t)
-                  VL.AggrAll _   -> aggrDefault qa (bool True)
-                  VL.AggrAny _   -> aggrDefault qa (bool False)
+                  VL.AggrSum t _         -> aggrDefault qa (snd $ sumDefault t)
+                  VL.AggrAll _           -> aggrDefault qa (bool True)
+                  VL.AggrAny _           -> aggrDefault qa (bool False)
                   -- SQL COUNT handles empty inputs.
-                  VL.AggrCount   -> return qa
+                  VL.AggrCount           -> return qa
+                  VL.AggrCountDistinct _ -> return qa
                   -- All other aggregates can not be handled correctly.
-                  _              -> return qa
+                  _                      -> return qa
 
         return $ TADVec qd o k r i
 
@@ -598,11 +602,12 @@ instance VL.VectorAlgebra TableAlgebra where
         -- Group the inner vector by ref.
         qa <- aggr [(aggrFun a, ic 1)] [ (c, ColE c) | c <- refCols r2 ] qi
         qd <- case a of
-                  VL.AggrSum t _ -> segAggrDefault qo qa k1 r2 (snd $ sumDefault t)
-                  VL.AggrAny _   -> segAggrDefault qo qa k1 r2 (bool False)
-                  VL.AggrAll _   -> segAggrDefault qo qa k1 r2 (bool True)
-                  VL.AggrCount   -> segAggrDefault qo qa k1 r2 (int 0)
-                  _              ->
+                  VL.AggrSum t _         -> segAggrDefault qo qa k1 r2 (snd $ sumDefault t)
+                  VL.AggrAny _           -> segAggrDefault qo qa k1 r2 (bool False)
+                  VL.AggrAll _           -> segAggrDefault qo qa k1 r2 (bool True)
+                  VL.AggrCount           -> segAggrDefault qo qa k1 r2 (int 0)
+                  VL.AggrCountDistinct _ -> segAggrDefault qo qa k1 r2 (int 0)
+                  _                      ->
                       projM ([cP (oc 1), mP (kc 1) (oc 1)]
                              ++ refProj r
                              ++ itemProj i)
