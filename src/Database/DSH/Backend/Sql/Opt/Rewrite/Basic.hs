@@ -847,14 +847,15 @@ mapWinFun f (WinLastValue e)  = WinLastValue $ f e
 mapWinFun _ WinCount          = WinCount
 
 mapAggrFun :: (Expr -> Expr) -> AggrType -> AggrType
-mapAggrFun f (Max e)   = Max $ f e
-mapAggrFun f (Min e)   = Min $ f e
-mapAggrFun f (Sum e)   = Sum $ f e
-mapAggrFun f (Avg e)   = Avg $ f e
-mapAggrFun f (All e)   = All $ f e
-mapAggrFun f (Any e)   = Any $ f e
-mapAggrFun f (Count e) = Count $ f e
-mapAggrFun _ CountStar = CountStar
+mapAggrFun f (Max e)           = Max $ f e
+mapAggrFun f (Min e)           = Min $ f e
+mapAggrFun f (Sum e)           = Sum $ f e
+mapAggrFun f (Avg e)           = Avg $ f e
+mapAggrFun f (All e)           = All $ f e
+mapAggrFun f (Any e)           = Any $ f e
+mapAggrFun f (Count e)         = Count $ f e
+mapAggrFun f (CountDistinct e) = CountDistinct $ f e
+mapAggrFun _ CountStar         = CountStar
 
 nameChangeProj :: (Attr, Expr) -> Either (Attr, Attr) (Attr, Expr)
 nameChangeProj (c, ColE c') | c /= c' = Left (c, c')
