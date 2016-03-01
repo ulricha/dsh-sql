@@ -242,50 +242,10 @@ instance Row (BackendRow SqlBackend) where
 
     decimalVal (SqlScalar (H.SqlRational !d))   = fromRational d
     decimalVal (SqlScalar (H.SqlByteString !c)) =
-        case readSignedDecimal c of
-            Just d  -> d
-            Nothing -> error $ show c
+        case BD.readSigned BD.readDecimal c of
+            Just (!d, _) -> d
+            Nothing      -> error $ show c
     decimalVal (SqlScalar v)                    = error $ printf "decimalVal: %s" (show v)
 
     dayVal (SqlScalar (H.SqlLocalDate d)) = d
     dayVal _                              = $impossible
-
-{-# INLINE isNotPeriod #-}
-isNotPeriod :: Word8 -> Bool
-isNotPeriod w = w /= 0x2E
-
--- | Read an optionally signed fractional value in ASCII decimal format;
--- that is, anything matching the regex @\\d+(\\.\\d*)?@. Returns @Nothing@ if
--- the string does not match the format. Otherwise, returns @Just@ the parsed
--- number.
---
--- Copied from 'Data.ByteString.Lexing.Fractional'
-readSignedDecimal :: Fractional a => BS.ByteString -> Maybe a
-readSignedDecimal xs
-    | BS.null xs = Nothing
-    | otherwise  =
-        case BSU.unsafeHead xs of
-            0x2D -> negate <$> readDecimal (BSU.unsafeTail xs)
-            0x2B -> readDecimal (BSU.unsafeTail xs)
-            _    -> readDecimal xs
-
-  where
-    readDecimal s =
-        case BI.readDecimal s of
-            Nothing          -> Nothing
-            Just (!whole, ys) ->
-                case BS.uncons ys of
-                    Nothing              -> Just (fromInteger whole)
-                    Just (!y0,!ys0)
-                        | isNotPeriod y0                  -> Nothing
-                        | y0 == 0                         -> Just (fromInteger whole)
-                        | BS.null ys0 || BS.head ys0 == 0 -> Just (fromInteger whole)
-                        | otherwise                       ->
-                          case BI.readDecimal ys0 of
-                              Nothing         -> Nothing
-                              Just (!part, zs)
-                                  | BS.null zs || BS.head zs == 0 ->
-                                      let !base = 10 ^ (BS.length ys - 1 - BS.length zs)
-                                          !frac = fromInteger whole + (fromInteger part / base)
-                                      in Just frac
-                                  | otherwise -> Nothing
