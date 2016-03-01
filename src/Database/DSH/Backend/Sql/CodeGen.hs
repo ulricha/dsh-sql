@@ -28,7 +28,9 @@ import           Database.HDBC.ODBC
 import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.TH
-import qualified Data.ByteString.Char8                    as BS
+import qualified Data.ByteString                          as BS
+import qualified Data.ByteString.Char8                    as BSC
+import qualified Data.ByteString.Unsafe                   as BSU
 import qualified Data.ByteString.Lex.Fractional           as BD
 import qualified Data.ByteString.Lex.Integral             as BI
 import           Data.Decimal
@@ -37,6 +39,7 @@ import           Data.Maybe
 import qualified Data.Text                                as T
 import qualified Data.Text.Encoding                       as TE
 import qualified Data.Vector                              as V
+import           Data.Word
 
 import qualified Database.Algebra.Dag                     as D
 import           Database.Algebra.Dag.Common
@@ -179,16 +182,16 @@ instance Row (BackendRow SqlBackend) where
             Nothing -> error $ printf "col lookup %s failed in %s" c (show r)
 
     keyVal :: Scalar (BackendRow SqlBackend) -> KeyVal
-    keyVal (SqlScalar v) = case v of
-        H.SqlInt32 i -> KInt (fromIntegral i)
-        H.SqlInt64 i -> KInt (fromIntegral i)
-        H.SqlWord32 i -> KInt (fromIntegral i)
-        H.SqlWord64 i -> KInt (fromIntegral i)
-        H.SqlInteger i -> KInt (fromIntegral i)
-        H.SqlString s -> KByteString (BS.pack s)
-        H.SqlByteString s -> KByteString s
-        H.SqlLocalDate d -> KDay d
-        _ -> $impossible
+    keyVal (SqlScalar !v) = case v of
+        H.SqlInt32 !i      -> KInt (fromIntegral i)
+        H.SqlInt64 !i      -> KInt (fromIntegral i)
+        H.SqlWord32 !i     -> KInt (fromIntegral i)
+        H.SqlWord64 !i     -> KInt (fromIntegral i)
+        H.SqlInteger !i    -> KInt (fromIntegral i)
+        H.SqlString !s     -> KByteString (BSC.pack s)
+        H.SqlByteString !s -> KByteString s
+        H.SqlLocalDate !d  -> KDay d
+        _                  -> $impossible
 
 
     descrVal (SqlScalar (H.SqlInt32 !i))   = fromIntegral i
@@ -215,20 +218,22 @@ instance Row (BackendRow SqlBackend) where
                                                      Nothing      -> $impossible
     doubleVal (SqlScalar v)                    = error $ printf "doubleVal: %s" (show v)
 
-    boolVal (SqlScalar (H.SqlBool !b))      = b
-    boolVal (SqlScalar (H.SqlInteger !i))   = (i /= 0)
-    boolVal (SqlScalar (H.SqlInt32 !i))     = (i /= 0)
-    boolVal (SqlScalar (H.SqlInt64 !i))     = (i /= 0)
-    boolVal (SqlScalar (H.SqlWord32 !i))    = (i /= 0)
-    boolVal (SqlScalar (H.SqlWord64 !i))    = (i /= 0)
-    boolVal (SqlScalar (H.SqlByteString s)) = case BI.readDecimal s of
-                                                  Just (!d, _) -> d /= (0 :: Integer)
+    boolVal (SqlScalar (H.SqlBool !b))       = b
+    boolVal (SqlScalar (H.SqlInteger !i))    = i /= 0
+    boolVal (SqlScalar (H.SqlInt32 !i))      = i /= 0
+    boolVal (SqlScalar (H.SqlInt64 !i))      = i /= 0
+    boolVal (SqlScalar (H.SqlWord32 !i))     = i /= 0
+    boolVal (SqlScalar (H.SqlWord64 !i))     = i /= 0
+    boolVal (SqlScalar (H.SqlByteString !s)) = case BI.readDecimal s of
+                                                  Just (!d, _) -> d /= (0 :: Int)
                                                   Nothing      -> $impossible
     boolVal (SqlScalar v)                   = error $ printf "boolVal: %s" (show v)
 
     charVal (SqlScalar (H.SqlChar !c))       = c
     charVal (SqlScalar (H.SqlString (c:_)))  = c
-    charVal (SqlScalar (H.SqlByteString !c)) = head (T.unpack $ TE.decodeUtf8 c)
+    charVal (SqlScalar (H.SqlByteString !c)) = case T.uncons (TE.decodeUtf8 c) of
+                                                   Just (!c, _) -> c
+                                                   Nothing      -> $impossible
     charVal _                                = $impossible
 
     textVal (SqlScalar (H.SqlString !t))     = T.pack t
@@ -237,11 +242,50 @@ instance Row (BackendRow SqlBackend) where
 
     decimalVal (SqlScalar (H.SqlRational !d))   = fromRational d
     decimalVal (SqlScalar (H.SqlByteString !c)) =
-        let s = BS.unpack c in
-        case readMaybe s of
+        case readSignedDecimal c of
             Just d  -> d
-            Nothing -> error s
+            Nothing -> error $ show c
     decimalVal (SqlScalar v)                    = error $ printf "decimalVal: %s" (show v)
 
     dayVal (SqlScalar (H.SqlLocalDate d)) = d
     dayVal _                              = $impossible
+
+{-# INLINE isNotPeriod #-}
+isNotPeriod :: Word8 -> Bool
+isNotPeriod w = w /= 0x2E
+
+-- | Read an optionally signed fractional value in ASCII decimal format;
+-- that is, anything matching the regex @\\d+(\\.\\d*)?@. Returns @Nothing@ if
+-- the string does not match the format. Otherwise, returns @Just@ the parsed
+-- number.
+--
+-- Copied from 'Data.ByteString.Lexing.Fractional'
+readSignedDecimal :: Fractional a => BS.ByteString -> Maybe a
+readSignedDecimal xs
+    | BS.null xs = Nothing
+    | otherwise  =
+        case BSU.unsafeHead xs of
+            0x2D -> negate <$> readDecimal (BSU.unsafeTail xs)
+            0x2B -> readDecimal (BSU.unsafeTail xs)
+            _    -> readDecimal xs
+
+  where
+    readDecimal s =
+        case BI.readDecimal s of
+            Nothing          -> Nothing
+            Just (!whole, ys) ->
+                case BS.uncons ys of
+                    Nothing              -> Just (fromInteger whole)
+                    Just (!y0,!ys0)
+                        | isNotPeriod y0                  -> Nothing
+                        | y0 == 0                         -> Just (fromInteger whole)
+                        | BS.null ys0 || BS.head ys0 == 0 -> Just (fromInteger whole)
+                        | otherwise                       ->
+                          case BI.readDecimal ys0 of
+                              Nothing         -> Nothing
+                              Just (!part, zs)
+                                  | BS.null zs || BS.head zs == 0 ->
+                                      let !base = 10 ^ (BS.length ys - 1 - BS.length zs)
+                                          !frac = fromInteger whole + (fromInteger part / base)
+                                      in Just frac
+                                  | otherwise -> Nothing
