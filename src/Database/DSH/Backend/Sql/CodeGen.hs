@@ -195,11 +195,6 @@ instance Row (BackendRow SqlBackend) where
     descrVal (SqlScalar (H.SqlInteger !i)) = fromIntegral i
     descrVal _                             = $impossible
 
-    unitVal (SqlScalar H.SqlNull)        = ()
-    unitVal (SqlScalar (H.SqlInteger _)) = ()
-    unitVal (SqlScalar (H.SqlInt64 _))   = ()
-    unitVal (SqlScalar v)                = error $ printf "unitVal: %s" (show v)
-
     integerVal (SqlScalar (H.SqlInteger !i)) = i
     integerVal (SqlScalar (H.SqlInt32 !i))   = fromIntegral i
     integerVal (SqlScalar (H.SqlInt64 !i))   = fromIntegral i
