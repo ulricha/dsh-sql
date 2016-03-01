@@ -46,6 +46,7 @@ Library
                      , template-haskell   >= 2.9
                      , text               >= 1.1
                      , vector             >= 0.10
+                     , scientific         >= 0.3
 
   Hs-source-dirs:    src
 

@@ -20,6 +20,7 @@ module Database.DSH.Backend.Sql.CodeGen
     ) where
 
 import           Text.Printf
+import           Text.Read
 
 import qualified Database.HDBC                            as H
 import           Database.HDBC.ODBC
@@ -194,58 +195,58 @@ instance Row (BackendRow SqlBackend) where
     descrVal (SqlScalar (H.SqlInteger !i)) = fromIntegral i
     descrVal _                             = $impossible
 
-    unitVal (SqlScalar H.SqlNull)        = unitE
-    unitVal (SqlScalar (H.SqlInteger _)) = unitE
-    unitVal (SqlScalar (H.SqlInt64 _))   = unitE
+    unitVal (SqlScalar H.SqlNull)        = ()
+    unitVal (SqlScalar (H.SqlInteger _)) = ()
+    unitVal (SqlScalar (H.SqlInt64 _))   = ()
     unitVal (SqlScalar v)                = error $ printf "unitVal: %s" (show v)
 
-    integerVal (SqlScalar (H.SqlInteger !i)) = integerE i
-    integerVal (SqlScalar (H.SqlInt32 !i))   = integerE $! fromIntegral i
-    integerVal (SqlScalar (H.SqlInt64 !i))   = integerE $! fromIntegral i
-    integerVal (SqlScalar (H.SqlWord32 !i))  = integerE $! fromIntegral i
-    integerVal (SqlScalar (H.SqlWord64 !i))  = integerE $! fromIntegral i
-    integerVal (SqlScalar (H.SqlDouble !d))  = integerE $! truncate d
+    integerVal (SqlScalar (H.SqlInteger !i)) = i
+    integerVal (SqlScalar (H.SqlInt32 !i))   = fromIntegral i
+    integerVal (SqlScalar (H.SqlInt64 !i))   = fromIntegral i
+    integerVal (SqlScalar (H.SqlWord32 !i))  = fromIntegral i
+    integerVal (SqlScalar (H.SqlWord64 !i))  = fromIntegral i
+    integerVal (SqlScalar (H.SqlDouble !d))  = truncate d
     integerVal (SqlScalar _)                 = $impossible
 
-    doubleVal (SqlScalar (H.SqlDouble !d))     = doubleE d
-    doubleVal (SqlScalar (H.SqlRational !d))   = doubleE $! fromRational d
-    doubleVal (SqlScalar (H.SqlInteger !d))    = doubleE $! fromIntegral d
-    doubleVal (SqlScalar (H.SqlInt32 !d))      = doubleE $! fromIntegral d
-    doubleVal (SqlScalar (H.SqlInt64 !d))      = doubleE $! fromIntegral d
-    doubleVal (SqlScalar (H.SqlWord32 !d))     = doubleE $! fromIntegral d
-    doubleVal (SqlScalar (H.SqlWord64 !d))     = doubleE $! fromIntegral d
-    doubleVal (SqlScalar (H.SqlByteString !c)) = doubleE $! case BD.readSigned BD.readDecimal c of
-                                                                Just (!v, _) -> v
-                                                                Nothing      -> $impossible
+    doubleVal (SqlScalar (H.SqlDouble !d))     = d
+    doubleVal (SqlScalar (H.SqlRational !d))   = fromRational d
+    doubleVal (SqlScalar (H.SqlInteger !d))    = fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt32 !d))      = fromIntegral d
+    doubleVal (SqlScalar (H.SqlInt64 !d))      = fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord32 !d))     = fromIntegral d
+    doubleVal (SqlScalar (H.SqlWord64 !d))     = fromIntegral d
+    doubleVal (SqlScalar (H.SqlByteString !c)) = case BD.readSigned BD.readDecimal c of
+                                                     Just (!v, _) -> v
+                                                     Nothing      -> $impossible
     doubleVal (SqlScalar v)                    = error $ printf "doubleVal: %s" (show v)
 
-    boolVal (SqlScalar (H.SqlBool !b))      = boolE b
-    boolVal (SqlScalar (H.SqlInteger !i))   = boolE $! (i /= 0)
-    boolVal (SqlScalar (H.SqlInt32 !i))     = boolE $! (i /= 0)
-    boolVal (SqlScalar (H.SqlInt64 !i))     = boolE $! (i /= 0)
-    boolVal (SqlScalar (H.SqlWord32 !i))    = boolE $! (i /= 0)
-    boolVal (SqlScalar (H.SqlWord64 !i))    = boolE $! (i /= 0)
-    boolVal (SqlScalar (H.SqlByteString s)) = boolE $! case BI.readDecimal s of
-                                                            Just (!d, _) -> d /= (0 :: Integer)
-                                                            Nothing      -> $impossible
+    boolVal (SqlScalar (H.SqlBool !b))      = b
+    boolVal (SqlScalar (H.SqlInteger !i))   = (i /= 0)
+    boolVal (SqlScalar (H.SqlInt32 !i))     = (i /= 0)
+    boolVal (SqlScalar (H.SqlInt64 !i))     = (i /= 0)
+    boolVal (SqlScalar (H.SqlWord32 !i))    = (i /= 0)
+    boolVal (SqlScalar (H.SqlWord64 !i))    = (i /= 0)
+    boolVal (SqlScalar (H.SqlByteString s)) = case BI.readDecimal s of
+                                                  Just (!d, _) -> d /= (0 :: Integer)
+                                                  Nothing      -> $impossible
     boolVal (SqlScalar v)                   = error $ printf "boolVal: %s" (show v)
 
-    charVal (SqlScalar (H.SqlChar !c))       = charE c
-    charVal (SqlScalar (H.SqlString (c:_)))  = charE c
-    charVal (SqlScalar (H.SqlByteString !c)) = charE $! head (T.unpack $ TE.decodeUtf8 c)
+    charVal (SqlScalar (H.SqlChar !c))       = c
+    charVal (SqlScalar (H.SqlString (c:_)))  = c
+    charVal (SqlScalar (H.SqlByteString !c)) = head (T.unpack $ TE.decodeUtf8 c)
     charVal _                                = $impossible
 
-    textVal (SqlScalar (H.SqlString !t))     = textE $! T.pack t
-    textVal (SqlScalar (H.SqlByteString !s)) = textE $! TE.decodeUtf8 s
+    textVal (SqlScalar (H.SqlString !t))     = T.pack t
+    textVal (SqlScalar (H.SqlByteString !s)) = TE.decodeUtf8 s
     textVal _                                = $impossible
 
-    -- FIXME this is an incredibly crude method to convert HDBC's
-    -- rationals to decimals. Implement this reasonably or - even
-    -- better - replace HDBC completely. Rationals do not make sense
-    -- here.
-    decimalVal (SqlScalar (H.SqlRational !d))   = decimalE $! realFracToDecimal 5 d
-    decimalVal (SqlScalar (H.SqlByteString !c)) = decimalE $! read $! BS.unpack c
+    decimalVal (SqlScalar (H.SqlRational !d))   = fromRational d
+    decimalVal (SqlScalar (H.SqlByteString !c)) =
+        let s = BS.unpack c in
+        case readMaybe s of
+            Just d  -> d
+            Nothing -> error s
     decimalVal (SqlScalar v)                    = error $ printf "decimalVal: %s" (show v)
 
-    dayVal (SqlScalar (H.SqlLocalDate d)) = dayE d
+    dayVal (SqlScalar (H.SqlLocalDate d)) = d
     dayVal _                              = $impossible
