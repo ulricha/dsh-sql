@@ -20,7 +20,6 @@ module Database.DSH.Backend.Sql.CodeGen
     ) where
 
 import           Text.Printf
-import           Text.Read
 
 import qualified Database.HDBC                            as H
 import           Database.HDBC.ODBC
@@ -28,18 +27,14 @@ import           Database.HDBC.ODBC
 import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.TH
-import qualified Data.ByteString                          as BS
 import qualified Data.ByteString.Char8                    as BSC
-import qualified Data.ByteString.Unsafe                   as BSU
 import qualified Data.ByteString.Lex.Fractional           as BD
 import qualified Data.ByteString.Lex.Integral             as BI
-import           Data.Decimal
 import qualified Data.Map                                 as M
 import           Data.Maybe
 import qualified Data.Text                                as T
 import qualified Data.Text.Encoding                       as TE
 import qualified Data.Vector                              as V
-import           Data.Word
 
 import qualified Database.Algebra.Dag                     as D
 import           Database.Algebra.Dag.Common
