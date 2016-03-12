@@ -302,20 +302,42 @@ sumDefault T.DoubleT  = (ADouble, double 0)
 sumDefault T.DecimalT = (ADec, dec 0)
 sumDefault _          = $impossible
 
+aggrFunDefault :: VL.AggrFun -> Maybe AVal
+aggrFunDefault (VL.AggrSum t _)         = Just $ snd $ sumDefault t
+aggrFunDefault (VL.AggrAny _)           = Just $ bool False
+aggrFunDefault (VL.AggrAll _)           = Just $ bool True
+aggrFunDefault (VL.AggrMax _)           = Nothing
+aggrFunDefault (VL.AggrMin _)           = Nothing
+aggrFunDefault (VL.AggrAvg _)           = Nothing
+aggrFunDefault VL.AggrCount             = Nothing
+aggrFunDefault (VL.AggrCountDistinct _) = Nothing
+
 groupJoinDefault :: AlgNode
                  -> VecOrder
                  -> VecKey
                  -> VecRef
                  -> VecItems
-                 -> AVal
+                 -> [(Attr, Maybe AVal)]
                  -> Build TableAlgebra AlgNode
-groupJoinDefault qa o k r i defaultVal =
-    proj (vecProj o k r i
-          ++
-          [eP acol (BinAppE Coalesce (ColE acol) (ConstE defaultVal))])
-         qa
+groupJoinDefault qa o k r i defaultVals =
+    proj (vecProj o k r i ++ defaultProj) qa
   where
-    acol  = ic (unItems i + 1)
+    defaultProj = [ case mVal of
+                        Just val -> eP col (BinAppE Coalesce (ColE col) (ConstE val))
+                        Nothing  -> cP col
+                  | (col, mVal) <- defaultVals
+                  ]
+
+requiresOuterJoin :: VL.AggrFun -> Bool
+requiresOuterJoin a = case a of
+    VL.AggrSum _ _         -> True
+    VL.AggrAny _           -> True
+    VL.AggrAll _           -> True
+    VL.AggrCount           -> True
+    VL.AggrCountDistinct _ -> True
+    VL.AggrMax _           -> False
+    VL.AggrMin _           -> False
+    VL.AggrAvg _           -> False
 
 -- | For a segmented aggregate operator, apply the aggregate
 -- function's default value for the empty segments. The first argument
@@ -533,29 +555,25 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecGroupJoin p a v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
+    vecGroupJoin p (L.NE as) v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
             r = r1
-            i = i1 <> VecItems 1
+            i = i1 <> VecItems (length as)
 
-        let acol      = ic (unItems i1 + 1)
+        let acols     = [ ic (unItems i1 + c) | _ <- toList as | c <- [1..] ]
             groupCols = [ (c, ColE c)
                         | c <- keyCols k1 ++ ordCols o1 ++ refCols r1 ++ itemCols i1
                         ]
 
-        let join = case a of
-                         VL.AggrSum _ _         -> leftOuterJoinM
-                         VL.AggrAny _           -> leftOuterJoinM
-                         VL.AggrAll _           -> leftOuterJoinM
-                         VL.AggrCount           -> leftOuterJoinM
-                         VL.AggrCountDistinct _ -> leftOuterJoinM
-                         VL.AggrMax _           -> thetaJoinM
-                         VL.AggrMin _           -> thetaJoinM
-                         VL.AggrAvg _           -> thetaJoinM
+        let join = if any requiresOuterJoin as
+                   then leftOuterJoinM
+                   else thetaJoinM
+
+        let taAggrs = zip (map (aggrFunGroupJoin (unKey k1 + 1)) $ toList as) acols
 
         qa  <- projM (ordProj o ++ keyProj k ++ refProj r1 ++ itemProj i)
-               $ aggrM [(aggrFunGroupJoin (unKey k1 + 1) a, acol)] groupCols
+               $ aggrM taAggrs groupCols
                $ join (joinPredicate i1 p)
                      (return q1)
                      (proj (shiftAll v1 v2) q2)
@@ -563,11 +581,8 @@ instance VL.VectorAlgebra TableAlgebra where
         -- Add the default value for empty groups if the aggregate supports it.
         -- Note that we do not need a default for AggrCount, since COUNT(e) will
         -- count the non-NULL entries only and produce the 0 directly.
-        qd <- case a of
-                  VL.AggrSum t _ -> groupJoinDefault qa o k r i1 (snd $ sumDefault t)
-                  VL.AggrAny _   -> groupJoinDefault qa o k r i1 (bool False)
-                  VL.AggrAll _   -> groupJoinDefault qa o k r i1 (bool True)
-                  _              -> return qa
+        let mDefaultVals = zip acols (map aggrFunDefault $ toList as)
+        qd <- groupJoinDefault qa o k r i1 mDefaultVals
 
         return $ TADVec qd o k r i
 
