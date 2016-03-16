@@ -199,7 +199,7 @@ instance Row (BackendRow SqlBackend) where
     integerVal (SqlScalar (H.SqlWord32 !i))     = fromIntegral i
     integerVal (SqlScalar (H.SqlWord64 !i))     = fromIntegral i
     integerVal (SqlScalar (H.SqlDouble !d))     = truncate d
-    integerVal (SqlScalar (H.SqlByteString !s)) = case BI.readDecimal s of
+    integerVal (SqlScalar (H.SqlByteString !s)) = case BI.readSigned BI.readDecimal s of
                                                       Just (i, s') | BSC.null s' -> i
                                                       _                        ->
                                                           error $ printf "integerVal: %s" (show s)
