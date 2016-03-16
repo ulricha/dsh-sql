@@ -193,13 +193,17 @@ instance Row (BackendRow SqlBackend) where
     descrVal (SqlScalar (H.SqlInteger !i)) = fromIntegral i
     descrVal _                             = $impossible
 
-    integerVal (SqlScalar (H.SqlInteger !i)) = i
-    integerVal (SqlScalar (H.SqlInt32 !i))   = fromIntegral i
-    integerVal (SqlScalar (H.SqlInt64 !i))   = fromIntegral i
-    integerVal (SqlScalar (H.SqlWord32 !i))  = fromIntegral i
-    integerVal (SqlScalar (H.SqlWord64 !i))  = fromIntegral i
-    integerVal (SqlScalar (H.SqlDouble !d))  = truncate d
-    integerVal (SqlScalar _)                 = $impossible
+    integerVal (SqlScalar (H.SqlInteger !i))    = i
+    integerVal (SqlScalar (H.SqlInt32 !i))      = fromIntegral i
+    integerVal (SqlScalar (H.SqlInt64 !i))      = fromIntegral i
+    integerVal (SqlScalar (H.SqlWord32 !i))     = fromIntegral i
+    integerVal (SqlScalar (H.SqlWord64 !i))     = fromIntegral i
+    integerVal (SqlScalar (H.SqlDouble !d))     = truncate d
+    integerVal (SqlScalar (H.SqlByteString !s)) = case BI.readDecimal s of
+                                                      Just (i, s') | BSC.null s' -> i
+                                                      _                        ->
+                                                          error $ printf "integerVal: %s" (show s)
+    integerVal (SqlScalar _)                    = $impossible 
 
     doubleVal (SqlScalar (H.SqlDouble !d))     = d
     doubleVal (SqlScalar (H.SqlRational !d))   = fromRational d
@@ -226,7 +230,7 @@ instance Row (BackendRow SqlBackend) where
 
     charVal (SqlScalar (H.SqlChar !c))       = c
     charVal (SqlScalar (H.SqlString (c:_)))  = c
-    charVal (SqlScalar (H.SqlByteString !c)) = case T.uncons (TE.decodeUtf8 c) of
+    charVal (SqlScalar (H.SqlByteString !s)) = case T.uncons (TE.decodeUtf8 s) of
                                                    Just (!c, _) -> c
                                                    Nothing      -> $impossible
     charVal _                                = $impossible
