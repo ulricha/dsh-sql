@@ -66,6 +66,11 @@ unAppTy DateMonth   = AInt
 unAppTy DateYear    = AInt
 unAppTy IsNull      = ABool
 
+ternaryAppTy :: TernaryFun -> ATy -> ATy -> ATy -> ATy
+ternaryAppTy f _ t2 _ = case f of
+    Between -> ABool
+    If      -> t2
+
 valType :: AVal -> ATy
 valType (VInt _)    = AInt
 valType (VStr _)    = AStr
@@ -77,11 +82,13 @@ valType (VDate _)   = ADate
 exprTy :: S.Set TypedAttr -> Expr -> ATy
 exprTy childCols expr =
     case expr of
-        ColE c          -> typeOf c childCols
-        ConstE v        -> valType v
-        BinAppE f e1 e2 -> binAppTy f (exprTy childCols e1) (exprTy childCols e2)
-        UnAppE f _      -> unAppTy f
-        IfE _ t _       -> exprTy childCols t
+        ColE c                 -> typeOf c childCols
+        ConstE v               -> valType v
+        BinAppE f e1 e2        -> binAppTy f (exprTy childCols e1) (exprTy childCols e2)
+        UnAppE f _             -> unAppTy f
+        TernaryAppE f e1 e2 e3 -> ternaryAppTy f (exprTy childCols e1)
+                                                 (exprTy childCols e2)
+                                                 (exprTy childCols e3)
 
 ----------------------------------------------------------------------------
 -- Type inference for aggregate functions

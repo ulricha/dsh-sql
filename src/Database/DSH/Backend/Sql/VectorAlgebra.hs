@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ParallelListComp      #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
@@ -218,10 +219,28 @@ taExprOffset o (VL.BinApp op e1 e2) = binOp op (taExprOffset o e1) (taExprOffset
 taExprOffset o (VL.UnApp op e)      = UnAppE (unOp op) (taExprOffset o e)
 taExprOffset o (VL.Column c)        = ColE $ ic $ c + o
 taExprOffset _ (VL.Constant v)      = ConstE $ algVal v
-taExprOffset o (VL.If c t e)        = IfE (taExprOffset o c) (taExprOffset o t) (taExprOffset o e)
+taExprOffset o (VL.If c t e)        = TernaryAppE If (taExprOffset o c)
+                                                     (taExprOffset o t)
+                                                     (taExprOffset o e)
+
+pattern e1 :<=: e2 <- BinAppE LtE e1 e2
+pattern e1 :>=: e2 <- BinAppE GtE e1 e2
+pattern e1 :&&: e2 = BinAppE And e1 e2
+
+specializeExpr :: Expr -> Expr
+specializeExpr e = case e of
+    (e1 :>=: e2) :&&: (e1' :<=: e3) | e1 == e1' -> TernaryAppE Between e1 e2 e3
+    (e1 :<=: e2) :&&: (e1' :>=: e3) | e1 == e1' -> TernaryAppE Between e1 e3 e2
+    (e1 :<=: e2) :&&: ((e1' :>=: e3) :&&: e4) | e1 == e1' -> TernaryAppE Between e1 e3 e2 :&&: e4
+    (e1 :>=: e2) :&&: ((e1' :<=: e3) :&&: e4) | e1 == e1' -> TernaryAppE Between e1 e2 e3 :&&: e4
+    BinAppE f e1 e2 -> BinAppE f (specializeExpr e1) (specializeExpr e2)
+    UnAppE f e1 -> UnAppE f (specializeExpr e1)
+    ColE a -> ColE a
+    ConstE v -> ConstE v
+    TernaryAppE f e1 e2 e3 -> TernaryAppE f (specializeExpr e1) (specializeExpr e2) (specializeExpr e3)
 
 taExpr :: VL.Expr -> Expr
-taExpr = taExprOffset 0
+taExpr = specializeExpr . taExprOffset 0
 
 --------------------------------------------------------------------------------
 

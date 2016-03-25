@@ -34,11 +34,11 @@ unionss :: Ord a => S.Set (S.Set a) -> S.Set a
 unionss = S.foldr (∪) S.empty
 
 exprCols :: Expr -> S.Set Attr
-exprCols (BinAppE _ e1 e2) = exprCols e1 ∪ exprCols e2
-exprCols (IfE c t e)       = exprCols c ∪ exprCols t ∪ exprCols e
-exprCols (UnAppE _ e)      = exprCols e
-exprCols (ColE c)          = S.singleton c
-exprCols (ConstE _)        = S.empty
+exprCols (BinAppE _ e1 e2)        = exprCols e1 ∪ exprCols e2
+exprCols (TernaryAppE _ e1 e2 e3) = exprCols e1 ∪ exprCols e2 ∪ exprCols e3
+exprCols (UnAppE _ e)             = exprCols e
+exprCols (ColE c)                 = S.singleton c
+exprCols (ConstE _)               = S.empty
 
 aggrInput :: AggrType -> S.Set Attr
 aggrInput (Avg e)           = exprCols e

@@ -810,11 +810,13 @@ bypassRownumProject q =
 inlineExpr :: [Proj] -> Expr -> Expr
 inlineExpr proj expr =
     case expr of
-        BinAppE op e1 e2 -> BinAppE op (inlineExpr proj e1) (inlineExpr proj e2)
-        UnAppE op e      -> UnAppE op (inlineExpr proj e)
-        ColE c           -> fromMaybe (failedLookup c) (lookup c proj)
-        ConstE val       -> ConstE val
-        IfE c t e        -> IfE (inlineExpr proj c) (inlineExpr proj t) (inlineExpr proj e)
+        BinAppE op e1 e2        -> BinAppE op (inlineExpr proj e1) (inlineExpr proj e2)
+        UnAppE op e             -> UnAppE op (inlineExpr proj e)
+        ColE c                  -> fromMaybe (failedLookup c) (lookup c proj)
+        ConstE val              -> ConstE val
+        TernaryAppE op e1 e2 e3 -> TernaryAppE op (inlineExpr proj e1)
+                                                  (inlineExpr proj e2)
+                                                  (inlineExpr proj e3)
 
   where
     failedLookup :: Attr -> a

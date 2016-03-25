@@ -23,7 +23,7 @@ nullableExpr ns e =
         BinAppE _ e1 e2        -> nullableExpr ns e1 || nullableExpr ns e2
         UnAppE _ e1            -> nullableExpr ns e1
         ColE c                 -> c `S.member` ns
-        IfE e1 e2 e3           -> any (nullableExpr ns) [e1, e2, e3]
+        TernaryAppE _ e1 e2 e3 -> any (nullableExpr ns) [e1, e2, e3]
         ConstE _               -> False
 
 nullableAggr :: S.Set Attr -> AggrType -> Bool
