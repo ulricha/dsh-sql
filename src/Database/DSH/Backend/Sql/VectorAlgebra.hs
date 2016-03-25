@@ -389,12 +389,20 @@ segAggrDefault qo qa ok r defaultValue =
                (proj (keyRefProj ok) qo)
                (proj (refProj r) qa))
 
-aggrDefault :: AlgNode -> AVal -> Build TableAlgebra AlgNode
-aggrDefault qa defaultVal =
-    proj [cP (oc 1), cP (kc 1), cP (rc 1), eP (ic 1) defaultExpr] qa
-
+aggrDefault :: AlgNode
+            -> VecOrder
+            -> VecKey
+            -> VecRef
+            -> [(Attr, Maybe AVal)]
+            -> Build TableAlgebra AlgNode
+aggrDefault qa o k r defaultVals =
+    proj (vecProj o k r (VecItems 0) ++ defaultProj) qa
   where
-    defaultExpr = BinAppE Coalesce (ColE (ic 1)) (ConstE defaultVal)
+    defaultProj = [ case mVal of
+                        Just val -> eP col (BinAppE Coalesce (ColE col) (ConstE val))
+                        Nothing  -> cP col
+                  | (col, mVal) <- defaultVals
+                  ]
 
 flipDir :: SortDir -> SortDir
 flipDir Asc  = Desc
@@ -605,26 +613,19 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qd o k r i
 
-    vecAggr a (TADVec q _ _ _ _) = do
+    vecAggr as (TADVec q _ _ _ _) = do
         let o = VecOrder [Asc]
             k = VecKey 1
             r = VecRef 1
-            i = VecItems 1
+            i = VecItems (length as)
 
         let oneE = ConstE $ int 1
+            acols = zipWith (\a c -> (aggrFun a, ic c)) (N.toList as) [1..]
 
-        qa <- projM [eP (oc 1) oneE, eP (kc 1) oneE, eP (rc 1) oneE, cP (ic 1)]
-              $ aggr [(aggrFun a, ic 1)] [] q
-
-        qd <- case a of
-                  VL.AggrSum t _         -> aggrDefault qa (snd $ sumDefault t)
-                  VL.AggrAll _           -> aggrDefault qa (bool True)
-                  VL.AggrAny _           -> aggrDefault qa (bool False)
-                  -- SQL COUNT handles empty inputs.
-                  VL.AggrCount           -> return qa
-                  VL.AggrCountDistinct _ -> return qa
-                  -- All other aggregates can not be handled correctly.
-                  _                      -> return qa
+        let mDefaultVals = zip (map snd acols) (map aggrFunDefault $ toList as)
+        qa <- projM ([eP (oc 1) oneE, eP (kc 1) oneE, eP (rc 1) oneE] ++ map (cP . snd) acols)
+              $ aggr acols [] q
+        qd <- aggrDefault qa o k r mDefaultVals
 
         return $ TADVec qd o k r i
 
