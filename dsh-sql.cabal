@@ -53,7 +53,7 @@ Library
   if flag(debuggraph)
     CPP-Options:     -DDEBUGGRAPH
 
-  GHC-Options:       -Wall -fno-warn-orphans -fprof-auto -O
+  GHC-Options:       -Wall -fno-warn-orphans
 
   Exposed-modules:   Database.DSH.Backend.Sql
                      Database.DSH.Backend.Sql.CodeGen
