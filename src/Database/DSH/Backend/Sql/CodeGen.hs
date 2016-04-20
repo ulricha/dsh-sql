@@ -186,12 +186,12 @@ instance Row (BackendRow SqlBackend) where
         H.SqlString !s     -> KByteString (BSC.pack s)
         H.SqlByteString !s -> KByteString s
         H.SqlLocalDate !d  -> KDay d
-        _                  -> $impossible
+        v                  -> error $ printf "keyVal: %s" (show v)
 
 
     descrVal (SqlScalar (H.SqlInt32 !i))   = fromIntegral i
     descrVal (SqlScalar (H.SqlInteger !i)) = fromIntegral i
-    descrVal _                             = $impossible
+    descrVal (SqlScalar v)                 = error $ printf "descrVal: %s" (show v)
 
     integerVal (SqlScalar (H.SqlInteger !i))    = i
     integerVal (SqlScalar (H.SqlInt32 !i))      = fromIntegral i
@@ -203,7 +203,7 @@ instance Row (BackendRow SqlBackend) where
                                                       Just (i, s') | BSC.null s' -> i
                                                       _                        ->
                                                           error $ printf "integerVal: %s" (show s)
-    integerVal (SqlScalar _)                    = $impossible 
+    integerVal (SqlScalar v)                    = error $ printf "integerVal: %s" (show v)
 
     doubleVal (SqlScalar (H.SqlDouble !d))     = d
     doubleVal (SqlScalar (H.SqlRational !d))   = fromRational d
@@ -233,11 +233,11 @@ instance Row (BackendRow SqlBackend) where
     charVal (SqlScalar (H.SqlByteString !s)) = case T.uncons (TE.decodeUtf8 s) of
                                                    Just (!c, _) -> c
                                                    Nothing      -> $impossible
-    charVal _                                = $impossible
+    charVal (SqlScalar v)                    = error $ printf "charVal: %s" (show v)
 
     textVal (SqlScalar (H.SqlString !t))     = T.pack t
     textVal (SqlScalar (H.SqlByteString !s)) = TE.decodeUtf8 s
-    textVal _                                = $impossible
+    textVal (SqlScalar v)                    = error $ printf "textVal: %s" (show v)
 
     decimalVal (SqlScalar (H.SqlRational !d))   = fromRational d
     decimalVal (SqlScalar (H.SqlByteString !c)) =
@@ -247,4 +247,4 @@ instance Row (BackendRow SqlBackend) where
     decimalVal (SqlScalar v)                    = error $ printf "decimalVal: %s" (show v)
 
     dayVal (SqlScalar (H.SqlLocalDate d)) = d
-    dayVal _                              = $impossible
+    dayVal (SqlScalar v)                  = error $ printf "dayVal: %s" (show v)
