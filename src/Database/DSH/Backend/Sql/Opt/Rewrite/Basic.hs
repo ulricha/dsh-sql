@@ -65,7 +65,9 @@ cleanupRulesTopDown = [ unreferencedBaseTableCols
                       -- , inlineSortColsSerialize
                       , inlineSortColsWinFun
                       , keyPrefixOrdering
-                      , constJoinPred
+                      , constSemiJoinPred
+                      , constAntiJoinPred
+                      , constThetaJoinPred
                       , constAggrKey
                       , constRownumCol
                       , constRowRankCol
@@ -451,23 +453,57 @@ constTrueJoinConjunct constColsLeft constColsRight (leftExpr, rightExpr, op) =
     isConstantTrue NeJ v1 v2 = v1 /= v2
 
 -- | Eliminate conjuncts from join predicates that are constant true.
-constJoinPred :: TARule AllProps
-constJoinPred q =
-  $(dagPatMatch 'q "(q1) [ThetaJoin | AntiJoin | SemiJoin]@joinOp p (q2)"
+constAntiJoinPred :: TARule AllProps
+constAntiJoinPred q =
+  $(dagPatMatch 'q "(q1) AntiJoin p (q2)"
     [| do
         constColsLeft  <- pConst . bu <$> properties $(v "q1")
         constColsRight <- pConst . bu <$> properties $(v "q2")
         let p' = filter (not . constTrueJoinConjunct constColsLeft constColsRight) $(v "p")
         predicate $ length p' < length $(v "p")
-        -- FIXME if all conjuncts are constant, we can replace the join operator
-        -- with either a cartesian product (thetajoin), the original left input
-        -- (semijoin) or a constant false selection (antijoin).
-        predicate $ not $ null p'
 
         return $ do
-            logRewrite "Basic.Const.Join" q
-            void $ replaceWithNew q $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
+            logRewrite "Basic.Const.AntiJoin" q
+            case p' of
+                _:_ -> void $ replaceWithNew q $ BinOp (AntiJoin p') $(v "q1") $(v "q2")
+                []  -> void $ replaceWithNew q $ UnOp (Select (VBool False)) $(v "q1")
         |])
+
+-- | Eliminate conjuncts from join predicates that are constant true.
+constSemiJoinPred :: TARule AllProps
+constSemiJoinPred q =
+  $(dagPatMatch 'q "(q1) SemiJoin p (q2)"
+    [| do
+        constColsLeft  <- pConst . bu <$> properties $(v "q1")
+        constColsRight <- pConst . bu <$> properties $(v "q2")
+        let p' = filter (not . constTrueJoinConjunct constColsLeft constColsRight) $(v "p")
+        predicate $ length p' < length $(v "p")
+
+        return $ do
+            logRewrite "Basic.Const.SemiJoin" q
+            case p' of
+                _:_ -> void $ replaceWithNew q $ BinOp (SemiJoin p') $(v "q1") $(v "q2")
+                []  -> void $ replace q $(v "q1")
+        |])
+
+-- | Eliminate conjuncts from thetajoin predicates that are constant true.
+constThetaJoinPred :: TARule AllProps
+constThetaJoinPred q =
+  $(dagPatMatch 'q "(q1) ThetaJoin p (q2)"
+    [| do
+        constColsLeft  <- pConst . bu <$> properties $(v "q1")
+        constColsRight <- pConst . bu <$> properties $(v "q2")
+        let p' = filter (not . constTrueJoinConjunct constColsLeft constColsRight) $(v "p")
+        predicate $ length p' < length $(v "p")
+
+        return $ do
+            logRewrite "Basic.Const.ThetaJoin" q
+            -- If all conjuncts are constant true, replace the join with a product.
+            case p' of
+                _:_ -> void $ replaceWithNew q $ BinOp (ThetaJoin p') $(v "q1") $(v "q2")
+                []  -> void $ replaceWithNew q $ BinOp (Cross ()) $(v "q1") $(v "q2")
+        |])
+
 
 constMap :: [ConstCol] -> [Proj] -> [(Attr, AVal)]
 constMap constCols =

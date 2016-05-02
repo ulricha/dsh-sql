@@ -15,6 +15,10 @@ import           Database.Algebra.Table.Lang
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 
 constExpr :: [ConstCol] -> Expr -> Maybe AVal
+constExpr constCols (BinAppE Eq e1 e2) = do
+    v1 <- constExpr constCols e1
+    v2 <- constExpr constCols e2
+    return $ VBool $ v1 == v2
 constExpr _         BinAppE{}     = Nothing
 constExpr _         UnAppE{}      = Nothing
 constExpr constCols (ColE c)      = lookup c constCols
