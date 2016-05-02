@@ -42,8 +42,6 @@ cleanupRules = [ stackedProject
                , pullProjectSerialize
                , pullProjectRownum
                , pullProjectAggr
-               , pullProjectSemiJoinLeft
-               , pullProjectSemiJoinRight
                , inlineProjectAggr
                , duplicateSortingCriteriaWin
                , duplicateSortingCriteriaRownum
@@ -75,6 +73,8 @@ cleanupRulesTopDown = [ unreferencedBaseTableCols
                       , constWinOrderCol
                       , pullProjectThetaJoinLeft
                       , pullProjectThetaJoinRight
+                      , pullProjectSemiJoinLeft
+                      , pullProjectSemiJoinRight
                       , pullProjectCrossLeft
                       , pullProjectCrossRight
                       , singletonProductLeft
@@ -466,7 +466,7 @@ constAntiJoinPred q =
             logRewrite "Basic.Const.AntiJoin" q
             case p' of
                 _:_ -> void $ replaceWithNew q $ BinOp (AntiJoin p') $(v "q1") $(v "q2")
-                []  -> void $ replaceWithNew q $ UnOp (Select (VBool False)) $(v "q1")
+                []  -> void $ replaceWithNew q $ UnOp (Select (ConstE $ VBool False)) $(v "q1")
         |])
 
 -- | Eliminate conjuncts from join predicates that are constant true.
@@ -1020,19 +1020,29 @@ inlineJoinPredLeft proj = map inlineConjunct
   where
     inlineConjunct (le, re, rel) = (inlineExpr proj le, re, rel)
 
-pullProjectSemiJoinLeft :: TARule ()
+pullProjectSemiJoinLeft :: TARule AllProps
 pullProjectSemiJoinLeft q =
     $(dagPatMatch 'q "(Project proj (q1)) [SemiJoin | AntiJoin]@joinOp p (q2)"
-      [| return $ do
+      [| do
+          colsLeft  <- fmap fst . pCols . bu <$> properties $(v "q1")
+          colsRight <- fmap fst . pCols . bu <$> properties $(v "q2")
+          predicate $ S.null $ S.intersection colsLeft colsRight
+
+          return $ do
              logRewrite "Basic.PullProject.SemiJoin.Left" q
              let p' = inlineJoinPredLeft $(v "proj") $(v "p")
              joinNode <- insert $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
              void $ replaceWithNew q $ UnOp (Project $(v "proj")) joinNode |])
 
-pullProjectSemiJoinRight :: TARule ()
+pullProjectSemiJoinRight :: TARule AllProps
 pullProjectSemiJoinRight q =
     $(dagPatMatch 'q "(q1) [SemiJoin | AntiJoin]@jop p (Project proj (q2))"
-      [| return $ do
+      [| do
+          colsLeft  <- fmap fst . pCols . bu <$> properties $(v "q1")
+          colsRight <- fmap fst . pCols . bu <$> properties $(v "q2")
+          predicate $ S.null $ S.intersection colsLeft colsRight
+
+          return $ do
              logRewrite "Basic.PullProject.SemiJoin.Right" q
              let p' = inlineJoinPredRight $(v "proj") $(v "p")
              void $ replaceWithNew q $ BinOp ($(v "jop") p') $(v "q1") $(v "q2") |])
