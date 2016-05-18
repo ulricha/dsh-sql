@@ -32,7 +32,7 @@ Library
                      , Decimal            >= 0.4
                      , HDBC               >= 2.4.0.1
                      , HDBC-odbc          >= 2.4
-                     , aeson              >= 0.8
+                     , aeson              >= 0.11
                      , algebra-dag        >= 0.1
                      , algebra-sql        >= 0.3
                      , base               >= 4.8 && < 5
@@ -84,7 +84,7 @@ Executable flatsqlcomp
     Build-depends:  base >= 4.8 && < 5,
                     DSH >= 0.13,
                     dsh-sql >= 0.2,
-                    aeson >= 0.9,
+                    aeson >= 0.11,
                     bytestring >= 0.10
     GHC-Options: -Wall
 
