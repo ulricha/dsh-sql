@@ -14,15 +14,15 @@ import           System.Exit
 
 import           Control.Monad
 
-import qualified Test.Framework                 as F
-import           Test.Framework.Providers.HUnit
-import qualified Test.HUnit                     as H
+import qualified Test.HUnit               as H
+import           Test.Tasty
+import qualified Test.Tasty.HUnit         as TH
 
-import           Data.Decimal                   (Decimal)
-import qualified Data.Text                      as T
-import qualified Data.Time.Calendar             as C
+import           Data.Decimal             (Decimal)
+import qualified Data.Text                as T
+import qualified Data.Time.Calendar       as C
 
-import qualified Database.DSH                   as Q
+import qualified Database.DSH             as Q
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql
 import           Database.DSH.Compiler
@@ -584,43 +584,43 @@ q22Test = makeEqAssertion "q22" q22Default res
           , ("30", 909, 6808436.13)
           , ("31", 922, 6806670.18) ]
 
-tests :: Backend c => c -> [F.Test]
-tests c =
-    [ testCase "q1" (q1Test c)
-    , testCase "q2" (q2Test c)
-    , testCase "q3" (q3Test c)
-    , testCase "q4" (q4Test c)
-    , testCase "q5" (q5Test c)
-    , testCase "q6" (q6Test c)
-    , testCase "q7" (q7Test c)
-    , testCase "q8" (q8Test c)
-    , testCase "q9" (q9Test c)
-    , testCase "q10" (q10Test c)
-    , testCase "q11" (q11Test c)
-    , testCase "q12" (q12Test c)
-    , testCase "q13" (q13Test c)
-    , testCase "q14" (q14Test c)
-    , testCase "q15" (q15Test c)
-    , testCase "q16" (q16Test c)
-    , testCase "q17" (q17Test c)
-    , testCase "q18" (q18Test c)
+tests :: Backend c => c -> TestTree
+tests c = testGroup "TPC-H standard tests"
+    [ TH.testCase "q1" (q1Test c)
+    , TH.testCase "q2" (q2Test c)
+    , TH.testCase "q3" (q3Test c)
+    , TH.testCase "q4" (q4Test c)
+    , TH.testCase "q5" (q5Test c)
+    , TH.testCase "q6" (q6Test c)
+    , TH.testCase "q7" (q7Test c)
+    , TH.testCase "q8" (q8Test c)
+    , TH.testCase "q9" (q9Test c)
+    , TH.testCase "q10" (q10Test c)
+    , TH.testCase "q11" (q11Test c)
+    , TH.testCase "q12" (q12Test c)
+    , TH.testCase "q13" (q13Test c)
+    , TH.testCase "q14" (q14Test c)
+    , TH.testCase "q15" (q15Test c)
+    , TH.testCase "q16" (q16Test c)
+    , TH.testCase "q17" (q17Test c)
+    , TH.testCase "q18" (q18Test c)
     -- test disabled: DSH unnesting fail.
-    -- , testCase "q19" (q19Test c)
+    -- , TH.testCase "q19" (q19Test c)
     -- tests disabled: PostgreSQL currently (13-01-16) generates a really bad
     -- plan and the query does not run in acceptable time.
-    -- , testCase "q20" (q20Test c)
-    -- , testCase "q21" (q21Test c)
-    , testCase "q22" (q22Test c)
+    -- , TH.testCase "q20" (q20Test c)
+    -- , TH.testCase "q21" (q21Test c)
+    , TH.testCase "q22" (q22Test c)
     ]
 
 main :: IO ()
 main = do
     args <- getArgs
     when ("--help" `elem` args) $ do
-        putStrLn "Usage: test-tpch [test-framework args] <dbname>"
-        withArgs ["--help"] $ F.defaultMain []
+        putStrLn "Usage: test-tpch [tasty args] <dbname>"
+        withArgs ["--help"] $ defaultMain $ testGroup "empty" []
         exitFailure
     let tfArgs = init args
         db     = last args
     conn <- sqlBackend <$> connectODBC ("DSN=" ++ db)
-    withArgs tfArgs $ F.defaultMain (tests conn)
+    withArgs tfArgs $ defaultMain (tests conn)

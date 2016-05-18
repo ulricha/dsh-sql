@@ -17,6 +17,6 @@ main = do
     case argv of
         _:_ -> do
             c <- getConn (printf "DSN=%s" $ last argv)
-            runTests (init argv) c defaultTests
+            runTests (init argv) $ defaultTests c
         _            ->
             error "usage: sqltests [test-framework arguments] <odbc dbname>"
