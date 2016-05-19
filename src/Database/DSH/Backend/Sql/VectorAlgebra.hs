@@ -563,22 +563,23 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecReplicateVector (TADVec q1 o1 k1 _ i1) (TADVec q2 o2 k2 _ _) = do
-        let o = o2 <> o1   -- The right vector defines primary order
-            k = k2 <> k1   -- New key is defined by both left and right
-            r = keyRef k1  -- Nesting operator: right vector defines reference
-            i = i1         -- We only produce items from the left input
+    vecNestProductS v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+        let o = o1 <> o2   -- New order is defined by both left and right
+            k = k1 <> k2   -- New key is defined by both left and right
+            r = keyRef k1  -- Nesting operator: left vector defines reference
+            i = i1 <> i2   -- We need items from left and right
 
-        qj  <- crossM
-                  (proj (   [ mP (oc $ c + unOrd o2) (oc c) | c <- [1..unOrd o1] ]
-                         ++ [ mP (kc $ c + unKey k2) (kc c) | c <- [1..unKey k1] ]
-                         ++ itemProj i1) q1)
-                  (proj (ordProj o2 ++ keyProj k2 ++ keyRefProj k2) q2)
-        qp <- proj (   [ mP (dc c) (kc c) | c <- [1..unKey k] ]
-                    ++ [ mP (sc c) (kc $ c + unKey k2) | c <- [1..unKey k1] ]) qj
+        qj  <- thetaJoinM (refJoinPred r1)
+                   (return q1)
+                   (proj (shiftAll v1 v2) q2)
 
-        return ( TADVec qj o k r i
-               , TARVec qp (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+        qd  <- proj (ordProj o ++ keyProj k ++ keyRefProj k1 ++ itemProj i) qj
+        qp1 <- proj (prodTransProjLeft k1 k2) qj
+        qp2 <- proj (prodTransProjRight k1 k2) qj
+
+        return ( TADVec qd o k r i
+               , TARVec qp1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k)
+               , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
     vecGroupJoin p (L.NE as) v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
