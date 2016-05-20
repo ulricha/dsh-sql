@@ -14,7 +14,6 @@ import           System.Exit
 import           Control.DeepSeq          (NFData)
 import qualified Criterion                as B
 import qualified Criterion.Main           as M
-import qualified Database.HDBC            as H
 import qualified Database.HDBC.ODBC       as O
 
 import qualified Database.DSH             as Q

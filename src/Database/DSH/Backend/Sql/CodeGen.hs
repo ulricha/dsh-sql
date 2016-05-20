@@ -186,7 +186,7 @@ instance Row (BackendRow SqlBackend) where
         H.SqlString !s     -> KByteString (BSC.pack s)
         H.SqlByteString !s -> KByteString s
         H.SqlLocalDate !d  -> KDay d
-        v                  -> error $ printf "keyVal: %s" (show v)
+        o                  -> error $ printf "keyVal: %s" (show o)
 
 
     descrVal (SqlScalar (H.SqlInt32 !i))   = fromIntegral i

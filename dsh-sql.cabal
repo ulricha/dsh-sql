@@ -17,7 +17,7 @@ Build-type:          Simple
 
 Extra-source-files:  README.md
 
-Cabal-version:       >= 1.8
+Cabal-version:       >= 1.10
 
 Flag debuggraph
   Description: Print debugging information for graph rewrites (TA)
