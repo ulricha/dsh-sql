@@ -429,7 +429,7 @@ instance VL.VectorAlgebra TableAlgebra where
         qw <- winFun (winCol, wfun) [] (synthOrder o) (Just frameSpec) q
         return $ TADVec qw o k r (i <> VecItems 1)
 
-    vecUniqueS (TADVec q o k r i) = do
+    vecUnique (TADVec q o k r i) = do
         -- Create per-segment groups based on the items and select the
         -- first member of each group
         qu <- projM (ordProj o ++ keyProj k ++ refProj r ++ itemProj i)
@@ -440,7 +440,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
     -- FIXME we might have key order for inner vectors. include the
     -- key here.
-    vecNumberS (TADVec q o@(VecOrder ds) k r i) = do
+    vecNumber (TADVec q o@(VecOrder ds) k r i) = do
         let i' = VecItems (unItems i + 1)
             nc = ic (unItems i + 1)
 
@@ -451,7 +451,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
     -- FIXME does flipping the direction really implement reversing of
     -- the order?
-    vecReverseS (TADVec q (VecOrder ds) k r i) = do
+    vecReverse (TADVec q (VecOrder ds) k r i) = do
         let o' = VecOrder $ map flipDir ds
         return ( TADVec q o' k r i
                , TASVec
@@ -459,7 +459,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
     -- Implement per-segment sorting. Note that we use relative per-segment
     -- order and do not establish a global per-vector order of tuples.
-    vecSortS sortExprs (TADVec q o k r i) = do
+    vecSort sortExprs (TADVec q o k r i) = do
         let o'       = VecOrder (map (const Asc) sortExprs) <> o
             -- Include the old order columns. This implements stable
             -- sorting and guarantees a strict total order of columns.
@@ -474,7 +474,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TASVec
                )
 
-    vecThetaJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+    vecThetaJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
             r = r1         -- The left vector defines the reference
@@ -493,7 +493,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecCartProductS v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+    vecCartProduct v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
             r = r1         -- The left vector defines the reference
@@ -512,7 +512,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecSemiJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
+    vecSemiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
             r = r1
@@ -528,7 +528,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qf (VecFilter $ unKey k1)
                )
 
-    vecAntiJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
+    vecAntiJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 _ _ _ _) = do
         let o = o1
             k = k1
             r = r1
@@ -544,7 +544,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qf (VecFilter $ unKey k1)
                )
 
-    vecNestJoinS p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+    vecNestJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
             r = keyRef k1  -- Nesting operator: left vector defines reference
@@ -563,7 +563,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TARVec qp2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k)
                )
 
-    vecNestProductS v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
+    vecNestProduct v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
             r = keyRef k1  -- Nesting operator: left vector defines reference
@@ -629,7 +629,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qd o k r i
 
-    vecAggrS a (TADVec qo _ k1 _ _) (TADVec qi _ _ r2 _) = do
+    vecAggrSeg a (TADVec qo _ k1 _ _) (TADVec qi _ _ r2 _) = do
         let o = VecOrder [Asc]
             k = VecKey 1
             r = r2
@@ -686,7 +686,7 @@ instance VL.VectorAlgebra TableAlgebra where
 
         return $ TADVec qa o' k' r' i'
 
-    vecGroupS groupExprs (TADVec q o k r i) = do
+    vecGroup groupExprs (TADVec q o k r i) = do
         let gl = length groupExprs
         let o1 = VecOrder $ replicate gl Asc
             k1 = VecKey $ unRef r + gl
@@ -740,7 +740,7 @@ instance VL.VectorAlgebra TableAlgebra where
                , TAFVec qr (VecFilter $ unKey k)
                )
 
-    vecZipS (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
+    vecZip (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         let -- The result vector uses synthetic rownum-generated
             -- per-segment order. As key, we can simply use the key
             -- from either left or right side. Both will retain their
@@ -839,7 +839,7 @@ instance VL.VectorAlgebra TableAlgebra where
                                          | (s, si) <- zip segs [1..]
                                          ]
 
-    vecAppendS (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
+    vecAppend (TADVec q1 o1 k1 r1 i1) (TADVec q2 o2 k2 r2 i2) = do
         -- We have to use synthetic rownum-generated order and keys
         -- because left and right inputs might have non-compapible
         -- order and keys.
