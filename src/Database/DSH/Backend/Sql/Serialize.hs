@@ -18,9 +18,9 @@ import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang            as TA
 
 import           Database.DSH.Backend.Sql.Vector
-import           Database.DSH.Backend.Sql.VectorAlgebra ()
+import           Database.DSH.Backend.Sql.SegmentAlgebra ()
 import           Database.DSH.Common.QueryPlan
-import           Database.DSH.VL
+import           Database.DSH.SL
 
 type TAVecBuild a = VecBuild TA.TableAlgebra
                              (DVec TA.TableAlgebra)

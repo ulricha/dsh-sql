@@ -52,7 +52,7 @@ import           Database.DSH.Common.Impossible
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Vector
 import           Database.DSH.Compiler
-import           Database.DSH.VL
+import           Database.DSH.SL
 
 --------------------------------------------------------------------------------
 
@@ -120,7 +120,7 @@ comprehensionCodeGen q = fmap (\(BC vec) -> vec) shape
 
 
 -- | Implement vector operators with relational algebra operators
-implementVectorOps :: QueryPlan VL VLDVec -> QueryPlan TA.TableAlgebra TADVec
+implementVectorOps :: QueryPlan SL SLDVec -> QueryPlan TA.TableAlgebra TADVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
   where
     taPlan               = vl2Algebra (D.nodeMap $ queryDag vlPlan)
@@ -149,7 +149,7 @@ instance Backend SqlBackend where
     generateCode :: BackendPlan SqlBackend -> Shape (BackendCode SqlBackend)
     generateCode (QP plan) = generateSqlQueries $ optimizeTA plan
 
-    generatePlan :: QueryPlan VL VLDVec -> BackendPlan SqlBackend
+    generatePlan :: QueryPlan SL SLDVec -> BackendPlan SqlBackend
     generatePlan = QP . implementVectorOps
 
     dumpPlan :: String -> Bool -> BackendPlan SqlBackend -> IO String

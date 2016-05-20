@@ -74,7 +74,7 @@ Library
                      Database.DSH.Backend.Sql.Opt.Rewrite.Basic
                      Database.DSH.Backend.Sql.Opt.Rewrite.Common
                      Database.DSH.Backend.Sql.Opt.OptimizeTA
-                     Database.DSH.Backend.Sql.VectorAlgebra
+                     Database.DSH.Backend.Sql.SegmentAlgebra
                      Database.DSH.Backend.Sql.Vector
                      Database.DSH.Backend.Sql.Serialize
 

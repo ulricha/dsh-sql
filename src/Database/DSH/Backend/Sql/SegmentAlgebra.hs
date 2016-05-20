@@ -8,7 +8,7 @@
 
 -- | Implementation of vector primitives in terms of table algebra
 -- operators.
-module Database.DSH.Backend.Sql.VectorAlgebra
+module Database.DSH.Backend.Sql.SegmentAlgebra
     ( ic, kc, oc, rc
     ) where
 
@@ -30,7 +30,7 @@ import qualified Database.DSH.Common.Type         as T
 
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.Impossible
-import qualified Database.DSH.VL                  as VL
+import qualified Database.DSH.SL                  as SL
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -214,12 +214,12 @@ unOp (L.SUDateOp L.DateDay)         = DateDay
 unOp (L.SUDateOp L.DateMonth)       = DateMonth
 unOp (L.SUDateOp L.DateYear)        = DateYear
 
-taExprOffset :: Int -> VL.Expr -> Expr
-taExprOffset o (VL.BinApp op e1 e2) = binOp op (taExprOffset o e1) (taExprOffset o e2)
-taExprOffset o (VL.UnApp op e)      = UnAppE (unOp op) (taExprOffset o e)
-taExprOffset o (VL.Column c)        = ColE $ ic $ c + o
-taExprOffset _ (VL.Constant v)      = ConstE $ algVal v
-taExprOffset o (VL.If c t e)        = TernaryAppE If (taExprOffset o c)
+taExprOffset :: Int -> SL.Expr -> Expr
+taExprOffset o (SL.BinApp op e1 e2) = binOp op (taExprOffset o e1) (taExprOffset o e2)
+taExprOffset o (SL.UnApp op e)      = UnAppE (unOp op) (taExprOffset o e)
+taExprOffset o (SL.Column c)        = ColE $ ic $ c + o
+taExprOffset _ (SL.Constant v)      = ConstE $ algVal v
+taExprOffset o (SL.If c t e)        = TernaryAppE If (taExprOffset o c)
                                                      (taExprOffset o t)
                                                      (taExprOffset o e)
 
@@ -239,7 +239,7 @@ specializeExpr e = case e of
     ConstE v -> ConstE v
     TernaryAppE f e1 e2 e3 -> TernaryAppE f (specializeExpr e1) (specializeExpr e2) (specializeExpr e3)
 
-taExpr :: VL.Expr -> Expr
+taExpr :: SL.Expr -> Expr
 taExpr = specializeExpr . taExprOffset 0
 
 --------------------------------------------------------------------------------
@@ -253,37 +253,37 @@ algTy T.UnitT    = intT
 algTy T.DateT    = dateT
 algTy T.DecimalT = decT
 
-aggrFun :: VL.AggrFun -> AggrType
-aggrFun (VL.AggrSum _ e)         = Sum $ taExpr e
-aggrFun (VL.AggrMin e)           = Min $ taExpr e
-aggrFun (VL.AggrMax e)           = Max $ taExpr e
-aggrFun (VL.AggrAvg e)           = Avg $ taExpr e
-aggrFun (VL.AggrAll e)           = All $ taExpr e
-aggrFun (VL.AggrAny e)           = Any $ taExpr e
-aggrFun (VL.AggrCountDistinct e) = CountDistinct $ taExpr e
-aggrFun VL.AggrCount             = CountStar
+aggrFun :: SL.AggrFun -> AggrType
+aggrFun (SL.AggrSum _ e)         = Sum $ taExpr e
+aggrFun (SL.AggrMin e)           = Min $ taExpr e
+aggrFun (SL.AggrMax e)           = Max $ taExpr e
+aggrFun (SL.AggrAvg e)           = Avg $ taExpr e
+aggrFun (SL.AggrAll e)           = All $ taExpr e
+aggrFun (SL.AggrAny e)           = Any $ taExpr e
+aggrFun (SL.AggrCountDistinct e) = CountDistinct $ taExpr e
+aggrFun SL.AggrCount             = CountStar
 
 -- | Map aggregate functions to relational aggregates for the
 -- groupjoin operator. For Count, we need the first key column of the
 -- right input to account for the NULLs produced by the outer join.
-aggrFunGroupJoin :: Int -> VL.AggrFun -> AggrType
-aggrFunGroupJoin _ (VL.AggrSum _ e)         = Sum $ taExpr e
-aggrFunGroupJoin _ (VL.AggrMin e)           = Min $ taExpr e
-aggrFunGroupJoin _ (VL.AggrMax e)           = Max $ taExpr e
-aggrFunGroupJoin _ (VL.AggrAvg e)           = Avg $ taExpr e
-aggrFunGroupJoin _ (VL.AggrAll e)           = All $ taExpr e
-aggrFunGroupJoin _ (VL.AggrAny e)           = Any $ taExpr e
-aggrFunGroupJoin c VL.AggrCount             = Count $ ColE (kc c)
-aggrFunGroupJoin _ (VL.AggrCountDistinct e) = CountDistinct $ taExpr e
+aggrFunGroupJoin :: Int -> SL.AggrFun -> AggrType
+aggrFunGroupJoin _ (SL.AggrSum _ e)         = Sum $ taExpr e
+aggrFunGroupJoin _ (SL.AggrMin e)           = Min $ taExpr e
+aggrFunGroupJoin _ (SL.AggrMax e)           = Max $ taExpr e
+aggrFunGroupJoin _ (SL.AggrAvg e)           = Avg $ taExpr e
+aggrFunGroupJoin _ (SL.AggrAll e)           = All $ taExpr e
+aggrFunGroupJoin _ (SL.AggrAny e)           = Any $ taExpr e
+aggrFunGroupJoin c SL.AggrCount             = Count $ ColE (kc c)
+aggrFunGroupJoin _ (SL.AggrCountDistinct e) = CountDistinct $ taExpr e
 
--- | Transform a VL join predicate into a TA predicate. Items of the
+-- | Transform a SL.join predicate into a TA predicate. Items of the
 -- left input are necessary to account for the pre-join item column
 -- shift in the right input.
-joinPredicate :: VecItems -> L.JoinPredicate VL.Expr -> [(Expr, Expr, JoinRel)]
+joinPredicate :: VecItems -> L.JoinPredicate SL.Expr -> [(Expr, Expr, JoinRel)]
 joinPredicate (VecItems o) (L.JoinPred conjs) =
     N.toList $ fmap (joinConjunct o) conjs
 
-joinConjunct :: Int -> L.JoinConjunct VL.Expr -> (Expr, Expr, JoinRel)
+joinConjunct :: Int -> L.JoinConjunct SL.Expr -> (Expr, Expr, JoinRel)
 joinConjunct o (L.JoinConjunct e1 op e2) = (taExpr e1, taExprOffset o e2, joinOp op)
 
 refJoinPred :: VecRef -> [(Expr, Expr, JoinRel)]
@@ -297,19 +297,19 @@ joinOp L.Lt  = LtJ
 joinOp L.LtE = LeJ
 joinOp L.NEq = NeJ
 
-windowFunction :: VL.WinFun -> WinFun
-windowFunction (VL.WinSum e)        = WinSum $ taExpr e
-windowFunction (VL.WinMin e)        = WinMin $ taExpr e
-windowFunction (VL.WinMax e)        = WinMax $ taExpr e
-windowFunction (VL.WinAvg e)        = WinAvg $ taExpr e
-windowFunction (VL.WinAll e)        = WinAll $ taExpr e
-windowFunction (VL.WinAny e)        = WinAny $ taExpr e
-windowFunction (VL.WinFirstValue e) = WinFirstValue $ taExpr e
-windowFunction VL.WinCount          = WinCount
+windowFunction :: SL.WinFun -> WinFun
+windowFunction (SL.WinSum e)        = WinSum $ taExpr e
+windowFunction (SL.WinMin e)        = WinMin $ taExpr e
+windowFunction (SL.WinMax e)        = WinMax $ taExpr e
+windowFunction (SL.WinAvg e)        = WinAvg $ taExpr e
+windowFunction (SL.WinAll e)        = WinAll $ taExpr e
+windowFunction (SL.WinAny e)        = WinAny $ taExpr e
+windowFunction (SL.WinFirstValue e) = WinFirstValue $ taExpr e
+windowFunction SL.WinCount          = WinCount
 
-frameSpecification :: VL.FrameSpec -> FrameBounds
-frameSpecification VL.FAllPreceding   = ClosedFrame FSUnboundPrec FECurrRow
-frameSpecification (VL.FNPreceding n) = ClosedFrame (FSValPrec n) FECurrRow
+frameSpecification :: SL.FrameSpec -> FrameBounds
+frameSpecification SL.FAllPreceding   = ClosedFrame FSUnboundPrec FECurrRow
+frameSpecification (SL.FNPreceding n) = ClosedFrame (FSValPrec n) FECurrRow
 
 --------------------------------------------------------------------------------
 
@@ -321,15 +321,15 @@ sumDefault T.DoubleT  = (ADouble, double 0)
 sumDefault T.DecimalT = (ADec, dec 0)
 sumDefault _          = $impossible
 
-aggrFunDefault :: VL.AggrFun -> Maybe AVal
-aggrFunDefault (VL.AggrSum t _)         = Just $ snd $ sumDefault t
-aggrFunDefault (VL.AggrAny _)           = Just $ bool False
-aggrFunDefault (VL.AggrAll _)           = Just $ bool True
-aggrFunDefault (VL.AggrMax _)           = Nothing
-aggrFunDefault (VL.AggrMin _)           = Nothing
-aggrFunDefault (VL.AggrAvg _)           = Nothing
-aggrFunDefault VL.AggrCount             = Nothing
-aggrFunDefault (VL.AggrCountDistinct _) = Nothing
+aggrFunDefault :: SL.AggrFun -> Maybe AVal
+aggrFunDefault (SL.AggrSum t _)         = Just $ snd $ sumDefault t
+aggrFunDefault (SL.AggrAny _)           = Just $ bool False
+aggrFunDefault (SL.AggrAll _)           = Just $ bool True
+aggrFunDefault (SL.AggrMax _)           = Nothing
+aggrFunDefault (SL.AggrMin _)           = Nothing
+aggrFunDefault (SL.AggrAvg _)           = Nothing
+aggrFunDefault SL.AggrCount             = Nothing
+aggrFunDefault (SL.AggrCountDistinct _) = Nothing
 
 groupJoinDefault :: AlgNode
                  -> VecOrder
@@ -347,16 +347,16 @@ groupJoinDefault qa o k r i defaultVals =
                   | (col, mVal) <- defaultVals
                   ]
 
-requiresOuterJoin :: VL.AggrFun -> Bool
+requiresOuterJoin :: SL.AggrFun -> Bool
 requiresOuterJoin a = case a of
-    VL.AggrSum _ _         -> True
-    VL.AggrAny _           -> True
-    VL.AggrAll _           -> True
-    VL.AggrCount           -> True
-    VL.AggrCountDistinct _ -> True
-    VL.AggrMax _           -> False
-    VL.AggrMin _           -> False
-    VL.AggrAvg _           -> False
+    SL.AggrSum _ _         -> True
+    SL.AggrAny _           -> True
+    SL.AggrAll _           -> True
+    SL.AggrCount           -> True
+    SL.AggrCountDistinct _ -> True
+    SL.AggrMax _           -> False
+    SL.AggrMin _           -> False
+    SL.AggrAvg _           -> False
 
 -- | For a segmented aggregate operator, apply the aggregate
 -- function's default value for the empty segments. The first argument
@@ -413,9 +413,9 @@ synthOrder (VecOrder dirs) = [ (ColE $ oc c, d)| c <- [1..] | d <- dirs ]
 
 --------------------------------------------------------------------------------
 
--- | The VectorAlgebra instance for TA algebra, implemented using
+-- | The SegmentAlgebra instance for TA algebra, implemented using
 -- natural keys.
-instance VL.VectorAlgebra TableAlgebra where
+instance SL.SegmentAlgebra TableAlgebra where
     type DVec TableAlgebra = TADVec
     type RVec TableAlgebra = TARVec
     type KVec TableAlgebra = TAKVec
@@ -636,11 +636,11 @@ instance VL.VectorAlgebra TableAlgebra where
         -- Group the inner vector by ref.
         qa <- aggr [(aggrFun a, ic 1)] [ (c, ColE c) | c <- refCols r2 ] qi
         qd <- case a of
-                  VL.AggrSum t _         -> segAggrDefault qo qa k1 r2 (snd $ sumDefault t)
-                  VL.AggrAny _           -> segAggrDefault qo qa k1 r2 (bool False)
-                  VL.AggrAll _           -> segAggrDefault qo qa k1 r2 (bool True)
-                  VL.AggrCount           -> segAggrDefault qo qa k1 r2 (int 0)
-                  VL.AggrCountDistinct _ -> segAggrDefault qo qa k1 r2 (int 0)
+                  SL.AggrSum t _         -> segAggrDefault qo qa k1 r2 (snd $ sumDefault t)
+                  SL.AggrAny _           -> segAggrDefault qo qa k1 r2 (bool False)
+                  SL.AggrAll _           -> segAggrDefault qo qa k1 r2 (bool True)
+                  SL.AggrCount           -> segAggrDefault qo qa k1 r2 (int 0)
+                  SL.AggrCountDistinct _ -> segAggrDefault qo qa k1 r2 (int 0)
                   _                      ->
                       projM ([cP (oc 1), mP (kc 1) (oc 1)]
                              ++ refProj r
@@ -818,7 +818,7 @@ instance VL.VectorAlgebra TableAlgebra where
             litSchema = [(rc 1, intT), (kc 1, intT)]
                         ++
                         [ (ic c, algTy t) | c <- [1..] | t <- tys ]
-            cols   = refCol : keyCol : map F.toList (VL.vectorCols tys segments)
+            cols   = refCol : keyCol : map F.toList (SL.vectorCols tys segments)
             rows   = transpose cols
 
         qr <- projM ([mP (oc 1) (kc 1), cP (kc 1), cP (rc 1)] ++ itemProj i)
@@ -828,13 +828,13 @@ instance VL.VectorAlgebra TableAlgebra where
       where
         -- Create a ref column with the proper length from the segment
         -- description.
-        mkRefCol (VL.UnitSeg _) = replicate (VL.frameLen frame) (L.IntV 1)
+        mkRefCol (SL.UnitSeg _) = replicate (SL.frameLen frame) (L.IntV 1)
         -- For a vector with multiple segments, we enumerate the segments to get
         -- segment identifiers and replicate those according to the length of
         -- the segment. Note that segments also contain empty segments, i.e.
         -- every segment identifier is obtained from the list of segments and
         -- matches the key in the outer vector.
-        mkRefCol (VL.Segs segs) = concat [ replicate (VL.segLen s) (L.IntV si)
+        mkRefCol (SL.Segs segs) = concat [ replicate (SL.segLen s) (L.IntV si)
                                          | (s, si) <- zip segs [1..]
                                          ]
 
