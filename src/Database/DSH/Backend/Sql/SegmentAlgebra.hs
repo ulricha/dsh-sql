@@ -416,11 +416,11 @@ synthOrder (VecOrder dirs) = [ (ColE $ oc c, d)| c <- [1..] | d <- dirs ]
 -- | The SegmentAlgebra instance for TA algebra, implemented using
 -- natural keys.
 instance SL.SegmentAlgebra TableAlgebra where
-    type DVec TableAlgebra = TADVec
-    type RVec TableAlgebra = TARVec
-    type KVec TableAlgebra = TAKVec
-    type FVec TableAlgebra = TAFVec
-    type SVec TableAlgebra = TASVec
+    type SLDVec TableAlgebra = TADVec
+    type SLRVec TableAlgebra = TARVec
+    type SLKVec TableAlgebra = TAKVec
+    type SLFVec TableAlgebra = TAFVec
+    type SLSVec TableAlgebra = TASVec
 
     vecWinFun a w (TADVec q o k r i) = do
         let wfun      = windowFunction a

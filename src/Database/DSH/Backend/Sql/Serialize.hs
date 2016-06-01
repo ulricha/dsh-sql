@@ -23,19 +23,19 @@ import           Database.DSH.Common.QueryPlan
 import           Database.DSH.SL
 
 type TAVecBuild a = VecBuild TA.TableAlgebra
-                             (DVec TA.TableAlgebra)
-                             (RVec TA.TableAlgebra)
-                             (KVec TA.TableAlgebra)
-                             (FVec TA.TableAlgebra)
-                             (SVec TA.TableAlgebra)
+                             (SLDVec TA.TableAlgebra)
+                             (SLRVec TA.TableAlgebra)
+                             (SLKVec TA.TableAlgebra)
+                             (SLFVec TA.TableAlgebra)
+                             (SLSVec TA.TableAlgebra)
                              a
 
 -- | Insert SerializeRel operators in TA.TableAlgebra plans to define key, ref
 -- and order columns as well as the required payload columns. 'insertSerialize'
 -- decides whether key, ref and order columns are actually needed based on the
 -- position of the vector in a shape or layout.
-insertSerialize :: TAVecBuild (Shape (DVec TA.TableAlgebra))
-                -> TAVecBuild (Shape (DVec TA.TableAlgebra))
+insertSerialize :: TAVecBuild (Shape (SLDVec TA.TableAlgebra))
+                -> TAVecBuild (Shape (SLDVec TA.TableAlgebra))
 insertSerialize g = g >>= traverseShape
 
 traverseShape :: Shape TADVec -> TAVecBuild (Shape TADVec)

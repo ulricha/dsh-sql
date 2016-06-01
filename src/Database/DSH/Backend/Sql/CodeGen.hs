@@ -120,7 +120,7 @@ comprehensionCodeGen q = fmap (\(BC vec) -> vec) shape
 
 
 -- | Implement vector operators with relational algebra operators
-implementVectorOps :: QueryPlan SL SLDVec -> QueryPlan TA.TableAlgebra TADVec
+implementVectorOps :: QueryPlan SL DVec -> QueryPlan TA.TableAlgebra TADVec
 implementVectorOps vlPlan = mkQueryPlan dag shape tagMap
   where
     taPlan               = vl2Algebra (D.nodeMap $ queryDag vlPlan)
@@ -149,7 +149,7 @@ instance Backend SqlBackend where
     generateCode :: BackendPlan SqlBackend -> Shape (BackendCode SqlBackend)
     generateCode (QP plan) = generateSqlQueries $ optimizeTA plan
 
-    generatePlan :: QueryPlan SL SLDVec -> BackendPlan SqlBackend
+    generatePlan :: QueryPlan SL DVec -> BackendPlan SqlBackend
     generatePlan = QP . implementVectorOps
 
     dumpPlan :: String -> Bool -> BackendPlan SqlBackend -> IO String
