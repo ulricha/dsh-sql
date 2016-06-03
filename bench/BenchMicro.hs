@@ -17,7 +17,7 @@ import qualified Criterion.Main           as M
 import qualified Database.HDBC.ODBC       as O
 
 import qualified Database.DSH             as Q
-import qualified Database.DSH.Backend.Sql as S
+import           Database.DSH.Backend.Sql
 import qualified Database.DSH.Compiler    as C
 
 xs :: [[[Integer]]]
@@ -32,7 +32,7 @@ benchmarkDSH :: (Q.QA a, NFData a)
              -> O.Connection
              -> Q.Q a
              -> B.Benchmark
-benchmarkDSH benchName c q = B.bench benchName $ B.nfIO (C.runQ (S.sqlBackend c) q)
+benchmarkDSH benchName c q = B.bench benchName $ B.nfIO (C.runQ naturalPgCodeGen (pgConn c) q)
 
 --------------------------------------------------------------------------------
 -- Benchmark definition

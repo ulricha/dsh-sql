@@ -1,11 +1,12 @@
-{-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE TemplateHaskell  #-}
 
 -- | Definition of relational vector implementations.
 module Database.DSH.Backend.Sql.Vector where
 
-import           Data.Aeson.TH
 import           Data.Aeson
+import           Data.Aeson.TH
+import qualified Data.Vector                 as V
 
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
@@ -77,6 +78,7 @@ newtype VecTransDst = VecTransDst { unDst :: Int }
 newtype VecFilter = VecFilter Int
 
 --------------------------------------------------------------------------------
+-- Vectors over relational algebra plans.
 
 -- | A data vector that references a table algebra plan
 data TADVec = TADVec AlgNode VecOrder VecKey VecRef VecItems
@@ -99,6 +101,22 @@ instance DagVector TADVec where
     updateVector n1 n2 (TADVec q o k r i)
         | q == n1   = TADVec n2 o k r i
         | otherwise = TADVec q o k r i
+
+--------------------------------------------------------------------------------
+-- SQL Vectors
+
+-- | A data vector computed by a SQL query
+data SqlVector c = SqlVector
+    { vecCode  :: c
+    , vecKey   :: VecKey
+    , vecRef   :: VecRef
+    , vecItems :: VecItems
+    }
+
+instance RelationalVector (SqlVector c) where
+    rvKeyCols vec  = map kc [1..unKey (vecKey vec)]
+    rvRefCols vec  = map rc [1..unRef (vecRef vec)]
+    rvItemCols vec = V.generate (unItems (vecItems vec)) (ic . (+ 1))
 
 --------------------------------------------------------------------------------
 -- Definition of column names
@@ -161,5 +179,6 @@ $(deriveToJSON defaultOptions ''VecTransDst)
 $(deriveToJSON defaultOptions ''TADVec)
 $(deriveToJSON defaultOptions ''TAKVec)
 $(deriveToJSON defaultOptions ''TARVec)
+$(deriveToJSON defaultOptions ''SqlVector)
 
 --------------------------------------------------------------------------------

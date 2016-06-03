@@ -8,7 +8,7 @@
 
 -- | Implementation of vector primitives in terms of table algebra
 -- operators.
-module Database.DSH.Backend.Sql.SegmentAlgebra
+module Database.DSH.Backend.Sql.Relational.Natural
     ( ic, kc, oc, rc
     ) where
 

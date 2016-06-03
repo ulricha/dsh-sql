@@ -7,26 +7,34 @@
 -- | This module provides the execution of DSH queries as SQL query bundles and the
 -- construction of nested values from the resulting vector bundle.
 module Database.DSH.Backend.Sql
-  ( -- * The relational SQL backend
-    SqlBackend
-  , sqlBackend
-    -- * Show and tell: display relational plans.
-  , showRelationalQ
+  ( -- * Show and tell: display relational plans.
+    showRelationalQ
   , showRelationalOptQ
-  , showSqlQ
   , showTabularQ
+    -- * Various SQL code generators
+  , module Database.DSH.Backend.Sql.CodeGen
+    -- * A PostgreSQL ODBC backend
+  , module Database.DSH.Backend.Sql.Pg
+    -- * SQL backend vectors
+  , module Database.DSH.Backend.Sql.Vector
   ) where
 
+import           Control.Monad
 import           System.Process
 import           System.Random
 import           Text.Printf
 
-import           Control.Monad
+import qualified Database.DSH                            as DSH
+import           Database.DSH.Common.QueryPlan
+import           Database.DSH.Common.Vector
+import           Database.DSH.Compiler
 
-import qualified Database.DSH                             as DSH
-import           Database.DSH.Backend
+import           Database.DSH.Backend.Sql.Opt.OptimizeTA
+import           Database.DSH.Backend.Sql.Pg
+import           Database.DSH.Backend.Sql.Relational
+import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Backend.Sql.CodeGen
-import qualified Database.DSH.Compiler                    as C
+import           Database.DSH.Backend.Sql.Vector (SqlVector(..))
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -36,44 +44,37 @@ fileId :: IO String
 fileId = replicateM 8 (randomRIO ('a', 'z'))
 
 -- | Show the unoptimized relational table algebra plan
-showRelationalQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
-showRelationalQ q = do
-    let vl = C.vectorPlanQ q
-    let bp = generatePlan vl :: BackendPlan SqlBackend
-    h <- fileId
-    fileName <- dumpPlan ("q_ta_" ++ h) False bp
-    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" fileName fileName fileName
+showRelationalQ :: (DSH.QA a, VectorLang v) => RelPlanGen v -> DSH.Q a -> IO ()
+showRelationalQ relGen q = do
+    let vectorPlan = vectorPlanQ q
+        relPlan    = relGen vectorPlan
+    prefix <- ("q_ta_" ++) <$> fileId
+    exportPlan prefix relPlan
+    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 
 -- | Show the optimized relational table algebra plan
-showRelationalOptQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
-showRelationalOptQ q = do
-    let vl = C.vectorPlanQ q
-    let bp = generatePlan vl :: BackendPlan SqlBackend
-    h <- fileId
-    fileName <- dumpPlan ("q_ta_" ++ h) True bp
-    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" fileName fileName fileName
-
--- | Show all SQL queries produced for the given query
-showSqlQ :: forall a.DSH.QA a => DSH.Q a -> IO ()
-showSqlQ q = do
-    putStrLn sepLine
-    forM_ (map (unSql . unwrapSql) $ C.codeQ undefined q) $ \sql -> do
-         putStrLn sql
-         putStrLn sepLine
-
-  where
-    sepLine = replicate 80 '-'
+showRelationalOptQ :: (DSH.QA a, VectorLang v) => RelPlanGen v -> DSH.Q a -> IO ()
+showRelationalOptQ relGen q = do
+    let vectorPlan = vectorPlanQ q
+        relPlan    = optimizeTA $ relGen vectorPlan
+    prefix <- ("q_ta_opt_" ++) <$> fileId
+    exportPlan prefix relPlan
+    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 
 -- | Show raw tabular results via 'psql', executed on the specified
 -- database..
-showTabularQ :: forall a. DSH.QA a => String -> DSH.Q a -> IO ()
-showTabularQ db q =
-    forM_ (map (unSql . unwrapSql) $ C.codeQ undefined q) $ \sql -> do
+showTabularQ :: (DSH.QA a, VectorLang v)
+             => (QueryPlan v DVec -> Shape (SqlVector PgCode))
+             -> String
+             -> DSH.Q a
+             -> IO ()
+showTabularQ pgCodeGen dbName q =
+    forM_ (codeQ pgCodeGen q) $ \sql -> do
         putStrLn ""
         h <- fileId
         let queryFile = printf "q_%s.sql" h
-        writeFile queryFile sql
-        hdl <- runCommand $ printf "psql %s < %s" db queryFile
+        writeFile queryFile $ unPg $ vecCode sql
+        hdl <- runCommand $ printf "psql %s < %s" dbName queryFile
         void $ waitForProcess hdl
         putStrLn sepLine
 

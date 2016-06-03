@@ -80,14 +80,14 @@ instance (RoughlyEq a, RoughlyEq b, RoughlyEq c, RoughlyEq d) => RoughlyEq (a, b
 instance (RoughlyEq a, RoughlyEq b, RoughlyEq c, RoughlyEq d, RoughlyEq e) => RoughlyEq (a, b, c, d, e) where
     (a, b, c, d, e) ~== (a', b', c', d', e') = a ~== a' && b ~== b' && c ~== c' && d ~== d' && e ~== e'
 
-makeEqAssertion :: (Show a, RoughlyEq a, Q.QA a, Backend c)
+makeEqAssertion :: (Show a, RoughlyEq a, Q.QA a)
                 => String
                 -> Q.Q a
                 -> a
-                -> c
+                -> BackendConn PgVector
                 -> H.Assertion
 makeEqAssertion msg q expRes conn = do
-    actualRes <- runQ conn q
+    actualRes <- runQ naturalPgCodeGen conn q
     H.assertBool msg $ actualRes ~== expRes
 
 makePredAssertion :: (Show a, RoughlyEq a, Q.QA a, Backend c)
@@ -622,5 +622,5 @@ main = do
         exitFailure
     let tfArgs = init args
         db     = last args
-    conn <- sqlBackend <$> connectODBC ("DSN=" ++ db)
-    withArgs tfArgs $ defaultMain (tests conn)
+    conn <- pgConn <$> connectODBC ("DSN=" ++ db)
+    withArgs tfArgs $ defaultMain (tests naturalPgCodeGen conn)

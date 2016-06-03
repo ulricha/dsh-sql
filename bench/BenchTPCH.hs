@@ -36,7 +36,7 @@ benchmarkDSH :: (Q.QA a, NFData a)
              -> O.Connection
              -> Q.Q a
              -> B.Benchmark
-benchmarkDSH benchName c q = B.bench benchName $ B.nfIO (C.runQ (S.sqlBackend c) q)
+benchmarkDSH benchName c q = B.bench benchName $ B.nfIO (C.runQ S.naturalPgCodeGen (S.pgConn c) q)
 
 --------------------------------------------------------------------------------
 -- Benchmark definition

@@ -48,6 +48,7 @@ Library
                      , text               >= 1.1
                      , vector             >= 0.10
                      , scientific         >= 0.3
+                     , time               >= 1.5
 
   Hs-source-dirs:    src
 
@@ -57,7 +58,6 @@ Library
   GHC-Options:       -Wall -fno-warn-orphans
 
   Exposed-modules:   Database.DSH.Backend.Sql
-                     Database.DSH.Backend.Sql.CodeGen
 
   Other-modules:     Database.DSH.Backend.Sql.Opt.Properties.BottomUp
                      Database.DSH.Backend.Sql.Opt.Properties.TopDown
@@ -75,9 +75,19 @@ Library
                      Database.DSH.Backend.Sql.Opt.Rewrite.Basic
                      Database.DSH.Backend.Sql.Opt.Rewrite.Common
                      Database.DSH.Backend.Sql.Opt.OptimizeTA
-                     Database.DSH.Backend.Sql.SegmentAlgebra
+
                      Database.DSH.Backend.Sql.Vector
                      Database.DSH.Backend.Sql.Serialize
+
+                     Database.DSH.Backend.Sql.Relational.Natural
+                     Database.DSH.Backend.Sql.Relational.Synthetic
+                     Database.DSH.Backend.Sql.Relational.Virtual
+                     Database.DSH.Backend.Sql.Relational
+
+                     Database.DSH.Backend.Sql.Pg
+                     Database.DSH.Backend.Sql.CodeGen
+                     Database.DSH.Backend.Sql.Common
+                     Database.DSH.Backend.Sql.HDBC
 
 Executable flatsqlcomp
     default-language:    Haskell2010
@@ -113,28 +123,28 @@ Executable test-basic
     GHC-Options: -Wall -fno-warn-orphans
     default-extensions: CPP
 
-executable test-tpch
-  default-language:    Haskell2010
-  main-is:             testsuite/TestTPCH.hs
-  build-depends:       base,
-                       containers,
-                       mwc-random,
-                       vector,
-                       cassava,
-                       bytestring,
-                       time,
-                       text,
-                       Decimal,
-                       semigroups,
-                       HUnit,
-                       HDBC,
-                       HDBC-odbc,
-                       tasty,
-                       tasty-hunit,
-                       DSH,
-                       dsh-sql,
-                       dsh-example-queries
-  ghc-options:         -Wall -O2
+-- executable test-tpch
+--   default-language:    Haskell2010
+--   main-is:             testsuite/TestTPCH.hs
+--   build-depends:       base,
+--                        containers,
+--                        mwc-random,
+--                        vector,
+--                        cassava,
+--                        bytestring,
+--                        time,
+--                        text,
+--                        Decimal,
+--                        semigroups,
+--                        HUnit,
+--                        HDBC,
+--                        HDBC-odbc,
+--                        tasty,
+--                        tasty-hunit,
+--                        DSH,
+--                        dsh-sql,
+--                        dsh-example-queries
+--   ghc-options:         -Wall -O2
 
 executable bench-tpch
   default-language:    Haskell2010

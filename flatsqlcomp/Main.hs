@@ -8,12 +8,13 @@ import           System.Exit
 import           System.IO
 
 import           Data.Aeson
-import qualified Data.ByteString.Lazy             as BL
+import qualified Data.ByteString.Lazy          as BL
 
-import           Database.DSH.Backend.Sql.CodeGen
+import           Database.DSH.Backend.Sql
 import           Database.DSH.CL.Parser
 import           Database.DSH.Common.Pretty
 import           Database.DSH.Common.QueryPlan
+import           Database.DSH.Compiler
 
 data Options = Options { optInput :: IO String
                        , optPrint :: Bool
@@ -42,8 +43,8 @@ options =
            "Show help"
     ]
 
-printQueries :: Shape SqlVector -> IO ()
-printQueries shape = BL.hPut stdout (encode shape)
+printQueries :: Shape PgVector -> IO ()
+printQueries shape = BL.hPut stdout (encode $ fmap vecCode shape)
 
 main :: IO ()
 main = do
@@ -57,5 +58,5 @@ main = do
         Right cl ->
             if optPrint opts
                 then putStrLn (pp cl) >> exitSuccess
-                else printQueries (comprehensionCodeGen cl)
+                else printQueries (naturalPgCodeGen $ compileOptQ optimizeComprehensions cl)
 

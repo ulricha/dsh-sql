@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE InstanceSigs      #-}
+{-# LANGUAGE ParallelListComp  #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE ParallelListComp  #-}
 
 -- | Insert 'Serialize' operators into table algebra plans.
 module Database.DSH.Backend.Sql.Serialize
@@ -13,12 +13,12 @@ module Database.DSH.Backend.Sql.Serialize
 import           Control.Monad.State
 import           Data.Maybe
 
-import qualified Database.Algebra.Dag.Build             as B
+import qualified Database.Algebra.Dag.Build               as B
 import           Database.Algebra.Dag.Common
-import qualified Database.Algebra.Table.Lang            as TA
+import qualified Database.Algebra.Table.Lang              as TA
 
+import           Database.DSH.Backend.Sql.Relational.Natural ()
 import           Database.DSH.Backend.Sql.Vector
-import           Database.DSH.Backend.Sql.SegmentAlgebra ()
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.SL
 
