@@ -6,27 +6,29 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 
--- | Definition of the SQL backend for DSH: SQL code generation and execution of
--- SQL queries.
+-- | SQL code generators.
 module Database.DSH.Backend.Sql.CodeGen
     ( virtualPgCodeGen
     , naturalPgCodeGen
     , syntheticPgCodeGen
+    , module Database.DSH.Backend.Sql.Pg
     ) where
 
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Vector
-import           Database.DSH.VSL
 import           Database.DSH.SL
+import           Database.DSH.VSL
 
-import           Database.DSH.Backend.Sql.Pg
-import           Database.DSH.Backend.Sql.Vector
+import           Database.DSH.Backend.Sql.Pg         (pgConn)
+import qualified Database.DSH.Backend.Sql.Pg         as Pg
+import qualified Database.DSH.Backend.Sql.Relational as R
 
-virtualPgCodeGen :: QueryPlan VSL DVec -> Shape PgVector
+virtualPgCodeGen :: QueryPlan VSL DVec -> Shape Pg.PgVector
 virtualPgCodeGen = undefined
 
-naturalPgCodeGen :: QueryPlan SL DVec -> Shape PgVector
-naturalPgCodeGen = undefined
+-- | Generate code for PostgreSQL using natural/composite keys and lazy order.
+naturalPgCodeGen :: QueryPlan SL DVec -> Shape Pg.PgVector
+naturalPgCodeGen = Pg.generatePgQueries . R.naturalKeyVectors
 
-syntheticPgCodeGen :: QueryPlan SL DVec -> Shape PgVector
+syntheticPgCodeGen :: QueryPlan SL DVec -> Shape Pg.PgVector
 syntheticPgCodeGen = undefined

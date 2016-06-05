@@ -7,12 +7,13 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 
--- | Definition of the SQL backend for DSH: SQL code generation and execution of
--- SQL queries.
+-- | Definition of the PostgreSQL backend for DSH: SQL code generation and
+-- execution of SQL queries.
 module Database.DSH.Backend.Sql.Pg
     ( PgVector
     , PgCode(..)
     , pgConn
+    , generatePgQueries
     ) where
 
 import           Text.Printf
@@ -86,11 +87,11 @@ generatePgQueries taPlan = renderSql $ queryShape taPlan
 --------------------------------------------------------------------------------
 -- Definition of the PostgreSQL backend
 
-instance Backend PgVector where
+instance BackendVector PgVector where
     data BackendRow PgVector  = PgRow (M.Map String H.SqlValue)
     data BackendConn PgVector = PgConn O.Connection
 
-    execFlatQuery (PgConn conn) vec = do
+    execVector (PgConn conn) vec = do
         stmt <- H.prepare conn (unPg $ vecCode vec)
         void $ H.execute stmt []
         map PgRow <$> H.fetchAllRowsMap stmt
