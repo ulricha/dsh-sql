@@ -23,11 +23,11 @@ import qualified Database.DSH.Backend.Sql.Relational as R
 
 -- | Generate code for PostgreSQL using virtual/delayed vectors.
 virtualPgCodeGen :: QueryPlan VSL DVec -> Shape Pg.PgVector
-virtualPgCodeGen = Pg.generatePgQueries . R.virtualVectors
+virtualPgCodeGen = Pg.generatePgQueries . R.optimizeTA . R.virtualVectors
 
 -- | Generate code for PostgreSQL using natural/composite keys and lazy order.
 naturalPgCodeGen :: QueryPlan SL DVec -> Shape Pg.PgVector
-naturalPgCodeGen = Pg.generatePgQueries . R.naturalKeyVectors
+naturalPgCodeGen = Pg.generatePgQueries . R.optimizeTA . R.naturalKeyVectors
 
 syntheticPgCodeGen :: QueryPlan SL DVec -> Shape Pg.PgVector
 syntheticPgCodeGen = undefined

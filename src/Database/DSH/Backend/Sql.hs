@@ -69,7 +69,7 @@ showTabularQ :: (DSH.QA a, VectorLang v)
              -> DSH.Q a
              -> IO ()
 showTabularQ clOpt pgCodeGen dbName q =
-    forM_ (codeQ optimizeComprehensions pgCodeGen q) $ \sql -> do
+    forM_ (codeQ clOpt pgCodeGen q) $ \sql -> do
         putStrLn ""
         h <- fileId
         let queryFile = printf "q_%s.sql" h
