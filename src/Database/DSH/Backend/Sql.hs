@@ -43,18 +43,18 @@ fileId :: IO String
 fileId = replicateM 8 (randomRIO ('a', 'z'))
 
 -- | Show the unoptimized relational table algebra plan
-showRelationalQ :: (DSH.QA a, VectorLang v) => RelPlanGen v -> DSH.Q a -> IO ()
-showRelationalQ relGen q = do
-    let vectorPlan = vectorPlanQ optimizeComprehensions q
+showRelationalQ :: (DSH.QA a, VectorLang v) => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
+showRelationalQ clOpt relGen q = do
+    let vectorPlan = vectorPlanQ clOpt q
         relPlan    = relGen vectorPlan
     prefix <- ("q_ta_" ++) <$> fileId
     exportPlan prefix relPlan
     void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 
 -- | Show the optimized relational table algebra plan
-showRelationalOptQ :: (DSH.QA a, VectorLang v) => RelPlanGen v -> DSH.Q a -> IO ()
-showRelationalOptQ relGen q = do
-    let vectorPlan = vectorPlanQ optimizeComprehensions q
+showRelationalOptQ :: (DSH.QA a, VectorLang v) => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
+showRelationalOptQ clOpt relGen q = do
+    let vectorPlan = vectorPlanQ clOpt q
         relPlan    = optimizeTA $ relGen vectorPlan
     prefix <- ("q_ta_opt_" ++) <$> fileId
     exportPlan prefix relPlan
@@ -63,11 +63,12 @@ showRelationalOptQ relGen q = do
 -- | Show raw tabular results via 'psql', executed on the specified
 -- database..
 showTabularQ :: (DSH.QA a, VectorLang v)
-             => (QueryPlan v DVec -> Shape (SqlVector PgCode))
+             => CLOptimizer
+             -> (QueryPlan v DVec -> Shape (SqlVector PgCode))
              -> String
              -> DSH.Q a
              -> IO ()
-showTabularQ pgCodeGen dbName q =
+showTabularQ clOpt pgCodeGen dbName q =
     forM_ (codeQ optimizeComprehensions pgCodeGen q) $ \sql -> do
         putStrLn ""
         h <- fileId
