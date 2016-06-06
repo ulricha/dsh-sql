@@ -5,7 +5,8 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeFamilies      #-}
 
--- | Insert 'Serialize' operators into table algebra plans.
+-- | Insert 'Serialize' operators for plans with composite keys into table
+-- algebra plans.
 module Database.DSH.Backend.Sql.Serialize
     ( insertSerialize
     ) where
@@ -22,23 +23,16 @@ import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.SL
 
-type TAVecBuild a = VecBuild TA.TableAlgebra
-                             (SLDVec TA.TableAlgebra)
-                             (SLRVec TA.TableAlgebra)
-                             (SLKVec TA.TableAlgebra)
-                             (SLFVec TA.TableAlgebra)
-                             (SLSVec TA.TableAlgebra)
-                             a
+type TABuild = B.Build TA.TableAlgebra
 
 -- | Insert SerializeRel operators in TA.TableAlgebra plans to define key, ref
 -- and order columns as well as the required payload columns. 'insertSerialize'
 -- decides whether key, ref and order columns are actually needed based on the
 -- position of the vector in a shape or layout.
-insertSerialize :: TAVecBuild (Shape (SLDVec TA.TableAlgebra))
-                -> TAVecBuild (Shape (SLDVec TA.TableAlgebra))
+insertSerialize :: B.Build TA.TableAlgebra (Shape TADVec) -> B.Build TA.TableAlgebra (Shape TADVec)
 insertSerialize g = g >>= traverseShape
 
-traverseShape :: Shape TADVec -> TAVecBuild (Shape TADVec)
+traverseShape :: Shape TADVec -> TABuild (Shape TADVec)
 traverseShape (VShape dvec lyt) = do
     mLyt' <- traverseLayout lyt
     case mLyt' of
@@ -59,7 +53,7 @@ traverseShape (SShape dvec lyt)     = do
             dvec' <- insertOp dvec noRef noKey noOrd
             return $ SShape dvec' lyt
 
-traverseLayout :: Layout TADVec -> TAVecBuild (Maybe (Layout TADVec))
+traverseLayout :: Layout TADVec -> TABuild (Maybe (Layout TADVec))
 traverseLayout LCol          = return Nothing
 traverseLayout (LTuple lyts) = do
     mLyts <- mapM traverseLayout lyts
@@ -81,14 +75,14 @@ insertOp :: TADVec
          -> (VecRef -> VecRef)
          -> (VecKey -> VecKey)
          -> (VecOrder -> VecOrder)
-         -> TAVecBuild TADVec
+         -> TABuild TADVec
 insertOp (TADVec q o k r i) updateRef updateKey updateOrd = do
     let o' = updateOrd o
         k' = updateKey k
         r' = updateRef r
     let op = TA.Serialize (mkRef r', mkKey k', mkOrd o', mkItems i)
 
-    qp   <- lift $ B.insert $ UnOp op q
+    qp   <- B.insert $ UnOp op q
     return $ TADVec qp o' k' r' i
 
 --------------------------------------------------------------------------------
