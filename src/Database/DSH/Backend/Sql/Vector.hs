@@ -113,6 +113,9 @@ data SqlVector c = SqlVector
     , vecItems :: VecItems
     }
 
+instance Show c => Show (SqlVector c) where
+    show = show . vecCode 
+
 instance RelationalVector (SqlVector c) where
     rvKeyCols vec  = map kc [1..unKey (vecKey vec)]
     rvRefCols vec  = map rc [1..unRef (vecRef vec)]

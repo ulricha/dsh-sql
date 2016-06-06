@@ -49,6 +49,9 @@ import           Database.DSH.Backend.Sql.Vector
 
 newtype PgCode = PgCode { unPg :: String }
 
+instance Show PgCode where
+    show = unPg
+
 instance SqlCode PgCode where
     genSqlCode = generatePgQueries
 
