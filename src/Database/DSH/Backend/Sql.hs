@@ -45,7 +45,7 @@ fileId = replicateM 8 (randomRIO ('a', 'z'))
 -- | Show the unoptimized relational table algebra plan
 showRelationalQ :: (DSH.QA a, VectorLang v) => RelPlanGen v -> DSH.Q a -> IO ()
 showRelationalQ relGen q = do
-    let vectorPlan = vectorPlanQ q
+    let vectorPlan = vectorPlanQ optimizeComprehensions q
         relPlan    = relGen vectorPlan
     prefix <- ("q_ta_" ++) <$> fileId
     exportPlan prefix relPlan
@@ -54,7 +54,7 @@ showRelationalQ relGen q = do
 -- | Show the optimized relational table algebra plan
 showRelationalOptQ :: (DSH.QA a, VectorLang v) => RelPlanGen v -> DSH.Q a -> IO ()
 showRelationalOptQ relGen q = do
-    let vectorPlan = vectorPlanQ q
+    let vectorPlan = vectorPlanQ optimizeComprehensions q
         relPlan    = optimizeTA $ relGen vectorPlan
     prefix <- ("q_ta_opt_" ++) <$> fileId
     exportPlan prefix relPlan
@@ -68,7 +68,7 @@ showTabularQ :: (DSH.QA a, VectorLang v)
              -> DSH.Q a
              -> IO ()
 showTabularQ pgCodeGen dbName q =
-    forM_ (codeQ pgCodeGen q) $ \sql -> do
+    forM_ (codeQ optimizeComprehensions pgCodeGen q) $ \sql -> do
         putStrLn ""
         h <- fileId
         let queryFile = printf "q_%s.sql" h
