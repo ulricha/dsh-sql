@@ -1,11 +1,8 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Database.DSH.Backend.Sql.Common
     ( SqlVector(..)
     , SqlCode(..)
     ) where
 
-import           Data.Aeson.TH
 import qualified Data.Vector                     as V
 
 import qualified Database.Algebra.Table.Lang              as TA

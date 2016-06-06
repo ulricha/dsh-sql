@@ -11,7 +11,6 @@ module Database.DSH.Backend.Sql.CodeGen
     ( virtualPgCodeGen
     , naturalPgCodeGen
     , syntheticPgCodeGen
-    , module Database.DSH.Backend.Sql.Pg
     ) where
 
 import           Database.DSH.Common.QueryPlan
@@ -19,7 +18,6 @@ import           Database.DSH.Common.Vector
 import           Database.DSH.SL
 import           Database.DSH.VSL
 
-import           Database.DSH.Backend.Sql.Pg         (pgConn)
 import qualified Database.DSH.Backend.Sql.Pg         as Pg
 import qualified Database.DSH.Backend.Sql.Relational as R
 

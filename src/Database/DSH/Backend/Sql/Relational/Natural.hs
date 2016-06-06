@@ -600,7 +600,7 @@ instance SL.SegmentAlgebra TableAlgebra where
 
         qa  <- projM (ordProj o ++ keyProj k ++ refProj r1 ++ itemProj i)
                $ aggrM taAggrs groupCols
-               $ join (joinPredicate i1 p)
+               $ join (refJoinPred r1 ++ joinPredicate i1 p)
                      (return q1)
                      (proj (shiftAll v1 v2) q2)
 

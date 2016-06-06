@@ -34,7 +34,6 @@ import           Database.DSH.Backend.Sql.Pg
 import           Database.DSH.Backend.Sql.Relational
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Backend.Sql.CodeGen
-import           Database.DSH.Backend.Sql.Vector (SqlVector(..))
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 

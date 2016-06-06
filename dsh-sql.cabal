@@ -82,6 +82,7 @@ Library
                      Database.DSH.Backend.Sql.Relational.Natural
                      Database.DSH.Backend.Sql.Relational.Synthetic
                      Database.DSH.Backend.Sql.Relational.Virtual
+                     Database.DSH.Backend.Sql.Relational.Common
                      Database.DSH.Backend.Sql.Relational
 
                      Database.DSH.Backend.Sql.Pg
