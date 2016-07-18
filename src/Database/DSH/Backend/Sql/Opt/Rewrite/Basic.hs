@@ -904,6 +904,11 @@ pullProjectAggr q =
           -- aggregates.
           predicate $ null $ map snd gnps `intersect` map snd as
 
+          -- Check that the original name in a renaming projection does not
+          -- collide with one of the output names of non-renaming grouping
+          -- projections.
+          predicate $ null $ map snd gnps `intersect` (map fst gs)
+
           return $ do
               logRewrite "Basic.PullProject.Aggr" q
 
