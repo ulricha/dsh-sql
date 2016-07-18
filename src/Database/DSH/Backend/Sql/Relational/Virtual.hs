@@ -416,10 +416,18 @@ instance VSL.VirtualSegmentAlgebra TableAlgebra where
         qi <- proj (ordProj o ++ keyProj k ++ mapRefProj ++ itemProj i) q
         return $ TADVec qi o k (VecRef $ unKey k) i
 
-    vecUnsegment (TADVec q o k _ i) = do
+    vecUnsegment (TADVec q o k r i) = do
+        -- In general, we keep only per-segment order. The order of segments
+        -- themselves is defined by the order of references. If a vector's
+        -- segment structure is changed by *merging* vectors, we have to keep
+        -- the order stable: Here, we add the references of the original vector
+        -- to the order columns.
+        let ro = VecOrder $ map (const Asc) [1..unRef r]
+            o' = ro <> o
         let constRefProj = [ eP (rc 1) (ConstE $ int 1) ]
-        qi <- proj (ordProj o ++ keyProj k ++ constRefProj ++ itemProj i) q
-        return $ TADVec qi o k (VecRef 1) i
+            combOrdCols  = [ mP (oc c) (rc c) | c <- [1..unOrd ro] ] ++ shiftOrd ro o
+        qi <- proj (combOrdCols ++ keyProj k ++ constRefProj ++ itemProj i) q
+        return $ TADVec qi o' k (VecRef 1) i
 
     vecNest (TADVec q o k _ i) = do
         qo <- litTable' [[int 1, int 1, int 1]] [(oc 1, intT), (kc 1, intT), (rc 1, intT)]
