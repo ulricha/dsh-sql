@@ -566,7 +566,7 @@ instance SL.SegmentAlgebra TableAlgebra where
     vecReplicateVector (TADVec q1 o1 k1 _ i1) (TADVec q2 o2 k2 _ _) = do
         let o = o2 <> o1   -- The right vector defines primary order
             k = k2 <> k1   -- New key is defined by both left and right
-            r = keyRef k1  -- Nesting operator: right vector defines reference
+            r = keyRef k2  -- Nesting operator: right vector defines reference
             i = i1         -- We only produce items from the left input
 
         qj  <- crossM
