@@ -766,8 +766,8 @@ instance SL.SegmentAlgebra TableAlgebra where
         qd  <- proj ([mP (oc 1) lsoc] ++ keyProj k ++ refProj r1 ++ itemProj i) qj
 
         return ( TADVec qd o k r i
-               , TAKVec qk1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k1)
-               , TAKVec qk2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k1)
+               , TARVec qk1 (VecTransSrc $ unKey k1) (VecTransDst $ unKey k1)
+               , TARVec qk2 (VecTransSrc $ unKey k2) (VecTransDst $ unKey k1)
                )
 
     vecProject exprs (TADVec q o k r _) = do
