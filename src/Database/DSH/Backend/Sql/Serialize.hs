@@ -11,7 +11,6 @@ module Database.DSH.Backend.Sql.Serialize
     ( insertSerialize
     ) where
 
-import           Control.Monad.State
 import           Data.Maybe
 
 import qualified Database.Algebra.Dag.Build               as B
@@ -21,7 +20,6 @@ import qualified Database.Algebra.Table.Lang              as TA
 import           Database.DSH.Backend.Sql.Relational.Natural ()
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.QueryPlan
-import           Database.DSH.SL
 
 type TABuild = B.Build TA.TableAlgebra
 

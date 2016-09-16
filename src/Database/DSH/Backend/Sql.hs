@@ -43,7 +43,7 @@ fileId :: IO String
 fileId = replicateM 8 (randomRIO ('a', 'z'))
 
 -- | Show the unoptimized relational table algebra plan
-showRelationalQ :: (DSH.QA a, VectorLang v) => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
+showRelationalQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
 showRelationalQ clOpt relGen q = do
     let vectorPlan = vectorPlanQ clOpt q
         relPlan    = relGen vectorPlan
@@ -52,7 +52,7 @@ showRelationalQ clOpt relGen q = do
     void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 
 -- | Show the optimized relational table algebra plan
-showRelationalOptQ :: (DSH.QA a, VectorLang v) => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
+showRelationalOptQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
 showRelationalOptQ clOpt relGen q = do
     let vectorPlan = vectorPlanQ clOpt q
         relPlan    = optimizeTA $ relGen vectorPlan
@@ -62,7 +62,7 @@ showRelationalOptQ clOpt relGen q = do
 
 -- | Show raw tabular results via 'psql', executed on the specified
 -- database..
-showTabularQ :: (DSH.QA a, VectorLang v)
+showTabularQ :: VectorLang v
              => CLOptimizer
              -> (QueryPlan v DVec -> Shape (SqlVector PgCode))
              -> String

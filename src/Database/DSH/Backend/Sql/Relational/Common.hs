@@ -242,8 +242,13 @@ taExprOffset o (SL.If c t e)        = TernaryAppE If (taExprOffset o c)
                                                      (taExprOffset o t)
                                                      (taExprOffset o e)
 
+pattern (:<=:) :: Expr -> Expr -> Expr
 pattern e1 :<=: e2 <- BinAppE LtE e1 e2
+
+pattern (:>=:) :: Expr -> Expr -> Expr
 pattern e1 :>=: e2 <- BinAppE GtE e1 e2
+
+pattern (:&&:) :: Expr -> Expr -> Expr
 pattern e1 :&&: e2 = BinAppE And e1 e2
 
 specializeExpr :: Expr -> Expr
@@ -302,6 +307,9 @@ joinPredicate :: VecItems -> L.JoinPredicate SL.Expr -> [(Expr, Expr, JoinRel)]
 joinPredicate (VecItems o) (L.JoinPred conjs) =
     N.toList $ fmap (joinConjunct o) conjs
 
+-- | Translate one component of a conjunctive join predicate into a relational
+-- expression. Parameter 'o' specifies the column offset for the relational
+-- schema.
 joinConjunct :: Int -> L.JoinConjunct SL.Expr -> (Expr, Expr, JoinRel)
 joinConjunct o (L.JoinConjunct e1 op e2) = (taExpr e1, taExprOffset o e2, joinOp op)
 
@@ -427,6 +435,8 @@ flipDir :: SortDir -> SortDir
 flipDir Asc  = Desc
 flipDir Desc = Asc
 
+-- | From an order specification generate a sorting specification from which a
+-- synthetic order column can be created.
 synthOrder :: VecOrder -> [SortSpec]
 synthOrder (VecOrder dirs) = [ (ColE $ oc c, d)| c <- [1..] | d <- dirs ]
 
