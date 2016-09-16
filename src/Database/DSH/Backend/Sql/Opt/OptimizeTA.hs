@@ -13,9 +13,24 @@ import           Database.DSH.Common.Opt
 
 type RewriteClass = Rewrite TableAlgebra (Shape TADVec) Bool
 
+--------------------------------------------------------------------------------
+-- Rewrite pipelines for various SQL dialects
+
 defaultPipeline :: [RewriteClass]
 defaultPipeline = [cleanup]
 
+pgPipeline :: [RewriteClass]
+pgPipeline = defaultPipeline
+
+m5Pipeline :: [RewriteClass]
+m5Pipeline = defaultPipeline
+
+hyperPipeline :: [RewriteClass]
+hyperPipeline = defaultPipeline
+
+--------------------------------------------------------------------------------
+
+-- | Apply a rewrite pipeline to a relational plan
 runPipeline :: Dag.AlgebraDag TableAlgebra
             -> Shape TADVec
             -> [RewriteClass]
