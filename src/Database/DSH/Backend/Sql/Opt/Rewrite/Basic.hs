@@ -9,7 +9,6 @@ import           Text.Printf
 import           Control.Arrow
 import           Control.Monad
 import           Data.Either
--- import           Data.Either.Combinators
 import           Data.List                                         hiding
                                                                     (insert)
 import qualified Data.Map                                          as M
@@ -17,8 +16,7 @@ import           Data.Maybe
 import qualified Data.Set.Monad                                    as S
 
 import           Database.Algebra.Dag.Common
-import           Database.Algebra.Table.Lang                       hiding
-                                                                    (replace)
+import           Database.Algebra.Table.Lang
 
 import           Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
 import           Database.DSH.Backend.Sql.Opt.Properties.Const
