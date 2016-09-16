@@ -86,6 +86,7 @@ Library
                      Database.DSH.Backend.Sql.Relational
 
                      Database.DSH.Backend.Sql.Pg
+                     Database.DSH.Backend.Sql.M5
                      Database.DSH.Backend.Sql.CodeGen
                      Database.DSH.Backend.Sql.Common
                      Database.DSH.Backend.Sql.HDBC
