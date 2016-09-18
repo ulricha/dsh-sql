@@ -40,4 +40,4 @@ type M5Vector = SqlVector M5Code
 
 -- | Generate MonetDB5 SQL code for a relational query plan.
 generateM5Queries :: QueryPlan TA.TableAlgebra TADVec -> Shape M5Vector
-generateM5Queries = _
+generateM5Queries = undefined

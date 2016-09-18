@@ -41,5 +41,4 @@ syntheticPgCodeGen = undefined
 
 -- | Generate code for MonetDB5/SQL using natural/composite keys and lazy order.
 naturalM5CodeGen :: QueryPlan SL DVec -> Shape M5.M5Vector
-naturalM5CodeGen = _
-
+naturalM5CodeGen = undefined
