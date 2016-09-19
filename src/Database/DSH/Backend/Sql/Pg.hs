@@ -13,7 +13,6 @@ module Database.DSH.Backend.Sql.Pg
     ( PgVector
     , PgCode(..)
     , pgConn
-    , generatePgQueries
     ) where
 
 import           Text.Printf
@@ -27,33 +26,30 @@ import qualified Data.ByteString.Char8                    as BSC
 import qualified Data.ByteString.Lex.Fractional           as BD
 import qualified Data.ByteString.Lex.Integral             as BI
 import qualified Data.Map                                 as M
-import           Data.Maybe
 import qualified Data.Text                                as T
 import qualified Data.Text.Encoding                       as TE
 
-import qualified Database.Algebra.Dag                     as D
-import           Database.Algebra.Dag.Common
-import           Database.Algebra.SQL.Compatibility
+import           Database.Algebra.SQL.Dialect
 import           Database.Algebra.SQL.Materialization.CTE
 import           Database.Algebra.SQL.Util
-import qualified Database.Algebra.Table.Lang              as TA
 
 import           Database.DSH.Common.Impossible
-import           Database.DSH.Common.QueryPlan
 
 import           Database.DSH.Backend
 import           Database.DSH.Backend.Sql.Common
-import           Database.DSH.Backend.Sql.Vector
 
 --------------------------------------------------------------------------------
 
+-- | SQL text for PostgreSQL
 newtype PgCode = PgCode { unPg :: String }
 
 instance Show PgCode where
     show = unPg
 
 instance SqlCode PgCode where
-    genSqlCode = generatePgQueries
+    genSqlCode dag = (PgCode <$> prelude, map PgCode queries)
+      where
+        (prelude, queries) = renderOutputDSHWith PostgreSQL materialize dag
 
 instance ToJSON PgCode where
     toJSON (PgCode sql) = toJSON sql
@@ -63,29 +59,6 @@ type PgVector = SqlVector PgCode
 -- | Construct a PostgreSQL backend connection from an ODBC connection.
 pgConn :: O.Connection -> BackendConn PgVector
 pgConn = PgConn
-
---------------------------------------------------------------------------------
-
--- | In a query shape, render each root node for the algebraic plan into a
--- separate PostgreSQL SQL query.
-generatePgQueries :: QueryPlan TA.TableAlgebra TADVec -> Shape (PgVector)
-generatePgQueries taPlan = renderSql $ queryShape taPlan
-  where
-    roots :: [AlgNode]
-    roots = D.rootNodes $ queryDag taPlan
-
-    (_sqlShared, sqlQueries) = renderOutputDSHWith PostgreSQL materialize (queryDag taPlan)
-
-    nodeToQuery :: [(AlgNode, PgCode)]
-    nodeToQuery  = zip roots (map PgCode sqlQueries)
-
-    lookupNode :: AlgNode -> PgCode
-    lookupNode n = fromMaybe $impossible $ lookup n nodeToQuery
-
-    -- We do not need order columns to reconstruct results: order information is
-    -- encoded in the SQL queries' ORDER BY clause. We rely on the physical
-    -- order of the result table.
-    renderSql = fmap (\(TADVec q _ k r i) -> SqlVector (lookupNode q) k r i)
 
 --------------------------------------------------------------------------------
 -- Definition of the PostgreSQL backend
