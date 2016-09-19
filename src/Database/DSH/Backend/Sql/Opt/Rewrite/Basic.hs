@@ -537,12 +537,13 @@ constRownumCol q =
          constCols <- pConst . bu <$> properties $(v "q1")
 
          (resCol, sortCols, partExprs) <- return $(v "args")
-         let sortCols' = filter (\(e, _) -> not $ isConstExpr constCols e) sortCols
-         predicate $ length sortCols' < length sortCols
+         let sortCols'  = filter (\(e, _) -> not $ isConstExpr constCols e) sortCols
+             partExprs' = filter (not . isConstExpr constCols) partExprs
+         predicate $ (length sortCols' < length sortCols) || (length partExprs' < length partExprs)
 
          return $ do
              logRewrite "Basic.Const.RowNum" q
-             void $ replaceWithNew q $ UnOp (RowNum (resCol, sortCols', partExprs)) $(v "q1") |])
+             void $ replaceWithNew q $ UnOp (RowNum (resCol, sortCols', partExprs')) $(v "q1") |])
 
 constRowRankCol :: TARule AllProps
 constRowRankCol q =
