@@ -15,12 +15,8 @@ import           Data.Aeson
 import           Database.Algebra.SQL.Dialect
 import           Database.Algebra.SQL.Materialization.CTE
 import           Database.Algebra.SQL.Util
-import qualified Database.Algebra.Table.Lang              as TA
-
-import           Database.DSH.Common.QueryPlan
 
 import           Database.DSH.Backend.Sql.Common
-import           Database.DSH.Backend.Sql.Vector
 
 --------------------------------------------------------------------------------
 

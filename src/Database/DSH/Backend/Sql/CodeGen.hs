@@ -31,11 +31,11 @@ import qualified Database.DSH.Backend.Sql.Relational as R
 
 -- | Generate code for PostgreSQL using virtual/delayed vectors.
 virtualPgCodeGen :: QueryPlan VSL DVec -> Shape Pg.PgVector
-virtualPgCodeGen = generateSqlShape . R.optimizeTA . R.virtualVectors
+virtualPgCodeGen = generateSqlShape . R.optimizeTA R.pgPipeline . R.virtualVectors
 
 -- | Generate code for PostgreSQL using natural/composite keys and lazy order.
 naturalPgCodeGen :: QueryPlan SL DVec -> Shape Pg.PgVector
-naturalPgCodeGen = generateSqlShape . R.optimizeTA . R.naturalKeyVectors
+naturalPgCodeGen = generateSqlShape . R.optimizeTA R.pgPipeline . R.naturalKeyVectors
 
 syntheticPgCodeGen :: QueryPlan SL DVec -> Shape Pg.PgVector
 syntheticPgCodeGen = undefined
@@ -45,4 +45,4 @@ syntheticPgCodeGen = undefined
 
 -- | Generate code for MonetDB5/SQL using natural/composite keys and lazy order.
 naturalM5CodeGen :: QueryPlan SL DVec -> Shape M5.M5Vector
-naturalM5CodeGen = generateSqlShape . R.optimizeTA . R.naturalKeyVectors
+naturalM5CodeGen = generateSqlShape . R.optimizeTA R.m5Pipeline . R.naturalKeyVectors

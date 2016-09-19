@@ -55,7 +55,7 @@ showRelationalQ clOpt relGen q = do
 showRelationalOptQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
 showRelationalOptQ clOpt relGen q = do
     let vectorPlan = vectorPlanQ clOpt q
-        relPlan    = optimizeTA $ relGen vectorPlan
+        relPlan    = optimizeTA defaultPipeline $ relGen vectorPlan
     prefix <- ("q_ta_opt_" ++) <$> fileId
     exportPlan prefix relPlan
     void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix

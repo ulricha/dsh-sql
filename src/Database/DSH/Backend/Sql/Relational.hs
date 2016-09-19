@@ -16,7 +16,7 @@ import           Database.DSH.Common.Vector
 import qualified Database.DSH.SL                               as SL
 import qualified Database.DSH.VSL                              as VSL
 
-import           Database.DSH.Backend.Sql.Opt.OptimizeTA       (optimizeTA)
+import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 import           Database.DSH.Backend.Sql.Relational.Natural   ()
 import           Database.DSH.Backend.Sql.Relational.Synthetic ()
 import           Database.DSH.Backend.Sql.Relational.Virtual   ()
