@@ -1,12 +1,15 @@
+{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE TemplateHaskell  #-}
 
 -- | Definition of relational vector implementations.
 module Database.DSH.Backend.Sql.Vector where
 
+import           Control.DeepSeq
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Vector                 as V
+import           GHC.Generics
 
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
@@ -27,7 +30,9 @@ instance Monoid VecOrder where
 --------------------------------------------------------------------------------
 
 -- | The natural key of a data vector
-newtype VecKey      = VecKey { unKey :: Int }
+newtype VecKey      = VecKey { unKey :: Int } deriving (Generic)
+
+instance NFData VecKey
 
 instance Monoid VecKey where
     mempty = VecKey 0
@@ -39,7 +44,9 @@ instance ToJSON VecKey where
 --------------------------------------------------------------------------------
 
 -- | Outer key reference columns
-newtype VecRef      = VecRef { unRef :: Int }
+newtype VecRef      = VecRef { unRef :: Int } deriving (Generic)
+
+instance NFData VecRef
 
 instance ToJSON VecRef where
     toJSON (VecRef rs) = toJSON $ map rc [1..rs]
@@ -55,7 +62,9 @@ instance Monoid VecRef where
 --------------------------------------------------------------------------------
 
 -- | Payload columns of a data vector
-newtype VecItems    = VecItems { unItems :: Int }
+newtype VecItems    = VecItems { unItems :: Int } deriving (Generic)
+
+instance NFData VecItems
 
 instance Monoid VecItems where
     mempty = VecItems 0
@@ -111,10 +120,12 @@ data SqlVector c = SqlVector
     , vecKey   :: VecKey
     , vecRef   :: VecRef
     , vecItems :: VecItems
-    }
+    } deriving (Generic)
+
+instance NFData c => NFData (SqlVector c)
 
 instance Show c => Show (SqlVector c) where
-    show = show . vecCode 
+    show = show . vecCode
 
 instance RelationalVector (SqlVector c) where
     rvKeyCols vec  = map kc [1..unKey (vecKey vec)]

@@ -49,6 +49,7 @@ Library
                      , vector             >= 0.10
                      , scientific         >= 0.3
                      , time               >= 1.5
+                     , deepseq            >= 1.4
 
   Hs-source-dirs:    src
 
@@ -99,7 +100,8 @@ Executable flatsqlcomp
                     DSH >= 0.13,
                     dsh-sql >= 0.2,
                     aeson >= 0.11,
-                    bytestring >= 0.10
+                    bytestring >= 0.10,
+                    deepseq                    >= 1.4
     GHC-Options: -Wall
 
 Executable test-basic
@@ -122,6 +124,7 @@ Executable test-basic
                    , tasty-quickcheck           >= 0.8
                    , text                       >= 1.1
                    , vector                     >= 0.10
+                   , deepseq                    >= 1.4
     GHC-Options: -Wall -fno-warn-orphans
     default-extensions: CPP
 
@@ -167,7 +170,8 @@ executable bench-tpch
                        deepseq,
                        DSH,
                        dsh-sql,
-                       dsh-example-queries
+                       dsh-example-queries,
+                       deepseq
   ghc-options:         -Wall -O2
 
 executable bench-micro
@@ -188,7 +192,8 @@ executable bench-micro
                        HDBC-odbc,
                        deepseq,
                        DSH,
-                       dsh-sql
+                       dsh-sql,
+                       deepseq
   ghc-options:         -Wall -O2
 
 source-repository head

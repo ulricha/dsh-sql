@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE InstanceSigs      #-}
@@ -20,6 +21,7 @@ import           Text.Printf
 import qualified Database.HDBC                            as H
 import qualified Database.HDBC.ODBC                       as O
 
+import           Control.DeepSeq
 import           Control.Monad
 import           Data.Aeson
 import qualified Data.ByteString.Char8                    as BSC
@@ -28,6 +30,7 @@ import qualified Data.ByteString.Lex.Integral             as BI
 import qualified Data.Map                                 as M
 import qualified Data.Text                                as T
 import qualified Data.Text.Encoding                       as TE
+import           GHC.Generics
 
 import           Database.Algebra.SQL.Dialect
 import           Database.Algebra.SQL.Materialization.CTE
@@ -41,10 +44,12 @@ import           Database.DSH.Backend.Sql.Common
 --------------------------------------------------------------------------------
 
 -- | SQL text for PostgreSQL
-newtype PgCode = PgCode { unPg :: String }
+newtype PgCode = PgCode { unPg :: String } deriving (Generic)
 
 instance Show PgCode where
     show = unPg
+
+instance NFData PgCode
 
 instance SqlCode PgCode where
     genSqlCode dag = (PgCode <$> prelude, map PgCode queries)
