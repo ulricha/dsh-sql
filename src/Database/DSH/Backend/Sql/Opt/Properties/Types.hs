@@ -1,5 +1,6 @@
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE BangPatterns        #-}
 
 module Database.DSH.Backend.Sql.Opt.Properties.Types where
 
@@ -49,9 +50,9 @@ instance Show FDSet where
 data BottomUpProps = BUProps
     { pCols     :: S.Set TypedAttr
     , pKeys     :: S.Set PKey
-    , pCard1    :: Card1
-    , pEmpty    :: Empty
-    , pOrder    :: Orders
+    , pCard1    :: {-# UNPACK #-} !Card1
+    , pEmpty    :: {-# UNPACK #-} !Empty
+    , pOrder    :: !Orders
     , pConst    :: [ConstCol]
     , pNullable :: S.Set Attr
     , pFunDeps  :: FDSet

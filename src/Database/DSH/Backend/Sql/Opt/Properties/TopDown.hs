@@ -5,6 +5,7 @@ module Database.DSH.Backend.Sql.Opt.Properties.TopDown where
 import           Control.Monad.State
 
 import qualified Data.IntMap                                   as M
+import qualified Data.IntSet                                   as IS
 import           Data.List
 import           Data.Maybe
 import qualified Data.Set.Monad                                as S
@@ -93,27 +94,9 @@ inferAllProperties :: NodeMap BottomUpProps
                    -> D.AlgebraDag TableAlgebra
                    -> NodeMap AllProps
 inferAllProperties buPropMap topOrderedNodes d =
-    fromMaybe $impossible (mergeProps buPropMap tdPropMap)
+    M.intersectionWith AllProps buPropMap tdPropMap
   where
     tdPropMap = execState action initialMap
     action = mapM_ (inferChildProperties buPropMap d) topOrderedNodes
 
     initialMap = M.map (const seed) $ D.nodeMap d
-
-    mergeProps :: NodeMap BottomUpProps -> NodeMap TopDownProps -> Maybe (NodeMap AllProps)
-    mergeProps bum tdm = do
-        let keys1 = M.keys bum
-            keys2 = M.keys tdm
-            keys  = keys1 `intersect` keys2
-        guard $ length keys == length keys1 && length keys == length keys2
-
-        let merge :: AlgNode -> Maybe (AlgNode, AllProps)
-            merge n = do
-                bup <- M.lookup n bum
-                tdp <- M.lookup n tdm
-                return (n, AllProps { td = tdp, bu = bup })
-
-        merged <- mapM merge keys
-        return $ M.fromList merged
-
-
