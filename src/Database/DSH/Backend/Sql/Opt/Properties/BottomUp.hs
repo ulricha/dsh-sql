@@ -102,5 +102,5 @@ inferBinOp op c1Props c2Props = do
                  , pFunDeps  = opFDs
                  }
 
-inferBottomUpProperties :: AlgebraDag TableAlgebra -> NodeMap BottomUpProps
-inferBottomUpProperties = inferBottomUpGeneral inferWorker
+inferBottomUpProperties :: [AlgNode] -> AlgebraDag TableAlgebra -> NodeMap BottomUpProps
+inferBottomUpProperties = inferBottomUpG inferWorker

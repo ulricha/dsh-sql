@@ -98,5 +98,4 @@ inferAllProperties buPropMap topOrderedNodes d =
   where
     tdPropMap = execState action initialMap
     action = mapM_ (inferChildProperties buPropMap d) topOrderedNodes
-
     initialMap = M.map (const seed) $ D.nodeMap d
