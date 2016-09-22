@@ -419,9 +419,9 @@ constFilteringJoinPred q =
         |])
 
 -- | Eliminate conjuncts from thetajoin predicates that are constant true.
-constThetaJoinPred :: TARule AllProps
-constThetaJoinPred q =
-  $(dagPatMatch 'q "(q1) ThetaJoin p (q2)"
+constJoinPred :: TARule AllProps
+constJoinPred q =
+  $(dagPatMatch 'q "(q1) [ThetaJoin | LeftOuterJoin]@joinOp p (q2)"
     [| do
         constColsLeft  <- pConst . bu <$> properties $(v "q1")
         constColsRight <- pConst . bu <$> properties $(v "q2")
@@ -429,10 +429,10 @@ constThetaJoinPred q =
         predicate $ length p' < length $(v "p")
 
         return $ do
-            logRewrite "Basic.Const.ThetaJoin" q
+            logRewrite "Basic.Const.Join.Predicate" q
             -- If all conjuncts are constant true, replace the join with a product.
             case p' of
-                _:_ -> void $ replaceWithNew q $ BinOp (ThetaJoin p') $(v "q1") $(v "q2")
+                _:_ -> void $ replaceWithNew q $ BinOp ($(v "joinOp") p') $(v "q1") $(v "q2")
                 []  -> void $ replaceWithNew q $ BinOp (Cross ()) $(v "q1") $(v "q2")
         |])
 

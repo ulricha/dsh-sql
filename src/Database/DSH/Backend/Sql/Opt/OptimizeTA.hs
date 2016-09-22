@@ -59,7 +59,7 @@ cleanupRulesTopDown = [ unreferencedBaseTableCols
                       , inlineSortColsWinFun
                       , keyPrefixOrdering
                       , constFilteringJoinPred
-                      , constThetaJoinPred
+                      , constJoinPred
                       , constAggrKey
                       , constRownumCol
                       , constRowRankCol
