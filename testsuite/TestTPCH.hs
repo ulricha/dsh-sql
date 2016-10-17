@@ -90,17 +90,17 @@ makeEqAssertion msg q expRes conn = do
     actualRes <- runQ naturalPgCodeGen conn q
     H.assertBool msg $ actualRes ~== expRes
 
-makePredAssertion :: (Show a, RoughlyEq a, Q.QA a, Backend c)
+makePredAssertion :: (Show a, RoughlyEq a, Q.QA a)
                   => String
                   -> Q.Q a
                   -> [a -> Bool]
-                  -> c
+                  -> BackendConn PgVector
                   -> H.Assertion
 makePredAssertion msg q preds conn = do
-    actualRes <- runQ conn q
+    actualRes <- runQ naturalPgCodeGen conn q
     H.assertBool msg $ all (\p -> p actualRes) preds
 
-q1Test :: Backend c => c -> H.Assertion
+q1Test :: BackendConn PgVector -> H.Assertion
 q1Test = makeEqAssertion "q1" q1Default res
   where
     res = [ (("A", "F"), (37734107.0, 56586554400.73, 53758257134.8700, 55909065222.827692, 25.5220058532573370, 38273.129734621672, 0.04998529583839761162, 1478493))
@@ -109,7 +109,7 @@ q1Test = makeEqAssertion "q1" q1Default res
           , (("R", "F"), (37719753.00, 56568041380.90, 53741292684.6040, 55889619119.831932, 25.5057936126907707, 38250.854626099657, 0.05000940583012705647, 1478870))
           ]
 
-q2Test :: Backend c => c -> H.Assertion
+q2Test :: BackendConn PgVector -> H.Assertion
 q2Test = makePredAssertion "q2" q2Default [p1, p2]
   where
     p1 xs = take 4 xs ~== r1
@@ -128,7 +128,7 @@ q2Test = makePredAssertion "q2" q2Default [p1, p2]
          , (7843.52,"Supplier#000006683","FRANCE",11680,"Manufacturer#4","2Z0JGkiv01Y00oCFwUGfviIbhzCdy","16-464-517-8943"," express, final pinto beans x-ray slyly asymptotes. unusual, unusual")
          ]
 
-q3Test :: Backend c => c -> H.Assertion
+q3Test :: BackendConn PgVector -> H.Assertion
 q3Test = makeEqAssertion "q3" q3Default res
   where
     res = [ ((2456423, C.fromGregorian 1995 03 05, 0), 406181.0111)
@@ -143,7 +143,7 @@ q3Test = makeEqAssertion "q3" q3Default res
           , ((2300070, C.fromGregorian 1995 03 13, 0), 367371.1452)
           ]
 
-q4Test :: Backend c => c -> H.Assertion
+q4Test :: BackendConn PgVector -> H.Assertion
 q4Test = makeEqAssertion "q4" q4Default res
   where
     res = [ ("1-URGENT", 10594)
@@ -153,7 +153,7 @@ q4Test = makeEqAssertion "q4" q4Default res
           , ("5-LOW", 10487)
           ]
 
-q5Test :: Backend c => c -> H.Assertion
+q5Test :: BackendConn PgVector -> H.Assertion
 q5Test = makeEqAssertion "q5" q5Default res
   where
     res = [ ("INDONESIA", 55502041.1697)
@@ -163,12 +163,12 @@ q5Test = makeEqAssertion "q5" q5Default res
           , ("JAPAN", 45410175.69540)
           ]
 
-q6Test :: Backend c => c -> H.Assertion
+q6Test :: BackendConn PgVector -> H.Assertion
 q6Test = makeEqAssertion "q6" q6Default res
   where
     res = 123141078.23
 
-q7Test :: Backend c => c -> H.Assertion
+q7Test :: BackendConn PgVector -> H.Assertion
 q7Test = makeEqAssertion "q7" q7Default res
   where
     res = [ (("FRANCE", "GERMANY", 1995), 54639732.7336)
@@ -176,12 +176,12 @@ q7Test = makeEqAssertion "q7" q7Default res
           , (("GERMANY", "FRANCE", 1995), 52531746.6697)
           , (("GERMANY", "FRANCE", 1996), 52520549.0224) ]
 
-q8Test :: Backend c => c -> H.Assertion
+q8Test :: BackendConn PgVector -> H.Assertion
 q8Test = makeEqAssertion "q8" q8Default res
   where
     res = [(1995, 0.03443589040665479743), (1996, 0.04148552129353032075)]
 
-q9Test :: Backend c => c -> H.Assertion
+q9Test :: BackendConn PgVector -> H.Assertion
 q9Test = makePredAssertion "q9" q9Default [p1, p2, p3]
   where
     p1 xs = length xs == 175
@@ -220,7 +220,7 @@ q9Test = makePredAssertion "q9" q9Default [p1, p2, p3]
          , ("VIETNAM", 1993, 45352676.8672)
          , ("VIETNAM", 1992, 47846355.6485) ]
 
-q10Test :: Backend c => c -> H.Assertion
+q10Test :: BackendConn PgVector -> H.Assertion
 q10Test = makeEqAssertion "q10" q10Default res
   where
     res = [ (57040, "Customer#000057040", 734235.2455, 632.87,  "JAPAN", "Eioyzjf4pp", "22-895-641-3466", "sits. slyly regular requests sleep alongside of the regular inst")
@@ -244,7 +244,7 @@ q10Test = makeEqAssertion "q10" q10Default res
           , (52528, "Customer#000052528", 556397.3509, 551.79, "ARGENTINA", "NFztyTOR10UOJ", "11-208-192-3205", " deposits hinder. blithely pending asymptotes breach slyly regular re")
           , (23431, "Customer#000023431", 554269.5360, 3381.86, "ROMANIA", "HgiV0phqhaIa9aydNoIlb", "29-915-458-2654", "nusual, even instructions: furiously stealthy n")]
 
-q11Test :: Backend c => c -> H.Assertion
+q11Test :: BackendConn PgVector -> H.Assertion
 q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
   where
     p1 xs = length xs == 1048
@@ -267,13 +267,13 @@ q11Test = makePredAssertion "q11" q11Default [p1, p2, p3]
          , (72073, 7877736.11)
          , (5182, 7874521.73) ]
 
-q12Test :: Backend c => c -> H.Assertion
+q12Test :: BackendConn PgVector -> H.Assertion
 q12Test = makeEqAssertion "q12" q12Default res
   where
     res = [ ("MAIL", 6202, 9324)
           , ("SHIP", 6200, 9262) ]
 
-q13Test :: Backend c => c -> H.Assertion
+q13Test :: BackendConn PgVector -> H.Assertion
 q13Test = makeEqAssertion "q13" q13Default res
   where
     res = [ (0, 50005)
@@ -319,17 +319,17 @@ q13Test = makeEqAssertion "q13" q13Default res
           , (41, 2)
           , (39, 1) ]
 
-q14Test :: Backend c => c -> H.Assertion
+q14Test :: BackendConn PgVector -> H.Assertion
 q14Test = makeEqAssertion "q14" q14Default res
   where
     res = 16.3807786263955401
 
-q15Test :: Backend c => c -> H.Assertion
+q15Test :: BackendConn PgVector -> H.Assertion
 q15Test = makeEqAssertion "q15" q15Default res
   where
     res = [ (8449, ("Supplier#000008449", "Wp34zim9qYFbVctdW", "20-469-856-8873", 1772627.2087))]
 
-q16Test :: Backend c => c -> H.Assertion
+q16Test :: BackendConn PgVector -> H.Assertion
 q16Test = makePredAssertion "q16" q16Default [p1, p2, p3]
   where
     p1 xs = length xs == 18314
@@ -365,12 +365,12 @@ q16Test = makePredAssertion "q16" q16Default [p1, p2, p3]
          , (("Brand#55", "PROMO PLATED BRASS", 19), 3)
          , (("Brand#55", "STANDARD PLATED TIN", 49), 3) ]
 
-q17Test :: Backend c => c -> H.Assertion
+q17Test :: BackendConn PgVector -> H.Assertion
 q17Test = makeEqAssertion "q17" q17Default res
   where
     res = 348406.05
 
-q18Test :: Backend c => c -> H.Assertion
+q18Test :: BackendConn PgVector -> H.Assertion
 q18Test = makeEqAssertion "q18" q18Default res
   where
     res = [ (("Customer#000128120", 128120, 4722021, C.fromGregorian 1994 04 07, 544089.09), 323.00)
@@ -431,12 +431,12 @@ q18Test = makeEqAssertion "q18" q18Default res
           , (("Customer#000082441", 82441, 857959, C.fromGregorian 1994 02 07, 382579.74), 305.00)
           , (("Customer#000088703", 88703, 2995076, C.fromGregorian 1994 01 30, 363812.12), 302.00) ]
 
-q19Test :: Backend c => c -> H.Assertion
+q19Test :: BackendConn PgVector -> H.Assertion
 q19Test = makeEqAssertion "q19" q19Default res
   where
     res = 3083843.0578
 
-q20Test :: Backend c => c -> H.Assertion
+q20Test :: BackendConn PgVector -> H.Assertion
 q20Test = makeEqAssertion "q20" q20Default res
   where
     res = [ ("Supplier#000000020", "iybAE,RmTymrZVYaFZva2SH,j")
@@ -554,7 +554,7 @@ q20Test = makeEqAssertion "q20" q20Default res
           , ("Supplier#000006093", "KJNUg1odUT2wtCS2s6PrH3D6")
           , ("Supplier#000004871", ",phpt6AWEnUS8t4Avb50rF") ]
 
-q21Test :: Backend c => c -> H.Assertion
+q21Test :: BackendConn PgVector -> H.Assertion
 q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
   where
     p1 xs = length xs == 100
@@ -573,7 +573,7 @@ q21Test = makePredAssertion "q21" q21Default [p1, p2, p3]
          , ("Supplier#000002483", 12)
          ]
 
-q22Test :: Backend c => c -> H.Assertion
+q22Test :: BackendConn PgVector -> H.Assertion
 q22Test = makeEqAssertion "q22" q22Default res
   where
     res = [ ("13", 888, 6737713.99)
@@ -584,7 +584,7 @@ q22Test = makeEqAssertion "q22" q22Default res
           , ("30", 909, 6808436.13)
           , ("31", 922, 6806670.18) ]
 
-tests :: Backend c => c -> TestTree
+tests :: BackendConn PgVector -> TestTree
 tests c = testGroup "TPC-H standard tests"
     [ TH.testCase "q1" (q1Test c)
     , TH.testCase "q2" (q2Test c)
@@ -623,4 +623,4 @@ main = do
     let tfArgs = init args
         db     = last args
     conn <- pgConn <$> connectODBC ("DSN=" ++ db)
-    withArgs tfArgs $ defaultMain (tests naturalPgCodeGen conn)
+    withArgs tfArgs $ defaultMain (tests conn)
