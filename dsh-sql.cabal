@@ -170,8 +170,7 @@ executable bench-tpch
                        deepseq,
                        DSH,
                        dsh-sql,
-                       dsh-example-queries,
-                       deepseq
+                       dsh-example-queries
   ghc-options:         -Wall -O2
 
 executable bench-micro
@@ -192,8 +191,18 @@ executable bench-micro
                        HDBC-odbc,
                        deepseq,
                        DSH,
+                       dsh-sql
+  ghc-options:         -Wall -O2
+
+executable runpg
+  default-language:    Haskell2010
+  main-is:             RunPg.hs
+  build-depends:       base,
+                       HDBC,
+                       HDBC-odbc,
+                       DSH,
                        dsh-sql,
-                       deepseq
+                       dsh-example-queries
   ghc-options:         -Wall -O2
 
 source-repository head
