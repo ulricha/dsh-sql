@@ -497,7 +497,7 @@ instance SL.SegmentAlgebra TableAlgebra where
                      ++
                      keySrcProj k2) qs2
 
-        qu2 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 2) usc, mP (kc 2) soc]
+        qu2 <- proj ([mP (oc 1) usc, mP (oc 2) soc, mP (kc 1) usc, mP (kc 2) soc]
                      ++ refProj r2 ++ itemProj i2)
                     qs2
 
