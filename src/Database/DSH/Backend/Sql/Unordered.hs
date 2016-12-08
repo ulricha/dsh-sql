@@ -1,5 +1,6 @@
 module Database.DSH.Backend.Sql.Unordered
     ( naturalIndexVectors
+    , MAPlanGen
     ) where
 
 import qualified Database.Algebra.Dag                          as D
@@ -13,6 +14,7 @@ import           Database.DSH.Backend.Sql.MultisetAlgebra.Lang
 import           Database.DSH.Backend.Sql.Unordered.Natural    ()
 import           Database.DSH.Backend.Sql.Vector
 
+-- | A code generator that translates SL plans into multiset algebra plans.
 type MAPlanGen v = QueryPlan v DVec -> QueryPlan MA MADVec
 
 -- | Lower a SL vector operator plan to multiset algebra based on composite

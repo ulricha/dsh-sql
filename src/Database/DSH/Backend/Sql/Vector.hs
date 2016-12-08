@@ -210,4 +210,8 @@ $(deriveToJSON defaultOptions ''TAKVec)
 $(deriveToJSON defaultOptions ''TARVec)
 $(deriveToJSON defaultOptions ''SqlVector)
 
+$(deriveToJSON defaultOptions ''MADVec)
+$(deriveToJSON defaultOptions ''MAKVec)
+$(deriveToJSON defaultOptions ''MARVec)
+
 --------------------------------------------------------------------------------

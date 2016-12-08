@@ -8,15 +8,16 @@
 -- construction of nested values from the resulting vector bundle.
 module Database.DSH.Backend.Sql
   ( -- * Show and tell: display relational plans.
-    showRelationalQ
-  , showRelationalOptQ
-  , showTabularQ
-    -- * Various SQL code generators
-  , module Database.DSH.Backend.Sql.CodeGen
-    -- * A PostgreSQL ODBC backend
-  , module Database.DSH.Backend.Sql.Pg
-    -- * SQL backend vectors
-  , module Database.DSH.Backend.Sql.Vector
+    showUnorderedQ
+  --   showRelationalQ
+  -- , showRelationalOptQ
+  -- , showTabularQ
+  --   -- * Various SQL code generators
+  -- , module Database.DSH.Backend.Sql.CodeGen
+  --   -- * A PostgreSQL ODBC backend
+  -- , module Database.DSH.Backend.Sql.Pg
+  --   -- * SQL backend vectors
+  -- , module Database.DSH.Backend.Sql.Vector
   ) where
 
 import           Control.Monad
@@ -26,14 +27,16 @@ import           Text.Printf
 
 import qualified Database.DSH                            as DSH
 import           Database.DSH.Common.QueryPlan
-import           Database.DSH.Common.Vector
+import           Database.DSH.SL
 import           Database.DSH.Compiler
 
-import           Database.DSH.Backend.Sql.Opt.OptimizeTA
-import           Database.DSH.Backend.Sql.Pg
-import           Database.DSH.Backend.Sql.Relational
-import           Database.DSH.Backend.Sql.Vector
-import           Database.DSH.Backend.Sql.CodeGen
+-- import           Database.DSH.Backend.Sql.Opt.OptimizeTA
+-- import           Database.DSH.Backend.Sql.Pg
+-- import           Database.DSH.Backend.Sql.Relational
+-- import           Database.DSH.Backend.Sql.Vector
+-- import           Database.DSH.Backend.Sql.CodeGen
+
+import           Database.DSH.Backend.Sql.Unordered
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -41,6 +44,15 @@ import           Database.DSH.Backend.Sql.CodeGen
 
 fileId :: IO String
 fileId = replicateM 8 (randomRIO ('a', 'z'))
+
+-- | Show the unoptimized relational table algebra plan
+showUnorderedQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
+showUnorderedQ clOpt maGen q = do
+    let vectorPlan = vectorPlanQ clOpt q
+        maPlan     = maGen vectorPlan
+    prefix <- ("q_ma_" ++) <$> fileId
+    exportPlan prefix maPlan
+    void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 
 -- -- | Show the unoptimized relational table algebra plan
 -- showRelationalQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()

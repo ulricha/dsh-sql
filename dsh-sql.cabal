@@ -59,7 +59,7 @@ Library
 
   GHC-Options:       -Wall -fno-warn-orphans
 
---   Exposed-modules:   Database.DSH.Backend.Sql
+  Exposed-modules:   Database.DSH.Backend.Sql
 
   Other-modules:
                      -- Database.DSH.Backend.Sql.Opt.Properties.BottomUp
