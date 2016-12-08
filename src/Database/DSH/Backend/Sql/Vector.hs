@@ -183,6 +183,21 @@ soc = "so"
 usc :: TA.Attr
 usc = "us"
 
+--------------------------------------------------------------------------------
+-- Vector Definitions for Multiset Algebra
+
+newtype MADVec = MADVec AlgNode
+newtype MAKVec = MAKVec AlgNode
+newtype MARVec = MARVec AlgNode
+data MASVec = MASVec
+newtype MAFVec = MAFVec AlgNode
+
+instance DagVector MADVec where
+    vectorNodes (MADVec n) = [n]
+
+    updateVector n1 n2 (MADVec q)
+        | q == n1   = MADVec n2
+        | otherwise = MADVec q
 
 --------------------------------------------------------------------------------
 -- JSON serialization

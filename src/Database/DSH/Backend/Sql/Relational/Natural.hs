@@ -163,6 +163,7 @@ instance SL.SegmentAlgebra TableAlgebra where
                , TAFVec qf (VecFilter $ unKey k1)
                )
 
+    -- FIXME should be able to use o2 for order only.
     vecNestJoin p v1@(TADVec q1 o1 k1 r1 i1) v2@(TADVec q2 o2 k2 _ i2) = do
         let o = o1 <> o2   -- New order is defined by both left and right
             k = k1 <> k2   -- New key is defined by both left and right
