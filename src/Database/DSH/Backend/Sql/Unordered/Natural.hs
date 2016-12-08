@@ -159,23 +159,23 @@ instance SegmentAlgebra MA where
         qp <- project (dvecElem s k o p) qj
         pure $ MADVec qp
 
-    vecSemiJoin pred (MADVec q1) (MADVec q2) = do
-        qj <- semiJoin (joinSegEq <> (mergeExpr pl <$> pred)) q1 q2
+    vecSemiJoin joinPred (MADVec q1) (MADVec q2) = do
+        qj <- semiJoin (joinSegEq <> (mergeExpr pl <$> joinPred)) q1 q2
         m  <- filterMap key qj
         pure (MADVec qj, m)
 
-    vecAntiJoin pred (MADVec q1) (MADVec q2) = do
-        qj <- antiJoin (joinSegEq <> (mergeExpr pl <$> pred)) q1 q2
+    vecAntiJoin joinPred (MADVec q1) (MADVec q2) = do
+        qj <- antiJoin (joinSegEq <> (mergeExpr pl <$> joinPred)) q1 q2
         m  <- filterMap key qj
         pure (MADVec qj, m)
 
-    vecThetaJoin pred (MADVec q1) (MADVec q2) = do
+    vecThetaJoin joinPred (MADVec q1) (MADVec q2) = do
         let s = segE TInpFirst
             k = tPair (keyE TInpFirst) (keyE TInpSecond)
             o = tPair (ordE TInpFirst) (ordE TInpSecond)
             p = tPair (plE TInpFirst) (plE TInpSecond)
 
-        qj <- thetaJoin (joinSegEq <> (mergeExpr pl <$> pred)) q1 q2
+        qj <- thetaJoin (joinSegEq <> (mergeExpr pl <$> joinPred)) q1 q2
         qd <- project (dvecElem s k o p) qj
         m1 <- repMap (keyE TInpFirst) k qj
         m2 <- repMap (keyE TInpSecond) k qj
@@ -195,13 +195,13 @@ instance SegmentAlgebra MA where
 
         pure (MADVec qd, m1, m2)
 
-    vecNestJoin pred (MADVec q1) (MADVec q2) = do
+    vecNestJoin joinPred (MADVec q1) (MADVec q2) = do
         let s = keyE TInpFirst
             k = tPair (keyE TInpFirst) (keyE TInpSecond)
             o = ordE TInpSecond
             p = tPair (plE TInpFirst) (plE TInpSecond)
 
-        qj <- thetaJoin (joinSegEq <> (mergeExpr pl <$> pred)) q1 q2
+        qj <- thetaJoin (joinSegEq <> (mergeExpr pl <$> joinPred)) q1 q2
         qd <- project (dvecElem s k o p) qj
         m1 <- repMap (keyE TInpFirst) k qj
         m2 <- repMap (keyE TInpSecond) k qj
@@ -222,11 +222,11 @@ instance SegmentAlgebra MA where
             po = TInpSecond   -- grouping key
         qo <- project (dvecElem so ko oo po) qk
         -- schema for the inner vector
-        let si = tPair (segE TInpFirst) TInpSecond -- grouping key + outer index
-            ki = keyE TInpFirst                    -- original index
-            oi = ordE TInpFirst                    -- original order label
-            pi = plE TInpFirst                     -- original payload
-        qi <- project (dvecElem si ki oi pi) q1
+        let si  = tPair (segE TInpFirst) TInpSecond -- grouping key + outer index
+            ki  = keyE TInpFirst                    -- original index
+            oi  = ordE TInpFirst                    -- original order label
+            pli = plE TInpFirst                     -- original payload
+        qi <- project (dvecElem si ki oi pli) q1
         pure (MADVec qo, MADVec qi, MASVec)
 
     vecUnique (MADVec q) = do
@@ -240,8 +240,6 @@ instance SegmentAlgebra MA where
         (MADVec qu2, m2) <- uniformVec (IntV 2) q2
         qu               <- union qu1 qu2
         pure (MADVec qu, m1, m2)
-
-    vecUnboxKey (MADVec q) = keyMap key seg q
 
     vecReplicateNest (MADVec qo) (MADVec qi) = do
         qj <- thetaJoin joinIdxEq qo qi
@@ -258,7 +256,6 @@ instance SegmentAlgebra MA where
         m  <- filterMap key qj
         pure (MADVec qj, m)
 
-    -- FIXME appkey should not need to produce a rekeying vector.
     vecAppKey (MAKVec qm) (MADVec q) = do
         qj <- thetaJoin mapJoinEq qm q
         let s = toE TInpFirst
@@ -266,7 +263,16 @@ instance SegmentAlgebra MA where
             o = ordE TInpSecond
             p = plE TInpSecond
         qd <- project (dvecElem s k o p) qj
-        pure (MADVec qd, undefined)
+        pure $ MADVec qd
+
+    vecMergeSeg (MADVec qm) (MADVec q) = do
+        qj <- thetaJoin joinIdxEq qm q
+        let s = segE TInpFirst
+            k = keyE TInpSecond
+            o = tPair (ordE TInpFirst) (ordE TInpSecond)
+            p = plE TInpSecond
+        qd <- project (dvecElem s k o p) qj
+        pure $ MADVec qd
 
     vecAppRep (MARVec qm) (MADVec q) = do
         qj <- thetaJoin mapJoinEq qm q
@@ -338,8 +344,8 @@ instance SegmentAlgebra MA where
         qd <- project (dvecElem s k o p) qg
         pure $ MADVec qd
 
-    vecGroupJoin p as (MADVec q1) (MADVec q2) = do
-        qj <- groupJoin (singlePred $ JoinConjunct key Eq key) (fmap (mergeExpr pl <$>) as) q1 q2
+    vecGroupJoin joinPred as (MADVec q1) (MADVec q2) = do
+        qj <- groupJoin (joinSegEq <> (mergeExpr pl <$> joinPred)) (fmap (mergeExpr pl <$>) as) q1 q2
         let s = segE TInpFirst
             k = keyE TInpFirst
             o = ordE TInpFirst

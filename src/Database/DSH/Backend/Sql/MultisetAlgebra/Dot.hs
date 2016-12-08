@@ -2,8 +2,6 @@ module Database.DSH.Backend.Sql.MultisetAlgebra.Dot
     ( renderMADot
     ) where
 
-import           Control.Monad.Reader
-import qualified Data.IntMap                                   as Map
 import           Data.List
 import qualified Data.List.NonEmpty                            as N
 import           Prelude                                       hiding ((<$>))
@@ -25,27 +23,20 @@ bracketList f = brackets . hsep . punctuate comma . map f
 renderLambda :: Pretty e => e -> Doc
 renderLambda e = text "\\x." <> pretty e
 
-type Render = Reader (NodeMap [Tag])
-
-renderTags :: [Tag] -> Doc
-renderTags = vcat . map text
-
 renderId :: AlgNode -> Doc
 renderId n = text "id:" <+> int n
 
-labelDoc :: AlgNode -> String -> Doc -> Render Doc
-labelDoc nodeId opName arg = do
-    tags <- asks $ Map.findWithDefault [] nodeId
-    pure $ renderId nodeId <$> (text opName <> arg) <$> renderTags tags
+labelDoc :: AlgNode -> String -> Doc -> Doc
+labelDoc nodeId opName arg = renderId nodeId <$> (text opName <> arg)
 
-renderLabel :: AlgNode -> String -> Render Doc
+renderLabel :: AlgNode -> String -> Doc
 renderLabel nodeId opName = labelDoc nodeId opName empty
 
-renderLabelArg :: AlgNode -> String -> Doc -> Render Doc
+renderLabelArg :: AlgNode -> String -> Doc -> Doc
 renderLabelArg nodeId opName arg = labelDoc nodeId opName (braces arg)
 
 -- | Create the node label from an operator description
-opDotLabel :: AlgNode -> MA -> Render Doc
+opDotLabel :: AlgNode -> MA -> Doc
 opDotLabel i (UnOp (Project e) _) = renderLabelArg i "project" (renderLambda e)
 opDotLabel i (UnOp (Select e) _) = renderLabelArg i "select" (renderLambda e)
 opDotLabel i (UnOp (Distinct _) _) = renderLabel i "distinct"
@@ -171,14 +162,14 @@ renderDot ns es = text "digraph" <> (braces $ preamble <$> nodeSection <$> edgeS
     nodeSection = vcat $ map renderDotNode ns
     edgeSection = vcat $ map renderDotEdge es
 
-constructDotNode :: [AlgNode] -> NodeMap [Tag] -> (AlgNode, MA) -> DotNode
-constructDotNode rootNodes ts (n, op) =
+constructDotNode :: [AlgNode] -> (AlgNode, MA) -> DotNode
+constructDotNode rootNodes (n, op) =
     if elem n rootNodes then
         DotNode n l c (Just Dashed)
     else
         DotNode n l c Nothing
   where
-    l = escapeLabel $ pp $ runReader (opDotLabel n op) ts
+    l = escapeLabel $ pp $ opDotLabel n op
     c = opDotColor op
 
 -- | Create an abstract Dot edge
@@ -190,15 +181,15 @@ constructDotEdge = uncurry DotEdge
 extractGraphStructure :: Dag.AlgebraDag MA -> ([(AlgNode, MA)], [(AlgNode, AlgNode)])
 extractGraphStructure d = (operators, childs)
   where
-    nodes = Dag.topsort d
+    nodes     = Dag.topsort d
     operators = zip nodes $ map (flip Dag.operator d) nodes
-    childs = concat $ map (\(n, op) -> zip (repeat n) (Dag.opChildren op)) operators
+    childs    = concat $ map (\(n, op) -> zip (repeat n) (Dag.opChildren op)) operators
 
 -- | Render a multiset algebra plan into a dot file (GraphViz).
-renderMADot :: NodeMap [Tag] -> [AlgNode] -> NodeMap MA -> String
-renderMADot ts roots m = pp $ renderDot dotNodes dotEdges
+renderMADot :: [AlgNode] -> NodeMap MA -> String
+renderMADot roots m = pp $ renderDot dotNodes dotEdges
   where
     (opLabels, edges) = extractGraphStructure d
-    d = Dag.mkDag m roots
-    dotNodes = map (constructDotNode roots ts) opLabels
-    dotEdges = map constructDotEdge edges
+    d                 = Dag.mkDag m roots
+    dotNodes          = map (constructDotNode roots) opLabels
+    dotEdges          = map constructDotEdge edges

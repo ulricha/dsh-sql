@@ -13,7 +13,6 @@ module Database.DSH.Backend.Sql.MultisetAlgebra.Lang
 
 import           Data.Aeson.TH
 
-import           Data.List.NonEmpty             (NonEmpty)
 import qualified Data.Sequence                  as S
 
 import           Database.Algebra.Dag.Build

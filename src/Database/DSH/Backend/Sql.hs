@@ -42,42 +42,42 @@ import           Database.DSH.Backend.Sql.CodeGen
 fileId :: IO String
 fileId = replicateM 8 (randomRIO ('a', 'z'))
 
--- | Show the unoptimized relational table algebra plan
-showRelationalQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
-showRelationalQ clOpt relGen q = do
-    let vectorPlan = vectorPlanQ clOpt q
-        relPlan    = relGen vectorPlan
-    prefix <- ("q_ta_" ++) <$> fileId
-    exportPlan prefix relPlan
-    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
+-- -- | Show the unoptimized relational table algebra plan
+-- showRelationalQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
+-- showRelationalQ clOpt relGen q = do
+--     let vectorPlan = vectorPlanQ clOpt q
+--         relPlan    = relGen vectorPlan
+--     prefix <- ("q_ta_" ++) <$> fileId
+--     exportPlan prefix relPlan
+--     void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 
--- | Show the optimized relational table algebra plan
-showRelationalOptQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
-showRelationalOptQ clOpt relGen q = do
-    let vectorPlan = vectorPlanQ clOpt q
-        relPlan    = optimizeTA defaultPipeline $ relGen vectorPlan
-    prefix <- ("q_ta_opt_" ++) <$> fileId
-    exportPlan prefix relPlan
-    void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
+-- -- | Show the optimized relational table algebra plan
+-- showRelationalOptQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
+-- showRelationalOptQ clOpt relGen q = do
+--     let vectorPlan = vectorPlanQ clOpt q
+--         relPlan    = optimizeTA defaultPipeline $ relGen vectorPlan
+--     prefix <- ("q_ta_opt_" ++) <$> fileId
+--     exportPlan prefix relPlan
+--     void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 
--- | Show raw tabular results via 'psql', executed on the specified
--- database..
-showTabularQ :: VectorLang v
-             => CLOptimizer
-             -> (QueryPlan v DVec -> Shape (SqlVector PgCode))
-             -> String
-             -> DSH.Q a
-             -> IO ()
-showTabularQ clOpt pgCodeGen dbName q =
-    forM_ (codeQ clOpt pgCodeGen q) $ \sql -> do
-        putStrLn ""
-        h <- fileId
-        let queryFile = printf "q_%s.sql" h
-        writeFile queryFile $ unPg $ vecCode sql
-        hdl <- runCommand $ printf "psql %s < %s" dbName queryFile
-        void $ waitForProcess hdl
-        putStrLn sepLine
+-- -- | Show raw tabular results via 'psql', executed on the specified
+-- -- database..
+-- showTabularQ :: VectorLang v
+--              => CLOptimizer
+--              -> (QueryPlan v DVec -> Shape (SqlVector PgCode))
+--              -> String
+--              -> DSH.Q a
+--              -> IO ()
+-- showTabularQ clOpt pgCodeGen dbName q =
+--     forM_ (codeQ clOpt pgCodeGen q) $ \sql -> do
+--         putStrLn ""
+--         h <- fileId
+--         let queryFile = printf "q_%s.sql" h
+--         writeFile queryFile $ unPg $ vecCode sql
+--         hdl <- runCommand $ printf "psql %s < %s" dbName queryFile
+--         void $ waitForProcess hdl
+--         putStrLn sepLine
 
-  where
-    sepLine = replicate 80 '-'
+--   where
+--     sepLine = replicate 80 '-'
 
