@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE ParallelListComp     #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MonadComprehensions #-}
 
 module Database.DSH.Backend.Sql.Unordered.Natural
     (
@@ -8,6 +10,8 @@ module Database.DSH.Backend.Sql.Unordered.Natural
 
 import           Control.Monad
 import           Data.List.NonEmpty                            (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty                            as N
+import           Data.Ord
 import           Data.Semigroup
 import qualified Data.Sequence                                 as S
 
@@ -22,6 +26,14 @@ import           Database.DSH.Backend.Sql.Vector
 
 --------------------------------------------------------------------------------
 
+chooseBaseKey :: N.NonEmpty Key -> Key
+chooseBaseKey = N.head . N.sortBy (comparing (\(Key k) -> N.length k))
+
+keyTuple :: Key -> TExpr
+keyTuple (Key cs) = TMkTuple [ TTupElem (intIndex i) TInput
+                             | i <- N.fromList [1..]
+                             | _ <- cs
+                             ]
 
 --------------------------------------------------------------------------------
 -- Vector-related expression constructors
@@ -140,7 +152,14 @@ instance SegmentAlgebra MA where
         m  <- filterMap key qd
         pure $ (MADVec qd, m)
 
-    vecNumber (MADVec q) = MADVec <$> rownumPart seg ord q
+    vecNumber (MADVec q) = do
+        qn <- rownumPart seg ord q
+        let s = plE TInpFirst
+            k = keyE TInpFirst
+            o = ordE TInpFirst
+            p = tPair (plE TInpFirst) TInpSecond
+        qd <- project (dvecElem s k o p) qn
+        return $ MADVec qd
 
     vecSegment (MADVec q) = MADVec <$> project (dvecElem key key ord pl) q
 
@@ -361,9 +380,16 @@ instance SegmentAlgebra MA where
                  $ S.mapWithIndex (\s sd -> S.mapWithIndex (\p d k -> litSeg (segId s) p d k) sd) sds
         segId  = TConstant . IntV
 
-    vecTableRef tab schema = MADVec <$> tableRef tab tupTy schema
-      where
-        tupTy = PTupleT $ fmap (PScalarT . snd) $ tableCols schema
+    vecTableRef tab schema = do
+        let tupTy = PTupleT $ fmap (PScalarT . snd) $ tableCols schema
+        qt <- tableRef tab tupTy schema
+        let tabKeyE = keyTuple $ chooseBaseKey (tableKeys schema)
+            s       = unitSegId
+            k       = tabKeyE
+            o       = tabKeyE
+            p       = TInput
+        qd <- project (dvecElem s k o p) qt
+        pure $ MADVec qd
 
     vecWinFun = error "vecWinFun not implemented"
     vecReverse = error "vecReverse not implemented"
