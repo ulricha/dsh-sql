@@ -98,6 +98,7 @@ Library
 
                      Database.DSH.Backend.Sql.MultisetAlgebra.Lang
                      Database.DSH.Backend.Sql.MultisetAlgebra.Dot
+                     Database.DSH.Backend.Sql.MultisetAlgebra.Opt.Rewrite
 
 executable madot
     Main-is: Database/DSH/Backend/Sql/MultisetAlgebra/DotGen.hs
