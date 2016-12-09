@@ -42,7 +42,7 @@ Library
                      , containers         >= 0.5
                      , either             >= 4.0
                      , mtl                >= 2.1
-                     , semigroups         >= 0.16
+                     , semigroups         >= 0.18
                      , set-monad          >= 0.1
                      , template-haskell   >= 2.9
                      , text               >= 1.1
@@ -98,6 +98,7 @@ Library
 
                      Database.DSH.Backend.Sql.MultisetAlgebra.Lang
                      Database.DSH.Backend.Sql.MultisetAlgebra.Dot
+                     Database.DSH.Backend.Sql.MultisetAlgebra.Opt
                      Database.DSH.Backend.Sql.MultisetAlgebra.Opt.Rewrite
 
 executable madot

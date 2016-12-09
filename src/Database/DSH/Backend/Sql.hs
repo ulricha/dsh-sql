@@ -9,6 +9,7 @@
 module Database.DSH.Backend.Sql
   ( -- * Show and tell: display relational plans.
     showUnorderedQ
+  , showUnorderedOptQ
   --   showRelationalQ
   -- , showRelationalOptQ
   -- , showTabularQ
@@ -37,6 +38,7 @@ import           Database.DSH.Compiler
 -- import           Database.DSH.Backend.Sql.CodeGen
 
 import           Database.DSH.Backend.Sql.Unordered
+import           Database.DSH.Backend.Sql.MultisetAlgebra.Opt
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -45,11 +47,20 @@ import           Database.DSH.Backend.Sql.Unordered
 fileId :: IO String
 fileId = replicateM 8 (randomRIO ('a', 'z'))
 
--- | Show the unoptimized relational table algebra plan
+-- | Show the unoptimized multiset algebra plan
 showUnorderedQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
 showUnorderedQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
         maPlan     = maGen vectorPlan
+    prefix <- ("q_ma_" ++) <$> fileId
+    exportPlan prefix maPlan
+    void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
+
+-- | Show the optimized multiset algebra plan
+showUnorderedOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
+showUnorderedOptQ clOpt maGen q = do
+    let vectorPlan = vectorPlanQ clOpt q
+        maPlan     = optimizeMA $ maGen vectorPlan
     prefix <- ("q_ma_" ++) <$> fileId
     exportPlan prefix maPlan
     void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
