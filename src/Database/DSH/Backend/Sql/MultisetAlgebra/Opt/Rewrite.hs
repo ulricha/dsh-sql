@@ -14,12 +14,13 @@ import           Database.DSH.Common.Vector
 import           Database.DSH.Common.VectorLang
 
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Lang
+import           Database.DSH.Backend.Sql.Vector
 
 --------------------------------------------------------------------------------
 -- Types for MA rewrite rules
 
-type MARule p = Rule MA p (Shape DVec)
-type MARuleSet p = RuleSet MA p (Shape DVec)
+type MARule p = Rule MA p (Shape MADVec)
+type MARuleSet p = RuleSet MA p (Shape MADVec)
 
 --------------------------------------------------------------------------------
 -- Rule sets
@@ -74,7 +75,7 @@ pullProjectRowNumPart q =
                 let (part, ord) = $(v "args")
                     part'       = partialEval $ mergeExpr $(v "e") part
                     ord'        = partialEval $ mergeExpr $(v "e") ord
-                    e'          = appExprFst $(v "e")
+                    e'          = partialEval $ appExprFst $(v "e")
                 numNode <- insert $ UnOp (RowNumPart (part', ord')) $(v "q1")
                 void $ replaceWithNew q $ UnOp (Project e') numNode
        |])
@@ -87,7 +88,7 @@ pullProjectGroupAggr q =
                 logRewrite "MA.Project.GroupAggr" q
                 let (g, as) = $(v "args")
                     g'      = partialEval $ mergeExpr $(v "e") g
-                    as'     = fmap (mergeExpr $(v "e") <$>) as
+                    as'     = fmap (partialEval . mergeExpr $(v "e") <$>) as
                 void $ replaceWithNew q $ UnOp (GroupAggr (g', as')) $(v "q1")
        |])
 
@@ -97,8 +98,8 @@ pullProjectThetaJoinLeft q =
       [| do
             return $ do
                 logRewrite "MA.Project.ThetaJoin.Left" q
-                let p' = inlineJoinPredLeft $(v "e") p
-                    e' = appExprFst $(v "e")
+                let p' = partialEval <$> inlineJoinPredLeft $(v "e") p
+                    e' = partialEval $ appExprFst $(v "e")
                 joinNode <- insert $ BinOp (ThetaJoin p')  $(v "q1") $(v "q2")
                 void $ replaceWithNew q $ UnOp (Project e') joinNode
        |])
@@ -109,8 +110,8 @@ pullProjectThetaJoinRight q =
       [| do
             return $ do
                 logRewrite "MA.Project.ThetaJoin.Right" q
-                let p' = inlineJoinPredRight $(v "e") p
-                    e' = appExprSnd $(v "e")
+                let p' = partialEval <$> inlineJoinPredRight $(v "e") p
+                    e' = partialEval $ appExprSnd $(v "e")
                 joinNode <- insert $ BinOp (ThetaJoin p')  $(v "q1") $(v "q2")
                 void $ replaceWithNew q $ UnOp (Project e') joinNode
        |])
@@ -121,7 +122,7 @@ pullProjectCartProductLeft q =
       [| do
             return $ do
                 logRewrite "MA.Project.CartProduct.Left" q
-                let e' = appExprFst $(v "e")
+                let e' = partialEval $ appExprFst $(v "e")
                 prodNode <- insert $ BinOp (CartProduct ()) $(v "q1") $(v "q2")
                 void $ replaceWithNew q $ UnOp (Project e') prodNode
        |])
@@ -132,7 +133,7 @@ pullProjectCartProductRight q =
       [| do
             return $ do
                 logRewrite "MA.Project.CartProduct.Right" q
-                let e' = appExprSnd $(v "e")
+                let e' = partialEval $ appExprSnd $(v "e")
                 prodNode <- insert $ BinOp (CartProduct ()) $(v "q1") $(v "q2")
                 void $ replaceWithNew q $ UnOp (Project e') prodNode
        |])
@@ -143,7 +144,7 @@ pullProjectFilterJoinLeft q =
       [| do
             return $ do
                 logRewrite "MA.Project.FilterJoin.Left" q
-                let p' = inlineJoinPredLeft $(v "e") p
+                let p' = partialEval <$> inlineJoinPredLeft $(v "e") p
                 joinNode <- insert $ BinOp ($(v "joinOp") p')  $(v "q1") $(v "q2")
                 void $ replaceWithNew q $ UnOp (Project $(v "e")) joinNode
        |])
@@ -154,7 +155,7 @@ pullProjectFilterJoinRight q =
       [| do
             return $ do
                 logRewrite "MA.Project.FilterJoin.Right" q
-                let p' = inlineJoinPredRight $(v "e") p
+                let p' = partialEval <$> inlineJoinPredRight $(v "e") p
                 void $ replaceWithNew q $ BinOp ($(v "joinOp") p')  $(v "q1") $(v "q2")
        |])
 
@@ -165,8 +166,8 @@ pullProjectLeftOuterJoinLeft q =
             return $ do
                 logRewrite "MA.Project.LeftOuterJoin.Left" q
                 let (p, d, r) = $(v "args")
-                    p'        = inlineJoinPredLeft $(v "e") p
-                    e'        = appExprFst $(v "e")
+                    p'        = partialEval <$> inlineJoinPredLeft $(v "e") p
+                    e'        = partialEval $ appExprFst $(v "e")
                 joinNode <- insert $ BinOp (LeftOuterJoin (p', d, r))  $(v "q1") $(v "q2")
                 void $ replaceWithNew q $ UnOp (Project e') joinNode
        |])
@@ -178,7 +179,7 @@ pullProjectLeftOuterJoinRight q =
             return $ do
                 logRewrite "MA.Project.RightOuterJoin.Right" q
                 let (p, d, r) = $(v "args")
-                    p'        = inlineJoinPredRight $(v "e") p
+                    p'        = partialEval <$> inlineJoinPredRight $(v "e") p
                     r'        = mergeExpr $(v "e") r
                 void $ replaceWithNew q $ BinOp (LeftOuterJoin (p', d, r'))  $(v "q1") $(v "q2")
        |])
@@ -190,9 +191,9 @@ pullProjectGroupJoinLeft q =
             return $ do
                 logRewrite "MA.Project.GroupJoin.Left" q
                 let (p, as) = $(v "args")
-                    p'      = inlineJoinPredLeft $(v "e") p
-                    as'     = fmap (fmap (mergeExpr $ appExprFst $(v "e"))) as
-                    e'      = appExprFst $(v "e")
+                    p'      = partialEval <$> inlineJoinPredLeft $(v "e") p
+                    as'     = fmap (fmap (partialEval . (mergeExpr $ appExprFst $(v "e")))) as
+                    e'      = partialEval $ appExprFst $(v "e")
                 joinNode <- insert $ BinOp (GroupJoin (p', as'))  $(v "q1") $(v "q2")
                 void $ replaceWithNew q $ UnOp (Project e') joinNode
        |])
@@ -204,7 +205,7 @@ pullProjectGroupJoinRight q =
             return $ do
                 logRewrite "MA.Project.GroupJoin.Right" q
                 let (p, as) = $(v "args")
-                    p'      = inlineJoinPredRight $(v "e") p
-                    as'     = fmap (fmap (mergeExpr $ appExprSnd $(v "e"))) as
+                    p'      = partialEval <$> inlineJoinPredRight $(v "e") p
+                    as'     = fmap (fmap (partialEval . (mergeExpr $ appExprSnd $(v "e")))) as
                 void $ replaceWithNew q $ BinOp (GroupJoin (p', as'))  $(v "q1") $(v "q2")
        |])
