@@ -62,7 +62,9 @@ tyUnOp ty (Distinct ()) = pure ty
 tyUnOp ty (GroupAggr (e, (L.NE as))) = do
     gTy  <- expTy ty e
     aTys <- sequenceA $ fmap (aggrTy ty) as
-    pure $ VL.PTupleT (gTy :| pure (VL.PTupleT aTys))
+    case aTys of
+        aTy :| [] -> pure $ VL.PTupleT (gTy :| pure aTy)
+        _ :| _    -> pure $ VL.PTupleT (gTy :| pure (VL.PTupleT aTys))
 tyUnOp ty (RowNumPart (p, o)) = do
     _ <- expTy ty p
     _ <- expTy ty o
