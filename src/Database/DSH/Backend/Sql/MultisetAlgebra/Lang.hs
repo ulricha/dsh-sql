@@ -22,7 +22,7 @@ import qualified Database.DSH.Common.Lang       as L
 import qualified Database.DSH.Common.VectorLang as VL
 
 -- FIXME add keys
-data NullaryOp = Lit (S.Seq VL.TExpr)
+data NullaryOp = Lit (VL.PType, S.Seq VL.TExpr)
                | Table (String, VL.PType, L.BaseTableSchema)
                deriving (Eq, Ord, Show)
 
@@ -93,8 +93,8 @@ cartProduct n1 n2 = insert (BinOp (CartProduct ()) n1 n2)
 union :: AlgNode -> AlgNode -> Build MA AlgNode
 union n1 n2 = insert (BinOp (Union ()) n1 n2)
 
-lit :: S.Seq VL.TExpr -> Build MA AlgNode
-lit vs = insert (NullaryOp (Lit vs))
+lit :: VL.PType -> S.Seq VL.TExpr -> Build MA AlgNode
+lit ty vs = insert (NullaryOp (Lit (ty, vs)))
 
 tableRef :: String -> VL.PType -> L.BaseTableSchema -> Build MA AlgNode
 tableRef n t s = insert (NullaryOp (Table (n, t, s)))

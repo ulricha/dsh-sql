@@ -97,6 +97,7 @@ Library
                      -- Database.DSH.Backend.Sql.HDBC
 
                      Database.DSH.Backend.Sql.MultisetAlgebra.Lang
+                     Database.DSH.Backend.Sql.MultisetAlgebra.Typing
                      Database.DSH.Backend.Sql.MultisetAlgebra.Dot
                      Database.DSH.Backend.Sql.MultisetAlgebra.Opt
                      Database.DSH.Backend.Sql.MultisetAlgebra.Opt.Rewrite

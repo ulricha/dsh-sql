@@ -19,6 +19,7 @@ import           Database.Algebra.Dag.Build
 import           Database.Algebra.Dag.Common
 
 import           Database.DSH.Common.Lang
+import           Database.DSH.Common.Type
 import           Database.DSH.SL
 
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Lang
@@ -372,13 +373,16 @@ instance SegmentAlgebra MA where
         qd <- project (dvecElem s k o p) qj
         pure $ MADVec qd
 
-    vecLit _ (UnitSeg sd) = MADVec <$> (lit $ S.mapWithIndex (\i d -> litSeg unitSegId i d i) sd)
-    vecLit _ (Segs sds) = MADVec <$> (lit tuples)
+    vecLit plTy (UnitSeg sd) = MADVec <$> (lit maTy (S.mapWithIndex (\i d -> litSeg unitSegId i d i) sd))
+      where
+        maTy   = PTupleT (PScalarT UnitT :| [PScalarT IntT, PScalarT IntT, plTy])
+    vecLit plTy (Segs sds) = MADVec <$> (lit maTy tuples)
       where
         tuples = S.mapWithIndex (\i f -> f i)
                  $ join
                  $ S.mapWithIndex (\s sd -> S.mapWithIndex (\p d k -> litSeg (segId s) p d k) sd) sds
         segId  = TConstant . IntV
+        maTy   = PTupleT (PScalarT UnitT :| [PScalarT IntT, PScalarT IntT, plTy])
 
     vecTableRef tab schema = do
         let tupTy = PTupleT $ fmap (PScalarT . snd) $ tableCols schema
