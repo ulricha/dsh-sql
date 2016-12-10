@@ -22,14 +22,16 @@ module Database.DSH.Backend.Sql
   ) where
 
 import           Control.Monad
+import qualified Data.IntMap                                     as IM
 import           System.Process
 import           System.Random
 import           Text.Printf
 
-import qualified Database.DSH                            as DSH
+import qualified Database.DSH                                    as DSH
+import           Database.DSH.Common.Pretty
 import           Database.DSH.Common.QueryPlan
-import           Database.DSH.SL
 import           Database.DSH.Compiler
+import           Database.DSH.SL
 
 -- import           Database.DSH.Backend.Sql.Opt.OptimizeTA
 -- import           Database.DSH.Backend.Sql.Pg
@@ -37,8 +39,9 @@ import           Database.DSH.Compiler
 -- import           Database.DSH.Backend.Sql.Vector
 -- import           Database.DSH.Backend.Sql.CodeGen
 
-import           Database.DSH.Backend.Sql.Unordered
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Opt
+import           Database.DSH.Backend.Sql.MultisetAlgebra.Typing
+import           Database.DSH.Backend.Sql.Unordered
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -53,6 +56,9 @@ showUnorderedQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
         maPlan     = maGen vectorPlan
     prefix <- ("q_ma_" ++) <$> fileId
+    case inferMATypes (queryDag maPlan) of
+        Left e    -> putStrLn e
+        Right tys -> putStrLn $ pp $ IM.toList tys
     exportPlan prefix maPlan
     void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
 

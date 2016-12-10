@@ -112,13 +112,19 @@ childTy n m =
         Just ty -> pure ty
         Nothing -> throwError $ printf "No type node %d" n
 
+enrichTyErr :: MonadError String m => m a -> AlgNode -> [VL.PType] -> m a
+enrichTyErr ma n csTys = catchError ma $ \msg ->
+    throwError $ printf "MA type inference failed at node %d\n%s\nmessage: %s" n csTyMsg msg
+  where
+    csTyMsg = concat $ intersperse "\n" $ map pp csTys
+
 tyOp :: MonadError String m => NodeMap MA -> MA -> AlgNode -> NodeMap VL.PType -> m VL.PType
-tyOp _ (BinOp o c1 c2) _ tyMap = do
+tyOp _ (BinOp o c1 c2) n tyMap = do
     ty1 <- childTy c1 tyMap
     ty2 <- childTy c2 tyMap
-    tyBinOp ty1 ty2 o
-tyOp _ (UnOp o c) _ tyMap      = do
+    enrichTyErr (tyBinOp ty1 ty2 o) n [ty1, ty2]
+tyOp _ (UnOp o c) n tyMap      = do
     ty <- childTy c tyMap
-    tyUnOp ty o
-tyOp _ (NullaryOp o) _ _       = tyNullOp o
+    enrichTyErr (tyUnOp ty o) n [ty]
+tyOp _ (NullaryOp o) n _       = enrichTyErr (tyNullOp o) n []
 tyOp _ TerOp{} _ _             = $impossible
