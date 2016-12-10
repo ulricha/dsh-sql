@@ -10,7 +10,6 @@ import           Database.Algebra.Dag.Common
 
 import           Database.DSH.Common.Opt
 import           Database.DSH.Common.QueryPlan
-import           Database.DSH.Common.Vector
 import           Database.DSH.Common.VectorLang
 
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Lang
@@ -180,7 +179,7 @@ pullProjectLeftOuterJoinRight q =
                 logRewrite "MA.Project.RightOuterJoin.Right" q
                 let (p, d, r) = $(v "args")
                     p'        = partialEval <$> inlineJoinPredRight $(v "e") p
-                    r'        = mergeExpr $(v "e") r
+                    r'        = partialEval $ mergeExpr $(v "e") r
                 void $ replaceWithNew q $ BinOp (LeftOuterJoin (p', d, r'))  $(v "q1") $(v "q2")
        |])
 
