@@ -63,8 +63,8 @@ tyUnOp ty (GroupAggr (e, (L.NE as))) = do
     gTy  <- expTy ty e
     aTys <- sequenceA $ fmap (aggrTy ty) as
     case aTys of
-        aTy :| [] -> pure $ VL.PTupleT (gTy :| pure aTy)
-        _ :| _    -> pure $ VL.PTupleT (gTy :| pure (VL.PTupleT aTys))
+        aTy :| [] -> pure $ pPairT gTy aTy
+        _ :| _    -> pure $ pPairT gTy (VL.PTupleT aTys)
 tyUnOp ty (RowNumPart (p, o)) = do
     _ <- expTy ty p
     _ <- expTy ty o
@@ -86,7 +86,9 @@ tyBinOp ty1 ty2 (LeftOuterJoin (p,d,r)) = do
 tyBinOp ty1 ty2 (GroupJoin (p, as))     = do
     VL.predTy ty1 ty2 p
     aTys <- sequenceA $ fmap (aggrTy (pPairT ty1 ty2)) $ L.getNE as
-    pure $ pPairT ty1 (VL.PTupleT aTys)
+    case aTys of
+        aTy :| [] -> pure $ pPairT ty1 aTy
+        _ :| _    -> pure $ pPairT ty1 (VL.PTupleT aTys)
 tyBinOp ty1 ty2 (Union ())              = do
     if ty1 == ty2
        then pure ty1
