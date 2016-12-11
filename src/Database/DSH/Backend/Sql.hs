@@ -66,7 +66,14 @@ showUnorderedQ clOpt maGen q = do
 showUnorderedOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
 showUnorderedOptQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
-        maPlan     = optimizeMA $ maGen vectorPlan
+    let maPlan = maGen vectorPlan
+    case inferMATypes (queryDag maPlan) of
+        Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
+        Right tys -> putStrLn $ pp $ IM.toList tys
+    let maPlanOpt     = optimizeMA maPlan
+    case inferMATypes (queryDag maPlanOpt) of
+        Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
+        Right tys -> putStrLn $ pp $ IM.toList tys
     prefix <- ("q_ma_" ++) <$> fileId
     exportPlan prefix maPlan
     void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
