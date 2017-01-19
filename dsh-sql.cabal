@@ -51,6 +51,7 @@ Library
                      , time               >= 1.5
                      , deepseq            >= 1.4
                      , ansi-wl-pprint     >= 0.6.7.2
+                     , dlist              >= 0.8
 
   Hs-source-dirs:    src
 
@@ -97,6 +98,7 @@ Library
                      -- Database.DSH.Backend.Sql.HDBC
 
                      Database.DSH.Backend.Sql.MultisetAlgebra.Lang
+                     Database.DSH.Backend.Sql.MultisetAlgebra.FlatRecords
                      Database.DSH.Backend.Sql.MultisetAlgebra.Typing
                      Database.DSH.Backend.Sql.MultisetAlgebra.Dot
                      Database.DSH.Backend.Sql.MultisetAlgebra.Opt
