@@ -23,6 +23,7 @@ module Database.DSH.Backend.Sql
 
 import           Control.Monad
 import qualified Data.IntMap                                     as IM
+import qualified System.Info                                     as Sys
 import           System.Process
 import           System.Random
 import           Text.Printf
@@ -41,7 +42,9 @@ import           Database.DSH.SL
 
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Opt
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Typing
+import           Database.DSH.Backend.Sql.MultisetAlgebra.Lang
 import           Database.DSH.Backend.Sql.Unordered
+import           Database.DSH.Backend.Sql.Vector
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -50,17 +53,28 @@ import           Database.DSH.Backend.Sql.Unordered
 fileId :: IO String
 fileId = replicateM 8 (randomRIO ('a', 'z'))
 
+pdfCmd :: String -> String
+pdfCmd f =
+    case Sys.os of
+        "linux"  -> "evince " ++ f
+        "darwin" -> "open " ++ f
+        sys      -> error $ "pdfCmd: unsupported os " ++ sys
+
+showMAPlan :: QueryPlan MA MADVec -> IO ()
+showMAPlan maPlan = do
+    prefix <- ("q_ma_" ++) <$> fileId
+    exportPlan prefix maPlan
+    void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && %s" prefix prefix prefix (pdfCmd $ prefix ++ ".pdf")
+
 -- | Show the unoptimized multiset algebra plan
 showUnorderedQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
 showUnorderedQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
         maPlan     = maGen vectorPlan
-    prefix <- ("q_ma_" ++) <$> fileId
     case inferMATypes (queryDag maPlan) of
         Left e    -> putStrLn e
         Right tys -> putStrLn $ pp $ IM.toList tys
-    exportPlan prefix maPlan
-    void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
+    showMAPlan maPlan
 
 -- | Show the optimized multiset algebra plan
 showUnorderedOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
@@ -74,9 +88,7 @@ showUnorderedOptQ clOpt maGen q = do
     case inferMATypes (queryDag maPlanOpt) of
         Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
         Right tys -> putStrLn $ pp $ IM.toList tys
-    prefix <- ("q_ma_" ++) <$> fileId
-    exportPlan prefix maPlan
-    void $ runCommand $ printf "stack exec madot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
+    showMAPlan maPlanOpt
 
 -- -- | Show the unoptimized relational table algebra plan
 -- showRelationalQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
