@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 module Database.DSH.Backend.Sql.MultisetAlgebra.FlatRecords
-    ( flattenPlan
+    ( flattenMAPlan
     ) where
 
 import           Data.Tuple
@@ -35,10 +36,22 @@ import           Database.DSH.Backend.Sql.Vector
 --------------------------------------------------------------------------------
 -- Annotated Tuple Types
 
-data AnnPType = AnnTupleT (NonEmpty AnnPType)
-              | AnnAtomT TA.Expr
+data AnnPType a = AnnTupleT (NonEmpty (AnnPType a))
+                | AnnAtomT a
+                deriving (Show)
+
+instance Functor AnnPType where
+    fmap f (AnnTupleT ts) = AnnTupleT $ fmap (fmap f) ts
+    fmap f (AnnAtomT a)   = AnnAtomT $ f a
+
+instance Foldable AnnPType where
+    foldMap inj (AnnAtomT a)   = inj a
+    foldMap inj (AnnTupleT ts) = F.fold $ fmap (foldMap inj) ts
 
 newtype ColLabel = ColLabel { getLabel :: D.DList Char }
+
+instance Show ColLabel where
+    show = collapseLabel
 
 prefixLabel :: ColLabel
 prefixLabel = ColLabel $ pure 'c'
@@ -60,6 +73,9 @@ instance Semigroup ColLabel where
 
 collapseLabel :: ColLabel -> TA.Attr
 collapseLabel = D.toList . getLabel . (prefixLabel <>)
+
+collapseExpr :: ColLabel -> TA.Expr
+collapseExpr = TA.ColE . collapseLabel
 
 mapi :: (a -> Int -> b) -> NonEmpty a -> NonEmpty b
 mapi f (x :| xs) = f x 1 :| zipWith f xs [2..]
@@ -136,7 +152,7 @@ joinRel L.Lt  = TA.LtJ
 joinRel L.LtE = TA.LeJ
 joinRel L.NEq = TA.NeJ
 
-aggrFun :: MonadError String m => AnnPType -> AggrFun TExpr -> m TA.AggrType
+aggrFun :: MonadError String m => AnnPType TA.Expr -> AggrFun TExpr -> m TA.AggrType
 aggrFun inpTy (AggrSum _ e)         = TA.Sum <$> (inferExprAnnTy inpTy e >>= flatExpr)
 aggrFun inpTy (AggrMin e)           = TA.Min <$> (inferExprAnnTy inpTy e >>= flatExpr)
 aggrFun inpTy (AggrMax e)           = TA.Max <$> (inferExprAnnTy inpTy e >>= flatExpr)
@@ -171,41 +187,41 @@ rowTyPath' labelPath (PScalarT ty) = pure (labelPath <> atomLabel, ty)
 rowTyPath' labelPath PIndexT       = pure (labelPath <> atomLabel, IntT)
 
 -- | Derive the flat row expression from an annotated payload type
-rowExpr :: AnnPType -> NonEmpty (ColLabel, TA.Expr)
+rowExpr :: AnnPType TA.Expr -> NonEmpty (ColLabel, TA.Expr)
 rowExpr (AnnTupleT tys) = sconcat $ mapi (\ty i -> rowExprPath (tupElemLabel i) ty) tys
 rowExpr (AnnAtomT f)    = pure (atomLabel, f)
 
-rowExprPath :: ColLabel -> AnnPType -> NonEmpty (ColLabel, TA.Expr)
+rowExprPath :: ColLabel -> AnnPType TA.Expr -> NonEmpty (ColLabel, TA.Expr)
 rowExprPath labelPath (AnnTupleT tys) = sconcat $ mapi (\ty i -> rowExprPath (labelPath <> tupElemLabel i) ty) tys
 rowExprPath labelPath (AnnAtomT f)    = pure (labelPath <> atomLabel, f)
 
-flatExpr :: MonadError String m => AnnPType -> m TA.Expr
+flatExpr :: MonadError String m => AnnPType TA.Expr -> m TA.Expr
 flatExpr (AnnTupleT _) = throwError "FlatRecords.flatExpr: not an atomic expression"
 flatExpr (AnnAtomT f)  = pure f
 
 --------------------------------------------------------------------------------
 -- Translate Operator Arguments
 
-seedTyAnn ::  PType -> AnnPType
+seedTyAnn ::  PType -> AnnPType ColLabel
 seedTyAnn (PTupleT tys) = AnnTupleT $ mapi (\ty i -> seedTyAnnPrefix (tupElemLabel i) ty) tys
-seedTyAnn (PScalarT _)  = AnnAtomT (TA.ColE $ collapseLabel atomLabel)
-seedTyAnn PIndexT       = AnnAtomT (TA.ColE $ collapseLabel atomLabel)
+seedTyAnn (PScalarT _)  = AnnAtomT atomLabel
+seedTyAnn PIndexT       = AnnAtomT atomLabel
 
-seedTyAnnPrefix :: ColLabel -> PType -> AnnPType
+seedTyAnnPrefix :: ColLabel -> PType -> AnnPType ColLabel
 seedTyAnnPrefix labelPath (PTupleT tys) = AnnTupleT $ mapi (\ty i -> seedTyAnnPrefix (labelPath <> tupElemLabel i) ty) tys
-seedTyAnnPrefix labelPath (PScalarT _)  = AnnAtomT (TA.ColE $ collapseLabel $ labelPath <> atomLabel)
-seedTyAnnPrefix labelPath PIndexT       = AnnAtomT (TA.ColE $ collapseLabel $ labelPath <> atomLabel)
+seedTyAnnPrefix labelPath (PScalarT _)  = AnnAtomT (labelPath <> atomLabel)
+seedTyAnnPrefix labelPath PIndexT       = AnnAtomT (labelPath <> atomLabel)
 
-tupElemTys :: MonadError String m => AnnPType -> m (NonEmpty AnnPType)
+tupElemTys :: MonadError String m => AnnPType a -> m (NonEmpty (AnnPType a))
 tupElemTys (AnnTupleT tys) = pure tys
 tupElemTys (AnnAtomT _)    = throwError "not an annotated tuple type"
 
-pushIfTy :: MonadError String m => TA.Expr -> AnnPType -> AnnPType -> m AnnPType
+pushIfTy :: MonadError String m => TA.Expr -> AnnPType TA.Expr -> AnnPType TA.Expr -> m (AnnPType TA.Expr)
 pushIfTy f (AnnTupleT tys1) (AnnTupleT tys2) = AnnTupleT <$> sequenceA (N.zipWith (pushIfTy f) tys1 tys2)
 pushIfTy f (AnnAtomT f1)    (AnnAtomT f2)    = pure $ AnnAtomT $ TA.TernaryAppE TA.If f f1 f2
 pushIfTy _ _                _                = throwError "pushIfTy: type mismatch"
 
-exprAnnTy :: (MonadError String m, MonadReader (Maybe AnnPType) m) => TExpr -> m AnnPType
+exprAnnTy :: (MonadError String m, MonadReader (Maybe (AnnPType TA.Expr)) m) => TExpr -> m (AnnPType TA.Expr)
 -- FIXME implement equality on records
 exprAnnTy (TBinApp op e1 e2) = do
     ty1 <- exprAnnTy e1
@@ -242,10 +258,10 @@ exprAnnTy (TIf e1 e2 e3)     = do
         _           -> throwError "exprAnnTy: if cond not scalar"
 exprAnnTy TIndex             = pure $ AnnAtomT $ TA.ConstE $ TA.VInt 0xdeadbeef
 
-inferExprAnnTy :: MonadError String m => AnnPType -> TExpr -> m AnnPType
+inferExprAnnTy :: MonadError String m => (AnnPType TA.Expr) -> TExpr -> m (AnnPType TA.Expr)
 inferExprAnnTy annInpTy e = runReaderT (exprAnnTy e) (Just annInpTy)
 
-inferExprAnnTyConst :: MonadError String m => TExpr -> m AnnPType
+inferExprAnnTyConst :: MonadError String m => TExpr -> m (AnnPType TA.Expr)
 inferExprAnnTyConst e = runReaderT (exprAnnTy e) Nothing
 
 --------------------------------------------------------------------------------
@@ -271,17 +287,17 @@ flattenedNode n m =
 
 flattenUnOp :: PType -> AlgNode -> UnOp -> Flatten AlgNode
 flattenUnOp inpTy taChild (Project e) = do
-    let annTy = seedTyAnn inpTy
+    let annTy = collapseExpr <$> seedTyAnn inpTy
     r <- fmap (first collapseLabel) <$> rowExpr <$> inferExprAnnTy annTy e
     C.proj (N.toList r) taChild
 flattenUnOp inpTy taChild (Select e) = do
-    let annTy = seedTyAnn inpTy
+    let annTy = collapseExpr <$> seedTyAnn inpTy
     f <- inferExprAnnTy annTy e >>= flatExpr
     C.select f taChild
 flattenUnOp _     taChild (Distinct ()) = do
     C.distinct taChild
 flattenUnOp inpTy taChild (GroupAggr (groupExpr, aggrFuns)) = do
-    let annTy = seedTyAnn inpTy
+    let annTy = collapseExpr <$> seedTyAnn inpTy
     groupRow <- rowExpr <$> inferExprAnnTy annTy groupExpr
     let taGroupRow = fmap (first (collapseLabel . (pairFstLabel <>))) groupRow
     taAggrFuns <- sequenceA $ fmap (aggrFun annTy) $ L.getNE aggrFuns
@@ -291,7 +307,7 @@ flattenUnOp inpTy taChild (GroupAggr (groupExpr, aggrFuns)) = do
     let taAggrRow = fmap (swap . first (collapseLabel . (pairSndLabel <>))) taAggrProj
     C.aggr (N.toList taAggrRow) (N.toList taGroupRow) taChild
 flattenUnOp inpTy taChild (RowNumPart (partExpr, sortExpr)) = do
-    let annTy = seedTyAnnPrefix pairFstLabel inpTy
+    let annTy = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy
     flatPartExprs <- N.toList <$> fmap snd <$> rowExpr <$> inferExprAnnTy annTy partExpr
     flatSortExprs <- rowExpr <$> inferExprAnnTy annTy sortExpr
     let resCol = collapseLabel $ pairSndLabel <> atomLabel
@@ -305,16 +321,16 @@ insertRenameProj prefix inpTy taChild = do
     C.proj proj taChild
 
 flattenJoinPred :: MonadError String m
-                => AnnPType
-                -> AnnPType
+                => AnnPType TA.Expr
+                -> AnnPType TA.Expr
                 -> L.JoinPredicate TExpr
                 -> m [(TA.Expr, TA.Expr, TA.JoinRel)]
 flattenJoinPred inpTy1 inpTy2 (L.JoinPred conjs) =
     N.toList <$> sequenceA (fmap (flattenConjunct inpTy1 inpTy2) conjs)
 
 flattenConjunct :: MonadError String m
-                => AnnPType
-                -> AnnPType
+                => AnnPType TA.Expr
+                -> AnnPType TA.Expr
                 -> L.JoinConjunct TExpr
                 -> m (TA.Expr, TA.Expr, TA.JoinRel)
 flattenConjunct inpTy1 inpTy2 (L.JoinConjunct e1 op e2) = do
@@ -330,8 +346,8 @@ flattenBinOp inpTy1 inpTy2 taChild1 taChild2 CartProduct{} = do
 flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (ThetaJoin p) = do
     projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
     projNode2 <- insertRenameProj pairFstLabel inpTy2 taChild2
-    let annTy1 = seedTyAnnPrefix pairFstLabel inpTy1
-        annTy2 = seedTyAnnPrefix pairSndLabel inpTy2
+    let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
+        annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
     taPred    <- flattenJoinPred annTy1 annTy2 p
     C.thetaJoin taPred projNode1 projNode2
 
@@ -395,15 +411,42 @@ lookupTANode m n =
         Just n' -> pure n'
         Nothing -> throwError $ "lookupTANode: no mapping for " ++ (show n)
 
-inferFlatPlan :: AlgebraDag MA -> Except String (AlgebraDag TA.TableAlgebra)
-inferFlatPlan maPlan = do
-    maTypes        <- inferMATypes maPlan
-    (taDag, nm, _) <- B.runBuildT $ runReaderT (P.inferBottomUpE flattenOp maPlan) maTypes
-    taRoots        <- mapM (lookupTANode nm) (rootNodes maPlan)
-    pure $ addRootNodes taDag taRoots
+inferFlatDag :: NodeMap PType -> AlgebraDag MA -> Except String (AlgebraDag TA.TableAlgebra, NodeMap AlgNode)
+inferFlatDag maTypes maDag = do
+    (taDag, nMap, _) <- B.runBuildT $ runReaderT (P.inferBottomUpE flattenOp maDag) maTypes
+    taRoots          <- mapM (lookupTANode nMap) (rootNodes maDag)
+    pure (addRootNodes taDag taRoots, nMap)
 
-flattenPlan :: AlgebraDag MA -> AlgebraDag TA.TableAlgebra
-flattenPlan maPlan =
-    case runExcept (inferFlatPlan maPlan) of
-        Left msg     -> error msg
-        Right taPlan -> taPlan
+-- | Derive the relational representation of a vector type
+vecScheme :: PType -> AlgNode -> Except String TADVec
+vecScheme ty n =
+    case collapseLabel <$> seedTyAnn ty of
+        AnnTupleT (sTy :| [kTy, oTy, pTy]) ->
+            let s = VecRef $ F.foldMap pure sTy
+                k = VecKey $ F.foldMap pure kTy
+                o = VecOrder $ map (,TA.Asc) $ F.foldMap pure oTy
+                p = VecItems $ F.foldMap pure pTy
+            in pure $ TADVec n o k s p
+        _                                  -> throwError "vecScheme: not a valid vector type"
+
+toTADVec :: NodeMap AlgNode -> NodeMap PType -> MADVec -> Except String TADVec
+toTADVec nMap tyMap (MADVec n) = do
+    n'   <- lookupTANode nMap n
+    maTy <- runReaderT (opTy n) (tyMap)
+    vecScheme maTy n'
+
+inferFlatPlan :: QueryPlan MA MADVec -> Except String (QueryPlan TA.TableAlgebra TADVec)
+inferFlatPlan maPlan = do
+    tyMap         <- inferMATypes $ queryDag maPlan
+    (taDag, nMap) <- inferFlatDag tyMap (queryDag maPlan)
+    taShape       <- traverse (toTADVec nMap tyMap) (queryShape maPlan)
+    pure $ QueryPlan { queryDag = taDag
+                     , queryShape = taShape
+                     , queryTags = IM.empty
+                     }
+
+flattenMAPlan :: QueryPlan MA MADVec -> QueryPlan TA.TableAlgebra TADVec
+flattenMAPlan plan =
+    case runExcept $ inferFlatPlan plan of
+        Left msg    -> error $ "flattenMAPlan: " ++ msg
+        Right plan' -> plan'

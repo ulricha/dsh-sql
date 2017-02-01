@@ -18,7 +18,7 @@ import           Database.DSH.Common.Vector
 --------------------------------------------------------------------------------
 
 -- | The ordering columns of a data vector
-newtype VecOrder    = VecOrder [TA.SortDir]
+newtype VecOrder    = VecOrder [(TA.Attr,TA.SortDir)] deriving (Show)
 
 unOrd :: VecOrder -> Int
 unOrd (VecOrder os) = length os
@@ -30,48 +30,48 @@ instance Monoid VecOrder where
 --------------------------------------------------------------------------------
 
 -- | The natural key of a data vector
-newtype VecKey      = VecKey { unKey :: Int } deriving (Generic)
+newtype VecKey      = VecKey { unKey :: [TA.Attr] } deriving (Generic,Show)
 
 instance NFData VecKey
 
 instance Monoid VecKey where
-    mempty = VecKey 0
-    mappend (VecKey k1) (VecKey k2) = VecKey (k1 + k2)
+    mempty = VecKey []
+    mappend (VecKey k1) (VecKey k2) = VecKey (k1 ++ k2)
 
 instance ToJSON VecKey where
-    toJSON (VecKey ks) = toJSON $ map kc [1..ks]
+    toJSON (VecKey ks) = toJSON ks
 
 --------------------------------------------------------------------------------
 
 -- | Outer key reference columns
-newtype VecRef      = VecRef { unRef :: Int } deriving (Generic)
+newtype VecRef      = VecRef { unRef :: [TA.Attr] } deriving (Generic,Show)
 
 instance NFData VecRef
 
 instance ToJSON VecRef where
-    toJSON (VecRef rs) = toJSON $ map rc [1..rs]
+    toJSON (VecRef rs) = toJSON rs
 
 -- | Derive inner references from an outer key.
 keyRef :: VecKey -> VecRef
 keyRef (VecKey i) = VecRef i
 
 instance Monoid VecRef where
-    mempty = VecRef 0
-    mappend (VecRef r1) (VecRef r2) = VecRef (r1 + r2)
+    mempty = VecRef []
+    mappend (VecRef r1) (VecRef r2) = VecRef (r1 ++ r2)
 
 --------------------------------------------------------------------------------
 
 -- | Payload columns of a data vector
-newtype VecItems    = VecItems { unItems :: Int } deriving (Generic)
+newtype VecItems    = VecItems { unItems :: [TA.Attr] } deriving (Generic,Show)
 
 instance NFData VecItems
 
 instance Monoid VecItems where
-    mempty = VecItems 0
-    mappend (VecItems i1) (VecItems i2) = VecItems (i1 + i2)
+    mempty = VecItems []
+    mappend (VecItems i1) (VecItems i2) = VecItems (i1 ++ i2)
 
 instance ToJSON VecItems where
-    toJSON (VecItems is) = toJSON $ map ic [1..is]
+    toJSON (VecItems is) = toJSON is
 
 --------------------------------------------------------------------------------
 
@@ -90,7 +90,7 @@ newtype VecFilter = VecFilter Int
 -- Vectors over relational algebra plans.
 
 -- | A data vector that references a table algebra plan
-data TADVec = TADVec AlgNode VecOrder VecKey VecRef VecItems
+data TADVec = TADVec AlgNode VecOrder VecKey VecRef VecItems deriving (Show)
 
 -- | A rekeying vector that references a table algebra plan
 data TAKVec = TAKVec AlgNode VecTransSrc VecTransDst
@@ -128,9 +128,9 @@ instance Show c => Show (SqlVector c) where
     show = show . vecCode
 
 instance RelationalVector (SqlVector c) where
-    rvKeyCols vec  = map kc [1..unKey (vecKey vec)]
-    rvRefCols vec  = map rc [1..unRef (vecRef vec)]
-    rvItemCols vec = V.generate (unItems (vecItems vec)) (ic . (+ 1))
+    rvKeyCols  = unKey . vecKey
+    rvRefCols  = unRef . vecRef
+    rvItemCols = V.fromList . unItems . vecItems
 
 --------------------------------------------------------------------------------
 -- Definition of column names
