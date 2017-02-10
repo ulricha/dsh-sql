@@ -31,10 +31,14 @@ chooseBaseKey :: N.NonEmpty Key -> Key
 chooseBaseKey = N.head . N.sortBy (comparing (\(Key k) -> N.length k))
 
 keyTuple :: Key -> TExpr
-keyTuple (Key cs) = TMkTuple [ TTupElem (intIndex i) TInput
-                             | i <- N.fromList [1..]
-                             | _ <- cs
-                             ]
+keyTuple (Key cs) =
+    case ks of
+        (k :| []) -> k
+        k         -> TMkTuple k
+  where ks = [ TTupElem (intIndex i) TInput
+             | i <- N.fromList [1..]
+             | _ <- cs
+             ]
 
 --------------------------------------------------------------------------------
 -- Vector-related expression constructors
