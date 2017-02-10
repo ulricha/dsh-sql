@@ -49,7 +49,7 @@ opDotLabel i (BinOp (ThetaJoin p) _ _) =
 opDotLabel i (BinOp (LeftOuterJoin (p,d,r)) _ _) =
   renderLabelArg i "louterjoin" ((pretty p) <> comma <> pretty d <> comma <> renderLambda r)
 opDotLabel i (BinOp (GroupJoin (p, L.NE as)) _ _) =
-  renderLabelArg i "louterjoin" ((pretty p) <> comma <> bracketList pretty (N.toList as))
+  renderLabelArg i "groupjoin" ((pretty p) <> comma <> bracketList pretty (N.toList as))
 opDotLabel i (BinOp (CartProduct _) _ _) =
   renderLabel i "cartproduct"
 opDotLabel i (BinOp (SemiJoin p) _ _) =

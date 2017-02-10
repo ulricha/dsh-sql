@@ -365,7 +365,10 @@ instance SegmentAlgebra MA where
         pure $ MADVec qd
 
     vecGroupJoin joinPred as (MADVec q1) (MADVec q2) = do
-        qj <- groupJoin (joinSegEq <> (mergeExpr pl <$> joinPred)) (fmap (mergeExpr pl <$>) as) q1 q2
+        let joinPred' = joinSegEq <> (mergeExpr pl <$> joinPred)
+            plPair    = tPair (plE TInpFirst) (plE TInpSecond)
+            as'       = fmap (mergeExpr plPair <$>) as
+        qj <- groupJoin joinPred' as' q1 q2
         let s = segE TInpFirst
             k = keyE TInpFirst
             o = ordE TInpFirst
