@@ -271,6 +271,10 @@ renameProj :: ColLabel -> RowType -> NonEmpty (TA.Attr, TA.Expr)
 renameProj prefix attrs = fmap renameAttr attrs
   where
     renameAttr a = (collapseLabel $ prefix <> a, TA.ColE $ collapseLabel a)
+    renameAttr a = labelMapProj (prefix <> a) a
+
+labelMapProj :: ColLabel -> ColLabel -> (TA.Attr, TA.Expr)
+labelMapProj l1 l2 = (collapseLabel l1, TA.ColE $ collapseLabel l2)
 
 opTy :: (MonadReader (NodeMap PType) m, MonadError String m) => AlgNode -> m PType
 opTy n = do
@@ -350,6 +354,28 @@ flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (ThetaJoin p) = do
         annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
     taPred    <- flattenJoinPred annTy1 annTy2 p
     C.thetaJoin taPred projNode1 projNode2
+flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (SemiJoin p) = do
+    projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
+    projNode2 <- insertRenameProj pairFstLabel inpTy2 taChild2
+    let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
+        annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
+    taPred    <- flattenJoinPred annTy1 annTy2 p
+    let leftRowTy = N.toList $ rowTy inpTy1
+    let backProj = zipWith labelMapProj leftRowTy (map (pairFstLabel <>) leftRowTy)
+    joinNode  <- C.semiJoin taPred projNode1 projNode2
+    C.proj backProj joinNode
+flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (AntiJoin p) = do
+    projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
+    projNode2 <- insertRenameProj pairFstLabel inpTy2 taChild2
+    let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
+        annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
+    taPred    <- flattenJoinPred annTy1 annTy2 p
+    let leftRowTy = N.toList $ rowTy inpTy1
+    let backProj = zipWith labelMapProj leftRowTy (map (pairFstLabel <>) leftRowTy)
+    joinNode  <- C.semiJoin taPred projNode1 projNode2
+    C.proj backProj joinNode
+flattenBinOp _      _     taChild1 taChild2 (Union ()) = do
+    C.union taChild1 taChild2
 
 --------------------------------------------------------------------------------
 -- Provide information for base tables
