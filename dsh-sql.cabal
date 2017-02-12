@@ -63,22 +63,22 @@ Library
   Exposed-modules:   Database.DSH.Backend.Sql
 
   Other-modules:
-                     -- Database.DSH.Backend.Sql.Opt.Properties.BottomUp
-                     -- Database.DSH.Backend.Sql.Opt.Properties.TopDown
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Types
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Cols
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Nullable
-                     -- Database.DSH.Backend.Sql.Opt.Properties.FD
-                     -- Database.DSH.Backend.Sql.Opt.Properties.ICols
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Empty
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Card1
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Keys
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Order
-                     -- Database.DSH.Backend.Sql.Opt.Properties.Const
-                     -- Database.DSH.Backend.Sql.Opt.Rewrite.Basic
-                     -- Database.DSH.Backend.Sql.Opt.Rewrite.Common
-                     -- Database.DSH.Backend.Sql.Opt.OptimizeTA
+                     Database.DSH.Backend.Sql.Opt.Properties.BottomUp
+                     Database.DSH.Backend.Sql.Opt.Properties.TopDown
+                     Database.DSH.Backend.Sql.Opt.Properties.Types
+                     Database.DSH.Backend.Sql.Opt.Properties.Cols
+                     Database.DSH.Backend.Sql.Opt.Properties.Nullable
+                     Database.DSH.Backend.Sql.Opt.Properties.FD
+                     Database.DSH.Backend.Sql.Opt.Properties.ICols
+                     Database.DSH.Backend.Sql.Opt.Properties.Auxiliary
+                     Database.DSH.Backend.Sql.Opt.Properties.Empty
+                     Database.DSH.Backend.Sql.Opt.Properties.Card1
+                     Database.DSH.Backend.Sql.Opt.Properties.Keys
+                     Database.DSH.Backend.Sql.Opt.Properties.Order
+                     Database.DSH.Backend.Sql.Opt.Properties.Const
+                     Database.DSH.Backend.Sql.Opt.Rewrite.Basic
+                     Database.DSH.Backend.Sql.Opt.Rewrite.Common
+                     Database.DSH.Backend.Sql.Opt
 
                      Database.DSH.Backend.Sql.Vector
                      Database.DSH.Backend.Sql.Unordered
@@ -91,12 +91,13 @@ Library
                      -- Database.DSH.Backend.Sql.Relational.Common
                      -- Database.DSH.Backend.Sql.Relational
 
-                     -- Database.DSH.Backend.Sql.Pg
-                     -- Database.DSH.Backend.Sql.M5
-                     -- Database.DSH.Backend.Sql.CodeGen
-                     -- Database.DSH.Backend.Sql.Common
-                     -- Database.DSH.Backend.Sql.HDBC
+                     Database.DSH.Backend.Sql.Pg
+                     Database.DSH.Backend.Sql.M5
+                     Database.DSH.Backend.Sql.CodeGen
+                     Database.DSH.Backend.Sql.Common
+                     Database.DSH.Backend.Sql.HDBC
 
+                     Database.DSH.Backend.Sql.MultisetAlgebra
                      Database.DSH.Backend.Sql.MultisetAlgebra.Lang
                      Database.DSH.Backend.Sql.MultisetAlgebra.FlatRecords
                      Database.DSH.Backend.Sql.MultisetAlgebra.Typing

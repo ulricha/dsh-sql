@@ -11,36 +11,36 @@ module Database.DSH.Backend.Sql
     showUnorderedQ
   , showUnorderedOptQ
   , showRelationalQ
-  --   showRelationalQ
+  , showRelationalOptQ
   -- , showRelationalOptQ
   -- , showTabularQ
-  --   -- * Various SQL code generators
-  -- , module Database.DSH.Backend.Sql.CodeGen
-  --   -- * A PostgreSQL ODBC backend
-  -- , module Database.DSH.Backend.Sql.Pg
-  --   -- * SQL backend vectors
-  -- , module Database.DSH.Backend.Sql.Vector
+    -- * Various SQL code generators
+  , module Database.DSH.Backend.Sql.CodeGen
+    -- * A PostgreSQL ODBC backend
+  , module Database.DSH.Backend.Sql.Pg
+    -- * SQL backend vectors
+  , module Database.DSH.Backend.Sql.Vector
   ) where
 
 import           Control.Monad
-import qualified Data.IntMap                                          as IM
-import qualified System.Info                                          as Sys
+import qualified Data.IntMap                              as IM
+import qualified System.Info                              as Sys
 import           System.Process
 import           System.Random
 import           Text.Printf
 
-import qualified Database.DSH                                         as DSH
+import qualified Database.DSH                             as DSH
 import           Database.DSH.Common.Pretty
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Compiler
 import           Database.DSH.SL
 
-import qualified Database.Algebra.Table.Lang                          as TA
+import qualified Database.Algebra.Table.Lang              as TA
 
-import           Database.DSH.Backend.Sql.MultisetAlgebra.FlatRecords
-import           Database.DSH.Backend.Sql.MultisetAlgebra.Lang
-import           Database.DSH.Backend.Sql.MultisetAlgebra.Opt
-import           Database.DSH.Backend.Sql.MultisetAlgebra.Typing
+import           Database.DSH.Backend.Sql.CodeGen
+import qualified Database.DSH.Backend.Sql.MultisetAlgebra as MA
+import qualified Database.DSH.Backend.Sql.Opt             as TAOpt
+import           Database.DSH.Backend.Sql.Pg
 import           Database.DSH.Backend.Sql.Unordered
 import           Database.DSH.Backend.Sql.Vector
 
@@ -58,7 +58,7 @@ pdfCmd f =
         "darwin" -> "open " ++ f
         sys      -> error $ "pdfCmd: unsupported os " ++ sys
 
-showMAPlan :: QueryPlan MA MADVec -> IO ()
+showMAPlan :: QueryPlan MA.MA MADVec -> IO ()
 showMAPlan maPlan = do
     prefix <- ("q_ma_" ++) <$> fileId
     exportPlan prefix maPlan
@@ -75,7 +75,7 @@ showUnorderedQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DS
 showUnorderedQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
         maPlan     = maGen vectorPlan
-    case inferMATypes (queryDag maPlan) of
+    case MA.inferMATypes (queryDag maPlan) of
         Left e    -> putStrLn e
         Right tys -> putStrLn $ pp $ IM.toList tys
     showMAPlan maPlan
@@ -85,11 +85,11 @@ showUnorderedOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) ->
 showUnorderedOptQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
     let maPlan = maGen vectorPlan
-    case inferMATypes (queryDag maPlan) of
+    case MA.inferMATypes (queryDag maPlan) of
         Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
         Right tys -> putStrLn $ pp $ IM.toList tys
-    let maPlanOpt     = optimizeMA maPlan
-    case inferMATypes (queryDag maPlanOpt) of
+    let maPlanOpt     = MA.optimizeMA maPlan
+    case MA.inferMATypes (queryDag maPlanOpt) of
         Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
         Right tys -> putStrLn $ pp $ IM.toList tys
     showMAPlan maPlanOpt
@@ -99,46 +99,32 @@ showRelationalQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> D
 showRelationalQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
     let maPlan = maGen vectorPlan
-    case inferMATypes (queryDag maPlan) of
+    case MA.inferMATypes (queryDag maPlan) of
         Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
         Right tys -> putStrLn $ pp $ IM.toList tys
-    let maPlanOpt     = optimizeMA maPlan
-    case inferMATypes (queryDag maPlanOpt) of
+    let maPlanOpt     = MA.optimizeMA maPlan
+    case MA.inferMATypes (queryDag maPlanOpt) of
         Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
         Right tys -> putStrLn $ pp $ IM.toList tys
-    showTAPlan $ flattenMAPlan maPlanOpt
+    let taPlan = MA.flattenMAPlan maPlanOpt
+    showTAPlan taPlan
+    putStrLn $ pp $ queryShape taPlan
 
--- -- | Show the optimized table algebra plan
--- showRelationalOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
--- showRelationalOptQ clOpt maGen q = do
---     let vectorPlan = vectorPlanQ clOpt q
---     let maPlan = maGen vectorPlan
---     case inferMATypes (queryDag maPlan) of
---         Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
---         Right tys -> putStrLn $ pp $ IM.toList tys
---     let maPlanOpt     = optimizeMA maPlan
---     case inferMATypes (queryDag maPlanOpt) of
---         Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
---         Right tys -> putStrLn $ pp $ IM.toList tys
---     showTAPlan $ optimizeTA defaultPipeline $ flattenMAPlan maPlanOpt
-
--- -- | Show the unoptimized relational table algebra plan
--- showRelationalQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
--- showRelationalQ clOpt relGen q = do
---     let vectorPlan = vectorPlanQ clOpt q
---         relPlan    = relGen vectorPlan
---     prefix <- ("q_ta_" ++) <$> fileId
---     exportPlan prefix relPlan
---     void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
-
--- -- | Show the optimized relational table algebra plan
--- showRelationalOptQ :: VectorLang v => CLOptimizer -> RelPlanGen v -> DSH.Q a -> IO ()
--- showRelationalOptQ clOpt relGen q = do
---     let vectorPlan = vectorPlanQ clOpt q
---         relPlan    = optimizeTA defaultPipeline $ relGen vectorPlan
---     prefix <- ("q_ta_opt_" ++) <$> fileId
---     exportPlan prefix relPlan
---     void $ runCommand $ printf "stack exec tadot -- -i %s.plan | dot -Tpdf -o %s.pdf && open %s.pdf" prefix prefix prefix
+-- | Show the unoptimized table algebra plan
+showRelationalOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
+showRelationalOptQ clOpt maGen q = do
+    let vectorPlan = vectorPlanQ clOpt q
+    let maPlan = maGen vectorPlan
+    case MA.inferMATypes (queryDag maPlan) of
+        Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
+        Right tys -> putStrLn $ pp $ IM.toList tys
+    let maPlanOpt     = MA.optimizeMA maPlan
+    case MA.inferMATypes (queryDag maPlanOpt) of
+        Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
+        Right tys -> putStrLn $ pp $ IM.toList tys
+    let taPlanOpt = TAOpt.optimizeTA TAOpt.defaultPipeline $ MA.flattenMAPlan maPlanOpt
+    showTAPlan taPlanOpt
+    putStrLn $ pp $ queryShape taPlanOpt
 
 -- -- | Show raw tabular results via 'psql', executed on the specified
 -- -- database..

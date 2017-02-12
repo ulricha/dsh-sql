@@ -13,6 +13,7 @@ import           GHC.Generics
 
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang as TA
+import           Database.DSH.Common.Pretty
 import           Database.DSH.Common.Vector
 
 --------------------------------------------------------------------------------
@@ -103,6 +104,9 @@ data TASVec = TASVec
 
 -- | A filtering vector that references a table algebra plan
 data TAFVec = TAFVec AlgNode VecFilter
+
+instance Pretty TADVec where
+    pretty (TADVec n _ _ _ _) = pretty n
 
 instance DagVector TADVec where
     vectorNodes (TADVec n _ _ _ _) = [n]
@@ -198,6 +202,9 @@ instance DagVector MADVec where
     updateVector n1 n2 (MADVec q)
         | q == n1   = MADVec n2
         | otherwise = MADVec q
+
+instance Pretty MADVec where
+    pretty (MADVec n) = pretty n
 
 --------------------------------------------------------------------------------
 -- JSON serialization

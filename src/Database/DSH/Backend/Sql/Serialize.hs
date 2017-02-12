@@ -41,16 +41,6 @@ traverseShape (VShape dvec lyt) = do
             dvec' <- insertOp dvec noRef noKey needOrd
             return $ VShape dvec' lyt
 
-traverseShape (SShape dvec lyt)     = do
-    mLyt' <- traverseLayout lyt
-    case mLyt' of
-        Just lyt' -> do
-            dvec' <- insertOp dvec noRef needKey noOrd
-            return $ SShape dvec' lyt'
-        Nothing   -> do
-            dvec' <- insertOp dvec noRef noKey noOrd
-            return $ SShape dvec' lyt
-
 traverseLayout :: Layout TADVec -> TABuild (Maybe (Layout TADVec))
 traverseLayout LCol          = return Nothing
 traverseLayout (LTuple lyts) = do
