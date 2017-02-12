@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE MonadComprehensions #-}
 
 module Database.DSH.Backend.Sql.MultisetAlgebra.FlatRecords
     ( flattenMAPlan
@@ -107,23 +108,24 @@ algVal (L.DateV d)    = C.date $ L.unDate d
 algVal (L.DecimalV d) = C.dec d
 
 binOp :: L.ScalarBinOp -> TA.Expr -> TA.Expr -> TA.Expr
-binOp (L.SBNumOp L.Add)       = TA.BinAppE TA.Plus
-binOp (L.SBNumOp L.Sub)       = TA.BinAppE TA.Minus
-binOp (L.SBNumOp L.Div)       = TA.BinAppE TA.Div
-binOp (L.SBNumOp L.Mul)       = TA.BinAppE TA.Times
-binOp (L.SBNumOp L.Mod)       = TA.BinAppE TA.Modulo
-binOp (L.SBRelOp L.Eq)        = TA.BinAppE TA.Eq
-binOp (L.SBRelOp L.NEq)       = TA.BinAppE TA.NEq
-binOp (L.SBRelOp L.Gt)        = TA.BinAppE TA.Gt
-binOp (L.SBRelOp L.GtE)       = TA.BinAppE TA.GtE
-binOp (L.SBRelOp L.Lt)        = TA.BinAppE TA.Lt
-binOp (L.SBRelOp L.LtE)       = TA.BinAppE TA.LtE
-binOp (L.SBBoolOp L.Conj)     = TA.BinAppE TA.And
-binOp (L.SBBoolOp L.Disj)     = TA.BinAppE TA.Or
-binOp (L.SBStringOp L.Like)   = TA.BinAppE TA.Like
-binOp (L.SBDateOp L.AddDays)  = flip $ TA.BinAppE TA.Plus
-binOp (L.SBDateOp L.SubDays)  = flip $ TA.BinAppE TA.Minus
-binOp (L.SBDateOp L.DiffDays) = flip $ TA.BinAppE TA.Minus
+binOp (L.SBNumOp L.Add)        = TA.BinAppE TA.Plus
+binOp (L.SBNumOp L.Sub)        = TA.BinAppE TA.Minus
+binOp (L.SBNumOp L.Div)        = TA.BinAppE TA.Div
+binOp (L.SBNumOp L.Mul)        = TA.BinAppE TA.Times
+binOp (L.SBNumOp L.Mod)        = TA.BinAppE TA.Modulo
+binOp (L.SBRelOp L.Eq)         = TA.BinAppE TA.Eq
+binOp (L.SBRelOp L.NEq)        = TA.BinAppE TA.NEq
+binOp (L.SBRelOp L.Gt)         = TA.BinAppE TA.Gt
+binOp (L.SBRelOp L.GtE)        = TA.BinAppE TA.GtE
+binOp (L.SBRelOp L.Lt)         = TA.BinAppE TA.Lt
+binOp (L.SBRelOp L.LtE)        = TA.BinAppE TA.LtE
+binOp (L.SBBoolOp L.Conj)      = TA.BinAppE TA.And
+binOp (L.SBBoolOp L.Disj)      = TA.BinAppE TA.Or
+binOp (L.SBStringOp L.Like)    = TA.BinAppE TA.Like
+binOp (L.SBStringOp L.ReMatch) = TA.BinAppE TA.SimilarTo
+binOp (L.SBDateOp L.AddDays)   = flip $ TA.BinAppE TA.Plus
+binOp (L.SBDateOp L.SubDays)   = flip $ TA.BinAppE TA.Minus
+binOp (L.SBDateOp L.DiffDays)  = flip $ TA.BinAppE TA.Minus
 
 unOp :: L.ScalarUnOp -> TA.Expr -> TA.Expr
 unOp (L.SUBoolOp L.Not)             = TA.UnAppE TA.Not
@@ -270,7 +272,6 @@ inferExprAnnTyConst e = runReaderT (exprAnnTy e) Nothing
 renameProj :: ColLabel -> RowType -> NonEmpty (TA.Attr, TA.Expr)
 renameProj prefix attrs = fmap renameAttr attrs
   where
-    renameAttr a = (collapseLabel $ prefix <> a, TA.ColE $ collapseLabel a)
     renameAttr a = labelMapProj (prefix <> a) a
 
 labelMapProj :: ColLabel -> ColLabel -> (TA.Attr, TA.Expr)
@@ -345,18 +346,18 @@ flattenConjunct inpTy1 inpTy2 (L.JoinConjunct e1 op e2) = do
 flattenBinOp :: PType -> PType -> AlgNode -> AlgNode -> BinOp -> Flatten AlgNode
 flattenBinOp inpTy1 inpTy2 taChild1 taChild2 CartProduct{} = do
     projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
-    projNode2 <- insertRenameProj pairFstLabel inpTy2 taChild2
+    projNode2 <- insertRenameProj pairSndLabel inpTy2 taChild2
     C.cross projNode1 projNode2
 flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (ThetaJoin p) = do
     projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
-    projNode2 <- insertRenameProj pairFstLabel inpTy2 taChild2
+    projNode2 <- insertRenameProj pairSndLabel inpTy2 taChild2
     let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
         annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
     taPred    <- flattenJoinPred annTy1 annTy2 p
     C.thetaJoin taPred projNode1 projNode2
 flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (SemiJoin p) = do
     projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
-    projNode2 <- insertRenameProj pairFstLabel inpTy2 taChild2
+    projNode2 <- insertRenameProj pairSndLabel inpTy2 taChild2
     let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
         annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
     taPred    <- flattenJoinPred annTy1 annTy2 p
@@ -366,7 +367,7 @@ flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (SemiJoin p) = do
     C.proj backProj joinNode
 flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (AntiJoin p) = do
     projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
-    projNode2 <- insertRenameProj pairFstLabel inpTy2 taChild2
+    projNode2 <- insertRenameProj pairSndLabel inpTy2 taChild2
     let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
         annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
     taPred    <- flattenJoinPred annTy1 annTy2 p
@@ -380,9 +381,9 @@ flattenBinOp _      _     taChild1 taChild2 (Union ()) = do
 --------------------------------------------------------------------------------
 -- Provide information for base tables
 
-baseTableColumns :: L.BaseTableSchema -> [(TA.Attr, TA.ATy)]
+baseTableColumns :: L.BaseTableSchema -> NonEmpty (TA.Attr, TA.ATy)
 baseTableColumns schema = [ (c, algTy t)
-                          | (L.ColName c, t) <- N.toList $ L.tableCols schema
+                          | (L.ColName c, t) <- L.tableCols schema
                           ]
 
 baseTableKeys :: L.BaseTableSchema -> [TA.Key]
@@ -409,10 +410,12 @@ flattenNullOp (Lit (ty, es))          = do
     rows <- sequenceA $ fmap litRow es
     let schema = fmap (\(c, colTy) -> (collapseLabel c, algTy colTy)) $ rowTy' ty
     C.litTable' (F.toList rows) (N.toList schema)
-flattenNullOp (Table (t, _, schema)) = C.dbTable t cs ks
-  where
-    cs = baseTableColumns schema
-    ks = baseTableKeys schema
+flattenNullOp (Table (t, _, schema)) = do
+    let cs = baseTableColumns schema
+        ks = baseTableKeys schema
+    tableNode <- C.dbTable t (N.toList cs) ks
+    let p = mapi (\(c,_) i -> (collapseLabel $ tupElemLabel i <> atomLabel, TA.ColE c)) cs
+    C.proj (N.toList p) tableNode
 
 type Flatten = ReaderT (NodeMap PType) (B.BuildT TA.TableAlgebra (Except String))
 
