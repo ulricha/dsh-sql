@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE PatternSynonyms     #-}
 
 module Database.DSH.Backend.Sql.MultisetAlgebra.FlatRecords
     ( flattenMAPlan
@@ -33,6 +34,7 @@ import qualified Database.Algebra.Table.Construct              as C
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Lang
 import           Database.DSH.Backend.Sql.MultisetAlgebra.Typing
 import           Database.DSH.Backend.Sql.Vector
+import           Database.DSH.Backend.Sql.Serialize
 
 --------------------------------------------------------------------------------
 -- Annotated Tuple Types
@@ -163,6 +165,28 @@ aggrFun inpTy (AggrAll e)           = TA.All <$> (inferExprAnnTy inpTy e >>= fla
 aggrFun inpTy (AggrAny e)           = TA.Any <$> (inferExprAnnTy inpTy e >>= flatExpr)
 aggrFun inpTy (AggrCountDistinct e) = TA.CountDistinct <$> (inferExprAnnTy inpTy e >>= flatExpr)
 aggrFun _     AggrCount             = pure TA.CountStar
+
+pattern (:<=:) :: TA.Expr -> TA.Expr -> TA.Expr
+pattern e1 :<=: e2 <- TA.BinAppE TA.LtE e1 e2
+
+pattern (:>=:) :: TA.Expr -> TA.Expr -> TA.Expr
+pattern e1 :>=: e2 <- TA.BinAppE TA.GtE e1 e2
+
+pattern (:&&:) :: TA.Expr -> TA.Expr -> TA.Expr
+pattern e1 :&&: e2 = TA.BinAppE TA.And e1 e2
+
+-- | FIXME move to TA optimizer
+specializeExpr :: TA.Expr -> TA.Expr
+specializeExpr e = case e of
+    (e1 :>=: e2) :&&: (e1' :<=: e3) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e2 e3
+    (e1 :<=: e2) :&&: (e1' :>=: e3) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e3 e2
+    (e1 :<=: e2) :&&: ((e1' :>=: e3) :&&: e4) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e3 e2 :&&: e4
+    (e1 :>=: e2) :&&: ((e1' :<=: e3) :&&: e4) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e2 e3 :&&: e4
+    TA.BinAppE f e1 e2 -> TA.BinAppE f (specializeExpr e1) (specializeExpr e2)
+    TA.UnAppE f e1 -> TA.UnAppE f (specializeExpr e1)
+    TA.ColE a -> TA.ColE a
+    TA.ConstE v -> TA.ConstE v
+    TA.TernaryAppE f e1 e2 e3 -> TA.TernaryAppE f (specializeExpr e1) (specializeExpr e2) (specializeExpr e3)
 
 --------------------------------------------------------------------------------
 -- Derive flat row expressions and row types
@@ -431,23 +455,22 @@ flattenOp _ (BinOp o c1 c2) _ opMap = do
     taChild1 <- flattenedNode c1 opMap
     taChild2 <- flattenedNode c2 opMap
     flattenBinOp childTy1 childTy2 taChild1 taChild2 o
-flattenOp _     (NullaryOp o) _ _            = do
+flattenOp _     (NullaryOp o) _ _   = do
     flattenNullOp o
 
-lookupTANode :: NodeMap AlgNode -> AlgNode -> Except String AlgNode
+lookupTANode :: MonadError String m => NodeMap AlgNode -> AlgNode -> m AlgNode
 lookupTANode m n =
     case IM.lookup n m of
         Just n' -> pure n'
         Nothing -> throwError $ "lookupTANode: no mapping for " ++ (show n)
 
-inferFlatDag :: NodeMap PType -> AlgebraDag MA -> Except String (AlgebraDag TA.TableAlgebra, NodeMap AlgNode)
-inferFlatDag maTypes maDag = do
-    (taDag, nMap, _) <- B.runBuildT $ runReaderT (P.inferBottomUpE flattenOp maDag) maTypes
-    taRoots          <- mapM (lookupTANode nMap) (rootNodes maDag)
-    pure (addRootNodes taDag taRoots, nMap)
+inferFlatDag :: NodeMap PType
+             -> AlgebraDag MA
+             -> B.BuildT TA.TableAlgebra (Except String) (NodeMap AlgNode)
+inferFlatDag maTypes maDag = runReaderT (P.inferBottomUpE flattenOp maDag) maTypes
 
 -- | Derive the relational representation of a vector type
-vecScheme :: PType -> AlgNode -> Except String TADVec
+vecScheme :: MonadError String m => PType -> AlgNode -> m TADVec
 vecScheme ty n =
     case collapseLabel <$> seedTyAnn ty of
         AnnTupleT (sTy :| [kTy, oTy, pTy]) ->
@@ -458,24 +481,28 @@ vecScheme ty n =
             in pure $ TADVec n o k s p
         _                                  -> throwError "vecScheme: not a valid vector type"
 
-toTADVec :: NodeMap AlgNode -> NodeMap PType -> MADVec -> Except String TADVec
+toTADVec :: MonadError String m => NodeMap AlgNode -> NodeMap PType -> MADVec -> m TADVec
 toTADVec nMap tyMap (MADVec n) = do
     n'   <- lookupTANode nMap n
     maTy <- runReaderT (opTy n) (tyMap)
     vecScheme maTy n'
 
-inferFlatPlan :: QueryPlan MA MADVec -> Except String (QueryPlan TA.TableAlgebra TADVec)
+inferFlatPlan :: QueryPlan MA MADVec
+              -> B.BuildT TA.TableAlgebra (Except String) (Shape TADVec)
 inferFlatPlan maPlan = do
-    tyMap         <- inferMATypes $ queryDag maPlan
-    (taDag, nMap) <- inferFlatDag tyMap (queryDag maPlan)
-    taShape       <- traverse (toTADVec nMap tyMap) (queryShape maPlan)
-    pure $ QueryPlan { queryDag = taDag
-                     , queryShape = taShape
-                     , queryTags = IM.empty
-                     }
+    tyMap           <- inferMATypes $ queryDag maPlan
+    nMap     <- inferFlatDag tyMap (queryDag maPlan)
+    taShape  <- traverse (toTADVec nMap tyMap) (queryShape maPlan)
+    serShape <- insertSerialize taShape
+    pure serShape
 
 flattenMAPlan :: QueryPlan MA MADVec -> QueryPlan TA.TableAlgebra TADVec
 flattenMAPlan plan =
-    case runExcept $ inferFlatPlan plan of
-        Left msg    -> error $ "flattenMAPlan: " ++ msg
-        Right plan' -> plan'
+    case runExcept $ B.runBuildT (inferFlatPlan plan) of
+        Left msg                             ->
+            error $ "flattenMAPlan: " ++ msg
+        Right (taDag, taShape, _) ->
+            QueryPlan { queryDag   = addRootNodes taDag (shapeNodes taShape)
+                      , queryShape = taShape
+                      , queryTags  = IM.empty
+                      }

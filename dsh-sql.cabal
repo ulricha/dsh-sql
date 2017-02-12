@@ -80,10 +80,11 @@ Library
                      Database.DSH.Backend.Sql.Opt.Rewrite.Common
                      Database.DSH.Backend.Sql.Opt
 
-                     Database.DSH.Backend.Sql.Vector
                      Database.DSH.Backend.Sql.Unordered
                      Database.DSH.Backend.Sql.Unordered.Natural
-                     -- Database.DSH.Backend.Sql.Serialize
+
+                     Database.DSH.Backend.Sql.Vector
+                     Database.DSH.Backend.Sql.Serialize
 
                      -- Database.DSH.Backend.Sql.Relational.Natural
                      -- Database.DSH.Backend.Sql.Relational.Synthetic

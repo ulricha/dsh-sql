@@ -4,6 +4,7 @@
 {-# LANGUAGE ParallelListComp  #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE FlexibleContexts  #-}
 
 -- | Insert 'Serialize' operators for plans with composite keys into table
 -- algebra plans.
@@ -12,25 +13,24 @@ module Database.DSH.Backend.Sql.Serialize
     ) where
 
 import           Data.Maybe
+import           Control.Monad.State
 
 import qualified Database.Algebra.Dag.Build               as B
 import           Database.Algebra.Dag.Common
 import qualified Database.Algebra.Table.Lang              as TA
 
-import           Database.DSH.Backend.Sql.Relational.Natural ()
+-- import           Database.DSH.Backend.Sql.Relational.Natural ()
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Common.QueryPlan
-
-type TABuild = B.Build TA.TableAlgebra
 
 -- | Insert SerializeRel operators in TA.TableAlgebra plans to define key, ref
 -- and order columns as well as the required payload columns. 'insertSerialize'
 -- decides whether key, ref and order columns are actually needed based on the
 -- position of the vector in a shape or layout.
-insertSerialize :: B.Build TA.TableAlgebra (Shape TADVec) -> B.Build TA.TableAlgebra (Shape TADVec)
-insertSerialize g = g >>= traverseShape
+insertSerialize :: MonadState (B.BuildState TA.TableAlgebra) m => Shape TADVec -> m (Shape TADVec)
+insertSerialize shape = traverseShape shape
 
-traverseShape :: Shape TADVec -> TABuild (Shape TADVec)
+traverseShape :: MonadState (B.BuildState TA.TableAlgebra) m => Shape TADVec -> m (Shape TADVec)
 traverseShape (VShape dvec lyt) = do
     mLyt' <- traverseLayout lyt
     case mLyt' of
@@ -41,7 +41,7 @@ traverseShape (VShape dvec lyt) = do
             dvec' <- insertOp dvec noRef noKey needOrd
             return $ VShape dvec' lyt
 
-traverseLayout :: Layout TADVec -> TABuild (Maybe (Layout TADVec))
+traverseLayout :: MonadState (B.BuildState TA.TableAlgebra) m => Layout TADVec -> m (Maybe (Layout TADVec))
 traverseLayout LCol          = return Nothing
 traverseLayout (LTuple lyts) = do
     mLyts <- mapM traverseLayout lyts
@@ -59,11 +59,12 @@ traverseLayout (LNest dvec lyt) = do
             return $ Just $ LNest dvec' lyt
 
 -- | Insert a Serialize node for the given vector
-insertOp :: TADVec
+insertOp :: MonadState (B.BuildState TA.TableAlgebra) m
+         => TADVec
          -> (VecRef -> VecRef)
          -> (VecKey -> VecKey)
          -> (VecOrder -> VecOrder)
-         -> TABuild TADVec
+         -> m TADVec
 insertOp (TADVec q o k r i) updateRef updateKey updateOrd = do
     let o' = updateOrd o
         k' = updateKey k
@@ -80,35 +81,30 @@ needRef :: VecRef -> VecRef
 needRef = id
 
 noRef :: VecRef -> VecRef
-noRef = const (VecRef 0)
+noRef = const (VecRef [])
 
 needOrd :: VecOrder -> VecOrder
 needOrd = id
-
-noOrd :: VecOrder -> VecOrder
-noOrd = const (VecOrder [])
 
 needKey :: VecKey -> VecKey
 needKey = id
 
 noKey :: VecKey -> VecKey
-noKey = const (VecKey 0)
+noKey = const (VecKey [])
 
 --------------------------------------------------------------------------------
 -- Creating actual columns from vector meta data
 
 mkRef :: VecRef -> [TA.RefCol]
-mkRef (VecRef 0) = []
-mkRef (VecRef i) = [ TA.RefCol (rc c) (TA.ColE $ rc c) | c <- [1..i] ]
+mkRef (VecRef rs) = [ TA.RefCol c (TA.ColE c) | c <- rs ]
 
 mkOrd :: VecOrder -> [TA.OrdCol]
-mkOrd (VecOrder ds) = [ TA.OrdCol (oc i, d) (TA.ColE $ oc i)
-                      | i <- [1..] | d <- ds
+mkOrd (VecOrder ds) = [ TA.OrdCol (c, d) (TA.ColE c)
+                      | (c, d) <- ds
                       ]
 
 mkKey :: VecKey -> [TA.KeyCol]
-mkKey (VecKey i) = [ TA.KeyCol (kc c) (TA.ColE $ kc c) | c <- [1..i] ]
+mkKey (VecKey ks) = [ TA.KeyCol c (TA.ColE c) | c <- ks ]
 
 mkItems :: VecItems -> [TA.PayloadCol]
-mkItems (VecItems 0) = []
-mkItems (VecItems i) = [ TA.PayloadCol (ic c) (TA.ColE $ ic c) | c <- [1..i] ]
+mkItems (VecItems is) = [ TA.PayloadCol c (TA.ColE c) | c <- is ]
