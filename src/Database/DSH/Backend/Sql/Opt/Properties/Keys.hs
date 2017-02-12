@@ -118,28 +118,6 @@ inferKeysBinOp leftKeys rightKeys leftCard1 rightCard1 op =
                         [ k | k <- rightKeys, leftCard1 ]
                         ∪
                         [ k1 ∪ k2 | k1 <- leftKeys, k2 <- rightKeys ]
-        EqJoin (a, b) -> [ k | k <- leftKeys, rightCard1 ]
-                         ∪
-                         [ k | k <- rightKeys, leftCard1 ]
-                         ∪
-                         [ k | k <- leftKeys, ss b ∈ rightKeys ]
-                         ∪
-                         [ k | k <- rightKeys, ss a ∈ leftKeys ]
-                         ∪
-                         [ ( k1 ∖ ss a) ∪ k2
-                         | ss b ∈ rightKeys
-                         , k1 <- leftKeys
-                         , k2 <- rightKeys
-                         ]
-                         ∪
-                         [ k1 ∪ k2 ∖ ss b
-                         | ss a ∈ leftKeys
-                         , k1 <- leftKeys
-                         , k2 <- rightKeys
-                         ]
-                         ∪
-                         [ k1 ∪ k2 | k1 <- leftKeys, k2 <- rightKeys ]
-
         ThetaJoin preds -> [ k | k <- leftKeys, rightCard1 ]
                            ∪
                            [ k | k <- rightKeys, leftCard1 ]

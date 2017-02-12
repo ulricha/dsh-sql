@@ -93,7 +93,6 @@ inferOrderBinOp :: Orders -> Orders -> BinOp -> Orders
 inferOrderBinOp leftChildOrder rightChildOrder op =
     case op of
         Cross _         -> leftChildOrder ++ rightChildOrder
-        EqJoin _        -> leftChildOrder ++ rightChildOrder
         ThetaJoin _     -> leftChildOrder ++ rightChildOrder
         -- For a left outer join, only consider order information from
         -- the left input. For the right input, columns might end up

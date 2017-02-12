@@ -20,14 +20,12 @@ type TARuleSet p = R.RuleSet TableAlgebra  p (Shape TADVec)
 type TAMatch p = R.Match TableAlgebra p (Shape TADVec)
 
 inferBottomUp :: TARewrite (NodeMap BottomUpProps)
-inferBottomUp = do
-    to <- R.topsort
-    R.infer $ inferBottomUpProperties to
+inferBottomUp = R.infer inferBottomUpProperties
 
 inferAll :: TARewrite (NodeMap AllProps)
 inferAll = do
   to        <- R.topsort
-  buPropMap <- R.infer $ inferBottomUpProperties to
+  buPropMap <- R.infer inferBottomUpProperties
   R.infer (inferAllProperties buPropMap to)
 
 noProps :: Monad m => m (M.IntMap a)

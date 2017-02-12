@@ -60,7 +60,6 @@ inferConstBinOp :: [ConstCol] -> [ConstCol] -> BinOp -> [ConstCol]
 inferConstBinOp leftChildConst rightChildConst op =
     case op of
         Cross _      -> leftChildConst ++ rightChildConst
-        EqJoin _     -> leftChildConst ++ rightChildConst
         ThetaJoin _  -> leftChildConst ++ rightChildConst
         -- For a left outer join, only consider constants from the
         -- left input. For the right input, columns might end up

@@ -24,11 +24,6 @@ inferIColsBinOp ownICols leftICols leftCols rightICols rightCols op =
          Cross _ -> ( leftICols ∪ (ownICols ∩ leftCols)
                     , rightICols ∪ (ownICols ∩ rightCols) )
 
-         -- Require columns from the originating side, in addition to the join
-         -- columns.
-         EqJoin (leftJoinCol, rightJoinCol) ->
-             ( leftICols ∪ (ownICols ∩ leftCols) ∪ S.singleton leftJoinCol
-             , rightICols ∪ (ownICols ∩rightCols) ∪ S.singleton rightJoinCol )
          ThetaJoin cs ->
              let leftExprCols = S.unions $ map (\(l, _, _) -> exprCols l) cs
                  rightExprCols = S.unions $ map (\(_, r, _) -> exprCols r) cs

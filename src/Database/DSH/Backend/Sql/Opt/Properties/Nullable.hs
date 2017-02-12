@@ -79,7 +79,6 @@ inferNullableBinOp ps1 ps2 op =
         -- shows up in the join predicate can be considered non-null
         -- in the join result (tuples in which the predicate evaluates
         -- to NULL will not be in the result).
-        EqJoin _        -> pNullable ps1 ∪ pNullable ps2
         ThetaJoin _     -> pNullable ps1 ∪ pNullable ps2
         LeftOuterJoin _ -> pNullable ps1 ∪ [ c | (c, _) <- pCols ps2 ]
         SemiJoin _      -> pNullable ps1

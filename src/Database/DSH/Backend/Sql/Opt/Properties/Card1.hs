@@ -28,7 +28,6 @@ inferCard1BinOp :: Card1 -> Card1 -> BinOp -> Card1
 inferCard1BinOp leftCard1 rightCard1 op =
     case op of
         Cross _         -> leftCard1 && rightCard1
-        EqJoin _        -> False
         ThetaJoin _     -> False
         LeftOuterJoin _ -> False
         SemiJoin _      -> False

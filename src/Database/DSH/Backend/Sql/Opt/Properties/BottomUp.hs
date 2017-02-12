@@ -1,8 +1,12 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Database.DSH.Backend.Sql.Opt.Properties.BottomUp where
 
+import           Control.Monad.Except
 import qualified Data.Set.Monad                                   as S
+import qualified Data.IntMap                                      as IM
+import           Text.Printf
 
 import           Database.Algebra.Dag
 import           Database.Algebra.Dag.Common
@@ -22,25 +26,31 @@ import           Database.DSH.Backend.Sql.Opt.Properties.Nullable
 import           Database.DSH.Backend.Sql.Opt.Properties.Order
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 
--- FIXME this is (almost) identical to its X100 counterpart -> merge
-inferWorker :: NodeMap TableAlgebra -> TableAlgebra -> AlgNode -> NodeMap BottomUpProps -> BottomUpProps
-inferWorker _ op n pm =
-    let res =
-           case op of
-                TerOp{}        -> $impossible
-                BinOp vl c1 c2 ->
-                  let c1Props = lookupUnsafe pm "no children properties" c1
-                      c2Props = lookupUnsafe pm "no children properties" c2
-                  in inferBinOp vl c1Props c2Props
-                UnOp vl c      ->
-                  let cProps = lookupUnsafe pm "no children properties" c
-                  in inferUnOp vl cProps
-                NullaryOp vl   -> inferNullOp vl
-    in case res of
-            Left msg -> error $ "Inference failed at node " ++ show n ++ ": " ++ msg
-            Right props -> props
+opProps :: MonadError String m => AlgNode -> NodeMap p -> m p
+opProps n m =
+    case IM.lookup n m of
+        Just p  -> pure p
+        Nothing -> throwError $ printf "BottomUp.opProps: no properties for node %d" n
 
-inferNullOp :: NullOp -> Either String BottomUpProps
+inferWorker :: MonadError String m => NodeMap TableAlgebra -> TableAlgebra -> AlgNode -> NodeMap BottomUpProps -> m BottomUpProps
+inferWorker om o n pm = inferOp om o pm `catchError` augmentMsg
+  where
+    augmentMsg msg = throwError $ printf "BottomUp.inferWorker: inference failed at node %d:\n%s" n msg
+
+inferOp :: MonadError String m => NodeMap TableAlgebra -> TableAlgebra -> NodeMap BottomUpProps -> m BottomUpProps
+inferOp _ op pm =
+    case op of
+         TerOp{}        -> $impossible
+         BinOp vl c1 c2 -> do
+             c1Props <- opProps c1 pm
+             c2Props <- opProps c2 pm
+             inferBinOp vl c1Props c2Props
+         UnOp vl c      -> do
+             cProps <- opProps c pm
+             inferUnOp vl cProps
+         NullaryOp vl   -> inferNullOp vl
+
+inferNullOp :: MonadError String m => NullOp -> m BottomUpProps
 inferNullOp op = do
   let opCols     = inferColsNullOp op
       opKeys     = inferKeysNullOp op
@@ -62,10 +72,10 @@ inferNullOp op = do
                  , pFunDeps  = opFDs
                  }
 
-inferUnOp :: UnOp -> BottomUpProps -> Either String BottomUpProps
+inferUnOp :: MonadError String m => UnOp -> BottomUpProps -> m BottomUpProps
 inferUnOp op cProps = do
-  let opCols     = inferColsUnOp (pCols cProps) op
-      opKeys     = inferKeysUnOp (pKeys cProps) (pCard1 cProps) (S.map fst $ pCols cProps) op
+  opCols <- inferColsUnOp (pCols cProps) op
+  let opKeys     = inferKeysUnOp (pKeys cProps) (pCard1 cProps) (S.map fst $ pCols cProps) op
       opEmpty    = inferEmptyUnOp (pEmpty cProps) op
       opCard1    = inferCard1UnOp (pCard1 cProps) (pEmpty cProps) op
       opOrder    = inferOrderUnOp (pOrder cProps) op
@@ -82,10 +92,10 @@ inferUnOp op cProps = do
                  , pFunDeps  = opFDs
                  }
 
-inferBinOp :: BinOp -> BottomUpProps -> BottomUpProps -> Either String BottomUpProps
+inferBinOp :: MonadError String m => BinOp -> BottomUpProps -> BottomUpProps -> m BottomUpProps
 inferBinOp op c1Props c2Props = do
-  let opCols     = inferColsBinOp (pCols c1Props) (pCols c2Props) op
-      opKeys     = inferKeysBinOp (pKeys c1Props) (pKeys c2Props) (pCard1 c1Props) (pCard1 c2Props) op
+  opCols <- inferColsBinOp (pCols c1Props) (pCols c2Props) op
+  let opKeys     = inferKeysBinOp (pKeys c1Props) (pKeys c2Props) (pCard1 c1Props) (pCard1 c2Props) op
       opEmpty    = inferEmptyBinOp (pEmpty c1Props) (pEmpty c2Props) op
       opCard1    = inferCard1BinOp (pCard1 c1Props) (pCard1 c2Props) op
       opOrder    = inferOrderBinOp (pOrder c1Props) (pOrder c2Props) op
@@ -102,5 +112,8 @@ inferBinOp op c1Props c2Props = do
                  , pFunDeps  = opFDs
                  }
 
-inferBottomUpProperties :: [AlgNode] -> AlgebraDag TableAlgebra -> NodeMap BottomUpProps
-inferBottomUpProperties = inferBottomUpG inferWorker
+inferBottomUpProperties :: AlgebraDag TableAlgebra -> NodeMap BottomUpProps
+inferBottomUpProperties dag =
+    case inferBottomUpE inferWorker dag of
+        Left msg -> error msg
+        Right props -> props

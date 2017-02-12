@@ -122,4 +122,3 @@ inferFDBinOp p1 p2 ks cs op =
         LeftOuterJoin _ -> pFunDeps p1
         DisjUnion _ -> emptyFDSet
         Difference _ -> pFunDeps p1
-        EqJoin _ -> $unimplemented

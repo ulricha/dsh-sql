@@ -1,4 +1,4 @@
-module Database.DSH.Backend.Sql.Opt.OptimizeTA
+module Database.DSH.Backend.Sql.Opt
     ( pgPipeline
     , m5Pipeline
     , hyperPipeline

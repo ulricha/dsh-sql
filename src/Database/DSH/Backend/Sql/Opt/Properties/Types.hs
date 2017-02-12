@@ -66,8 +66,3 @@ data AllProps = AllProps
 ----------------------------------------------------------------------------
 -- Utility functions on properties
 
-typeOf :: Attr -> S.Set TypedAttr -> ATy
-typeOf k s =
-    case S.toList [ b | (a, b) <- s, k == a ] of
-        [b] -> b
-        _   -> $impossible

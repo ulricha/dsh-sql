@@ -27,7 +27,6 @@ inferEmptyBinOp :: Empty -> Empty -> BinOp -> Empty
 inferEmptyBinOp leftEmpty rightEmpty op =
     case op of
         Cross _         -> leftEmpty || rightEmpty
-        EqJoin _        -> leftEmpty || rightEmpty
         ThetaJoin _     -> leftEmpty || rightEmpty
         LeftOuterJoin _ -> leftEmpty || rightEmpty
         SemiJoin _      -> leftEmpty
