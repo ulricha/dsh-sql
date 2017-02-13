@@ -30,15 +30,17 @@ import           Database.DSH.Backend.Sql.Vector
 chooseBaseKey :: N.NonEmpty Key -> Key
 chooseBaseKey = N.head . N.sortBy (comparing (\(Key k) -> N.length k))
 
-keyTuple :: Key -> TExpr
-keyTuple (Key cs) =
-    case ks of
-        (k :| []) -> k
-        k         -> TMkTuple k
-  where ks = [ TTupElem (intIndex i) TInput
-             | i <- N.fromList [1..]
-             | _ <- cs
-             ]
+keyTuple :: N.NonEmpty ColName -> Key -> TExpr
+keyTuple cols (Key kcs) =
+    case sequenceA keyIdxs of
+        Just (k :| []) -> k
+        Just k         -> TMkTuple k
+        Nothing        -> error "Natural.keyTuple: key mismatch"
+  where
+    colIdxs = zip (N.toList cols) [1..]
+    keyIdxs = [ TTupElem <$> (intIndex <$> lookup kc colIdxs) <*> pure TInput
+              | kc <- kcs
+              ]
 
 --------------------------------------------------------------------------------
 -- Vector-related expression constructors
@@ -394,7 +396,7 @@ instance SegmentAlgebra MA where
     vecTableRef tab schema = do
         let tupTy = PTupleT $ fmap (PScalarT . snd) $ tableCols schema
         qt <- tableRef tab tupTy schema
-        let tabKeyE = keyTuple $ chooseBaseKey (tableKeys schema)
+        let tabKeyE = keyTuple (fmap fst $ tableCols schema) (chooseBaseKey $ tableKeys schema)
             s       = unitSegId
             k       = tabKeyE
             o       = tabKeyE
