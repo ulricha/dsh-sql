@@ -11,13 +11,12 @@ import           Text.Printf
 import           Database.Algebra.Dag
 import           Database.Algebra.Dag.Common
 import           Database.Algebra.Table.Lang
+import           Database.Algebra.Table.Typing
 
 import           Database.DSH.Common.Impossible
-
 import           Database.DSH.Common.Opt
 
 import           Database.DSH.Backend.Sql.Opt.Properties.Card1
-import           Database.DSH.Backend.Sql.Opt.Properties.Cols
 import           Database.DSH.Backend.Sql.Opt.Properties.Const
 import           Database.DSH.Backend.Sql.Opt.Properties.Empty
 import           Database.DSH.Backend.Sql.Opt.Properties.FD
@@ -52,8 +51,8 @@ inferOp _ op pm =
 
 inferNullOp :: MonadError String m => NullOp -> m BottomUpProps
 inferNullOp op = do
-  let opCols     = inferColsNullOp op
-      opKeys     = inferKeysNullOp op
+  opCols <- tyNullOp op
+  let opKeys     = inferKeysNullOp op
       opEmpty    = inferEmptyNullOp op
       opCard1    = inferCard1NullOp op
       -- We only care for rownum-generated columns. Therefore, For
@@ -74,7 +73,7 @@ inferNullOp op = do
 
 inferUnOp :: MonadError String m => UnOp -> BottomUpProps -> m BottomUpProps
 inferUnOp op cProps = do
-  opCols <- inferColsUnOp (pCols cProps) op
+  opCols <- tyUnOp (pCols cProps) op
   let opKeys     = inferKeysUnOp (pKeys cProps) (pCard1 cProps) (S.map fst $ pCols cProps) op
       opEmpty    = inferEmptyUnOp (pEmpty cProps) op
       opCard1    = inferCard1UnOp (pCard1 cProps) (pEmpty cProps) op
@@ -94,7 +93,7 @@ inferUnOp op cProps = do
 
 inferBinOp :: MonadError String m => BinOp -> BottomUpProps -> BottomUpProps -> m BottomUpProps
 inferBinOp op c1Props c2Props = do
-  opCols <- inferColsBinOp (pCols c1Props) (pCols c2Props) op
+  opCols <- tyBinOp (pCols c1Props) (pCols c2Props) op
   let opKeys     = inferKeysBinOp (pKeys c1Props) (pKeys c2Props) (pCard1 c1Props) (pCard1 c2Props) op
       opEmpty    = inferEmptyBinOp (pEmpty c1Props) (pEmpty c2Props) op
       opCard1    = inferCard1BinOp (pCard1 c1Props) (pCard1 c2Props) op
