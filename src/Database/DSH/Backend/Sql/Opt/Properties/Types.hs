@@ -8,7 +8,6 @@ import           Data.List
 import qualified Data.Map                       as M
 import qualified Data.Set.Monad                 as S
 import           Database.Algebra.Table.Lang
-import           Database.DSH.Common.Impossible
 
 ----------------------------------------------------------------------------
 -- Property types

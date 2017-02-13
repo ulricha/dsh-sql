@@ -219,28 +219,6 @@ aggrFunDefault (AggrAvg _)           = Nothing
 aggrFunDefault AggrCount             = Nothing
 aggrFunDefault (AggrCountDistinct _) = Nothing
 
-pattern (:<=:) :: TA.Expr -> TA.Expr -> TA.Expr
-pattern e1 :<=: e2 <- TA.BinAppE TA.LtE e1 e2
-
-pattern (:>=:) :: TA.Expr -> TA.Expr -> TA.Expr
-pattern e1 :>=: e2 <- TA.BinAppE TA.GtE e1 e2
-
-pattern (:&&:) :: TA.Expr -> TA.Expr -> TA.Expr
-pattern e1 :&&: e2 = TA.BinAppE TA.And e1 e2
-
--- | FIXME move to TA optimizer
-specializeExpr :: TA.Expr -> TA.Expr
-specializeExpr e = case e of
-    (e1 :>=: e2) :&&: (e1' :<=: e3) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e2 e3
-    (e1 :<=: e2) :&&: (e1' :>=: e3) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e3 e2
-    (e1 :<=: e2) :&&: ((e1' :>=: e3) :&&: e4) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e3 e2 :&&: e4
-    (e1 :>=: e2) :&&: ((e1' :<=: e3) :&&: e4) | e1 == e1' -> TA.TernaryAppE TA.Between e1 e2 e3 :&&: e4
-    TA.BinAppE f e1 e2 -> TA.BinAppE f (specializeExpr e1) (specializeExpr e2)
-    TA.UnAppE f e1 -> TA.UnAppE f (specializeExpr e1)
-    TA.ColE a -> TA.ColE a
-    TA.ConstE v -> TA.ConstE v
-    TA.TernaryAppE f e1 e2 e3 -> TA.TernaryAppE f (specializeExpr e1) (specializeExpr e2) (specializeExpr e3)
-
 --------------------------------------------------------------------------------
 -- Derive flat row expressions and row types
 

@@ -15,6 +15,7 @@ import           Database.DSH.Common.Opt
 import           Database.DSH.Common.QueryPlan
 
 import           Database.DSH.Backend.Sql.Opt.Rewrite.Basic
+import           Database.DSH.Backend.Sql.Opt.Rewrite.Expr
 import           Database.DSH.Backend.Sql.Vector
 import           Database.DSH.Backend.Sql.Opt.Rewrite.Common
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
@@ -43,6 +44,8 @@ cleanupRules = [ stackedProject
                -- , duplicateSortingCriteriaSerialize
                , bypassRownumProject
                , pruneSerializeSortCols
+               , projectExpr
+               , selectExpr
                ]
 
 cleanupRulesTopDown :: TARuleSet AllProps

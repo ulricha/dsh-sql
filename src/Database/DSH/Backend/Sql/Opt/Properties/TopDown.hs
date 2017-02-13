@@ -5,9 +5,6 @@ module Database.DSH.Backend.Sql.Opt.Properties.TopDown where
 import           Control.Monad.State
 
 import qualified Data.IntMap                                   as M
-import qualified Data.IntSet                                   as IS
-import           Data.List
-import           Data.Maybe
 import qualified Data.Set.Monad                                as S
 
 import qualified Database.Algebra.Dag                          as D

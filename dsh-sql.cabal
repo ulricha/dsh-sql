@@ -76,6 +76,7 @@ Library
                      Database.DSH.Backend.Sql.Opt.Properties.Order
                      Database.DSH.Backend.Sql.Opt.Properties.Const
                      Database.DSH.Backend.Sql.Opt.Rewrite.Basic
+                     Database.DSH.Backend.Sql.Opt.Rewrite.Expr
                      Database.DSH.Backend.Sql.Opt.Rewrite.Common
                      Database.DSH.Backend.Sql.Opt
 

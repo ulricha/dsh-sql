@@ -1,6 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections   #-}
-
 module Database.DSH.Backend.Sql.Opt.Rewrite.Basic where
 
 import           Debug.Trace
@@ -400,7 +399,7 @@ constTrueJoinConjunct constColsLeft constColsRight (leftExpr, rightExpr, op) =
 deleteWith :: (a -> Bool) -> [a] -> [a]
 deleteWith p (x:xs) | p x       = xs
                     | otherwise = x : deleteWith p xs
-deleteWith p []                 = []
+deleteWith _ []                 = []
 
 -- | Eliminate conjuncts from join predicates that are constant true.
 constFilteringJoinPred :: TARule AllProps
