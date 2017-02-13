@@ -12,7 +12,6 @@ module Database.DSH.Backend.Sql
   , showUnorderedOptQ
   , showRelationalQ
   , showRelationalOptQ
-  -- , showRelationalOptQ
   -- , showTabularQ
     -- * Various SQL code generators
   , module Database.DSH.Backend.Sql.CodeGen
@@ -23,7 +22,6 @@ module Database.DSH.Backend.Sql
   ) where
 
 import           Control.Monad
-import qualified Data.IntMap                              as IM
 import qualified System.Info                              as Sys
 import           System.Process
 import           System.Random
@@ -35,7 +33,9 @@ import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Compiler
 import           Database.DSH.SL
 
+import           Database.Algebra.Dag
 import qualified Database.Algebra.Table.Lang              as TA
+import qualified Database.Algebra.Table.Typing            as TY
 
 import           Database.DSH.Backend.Sql.CodeGen
 import qualified Database.DSH.Backend.Sql.MultisetAlgebra as MA
@@ -58,6 +58,18 @@ pdfCmd f =
         "darwin" -> "open " ++ f
         sys      -> error $ "pdfCmd: unsupported os " ++ sys
 
+typeCheckMA :: String -> AlgebraDag MA.MA -> IO ()
+typeCheckMA flavor dag =
+    case MA.inferMATypes dag of
+        Left msg -> putStrLn $ printf "Type inference failed for %s MA plan\n%s" flavor msg
+        Right _  -> putStrLn $ printf "Type inference successful for %s MA plan" flavor
+
+typeCheckTA :: String -> AlgebraDag TA.TableAlgebra -> IO ()
+typeCheckTA flavor dag =
+    case TY.inferTATypes dag of
+        Left msg -> putStrLn $ printf "Type inference failed for %s TA plan\n%s" flavor msg
+        Right _  -> putStrLn $ printf "Type inference successful for %s TA plan" flavor
+
 showMAPlan :: QueryPlan MA.MA MADVec -> IO ()
 showMAPlan maPlan = do
     prefix <- ("q_ma_" ++) <$> fileId
@@ -75,38 +87,31 @@ showUnorderedQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DS
 showUnorderedQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
         maPlan     = maGen vectorPlan
-    case MA.inferMATypes (queryDag maPlan) of
-        Left e    -> putStrLn e
-        Right tys -> putStrLn $ pp $ IM.toList tys
+    typeCheckMA "unoptimized" (queryDag maPlan)
     showMAPlan maPlan
+    putStrLn $ pp $ queryShape maPlan
 
 -- | Show the optimized multiset algebra plan
 showUnorderedOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
 showUnorderedOptQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
     let maPlan = maGen vectorPlan
-    case MA.inferMATypes (queryDag maPlan) of
-        Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
-        Right tys -> putStrLn $ pp $ IM.toList tys
+    typeCheckMA "unoptimized" (queryDag maPlan)
     let maPlanOpt     = MA.optimizeMA maPlan
-    case MA.inferMATypes (queryDag maPlanOpt) of
-        Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
-        Right tys -> putStrLn $ pp $ IM.toList tys
+    typeCheckMA "optimized" (queryDag maPlanOpt)
     showMAPlan maPlanOpt
+    putStrLn $ pp $ queryShape maPlanOpt
 
 -- | Show the unoptimized table algebra plan
 showRelationalQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -> DSH.Q a -> IO ()
 showRelationalQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
     let maPlan = maGen vectorPlan
-    case MA.inferMATypes (queryDag maPlan) of
-        Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
-        Right tys -> putStrLn $ pp $ IM.toList tys
+    typeCheckMA "unoptimized" (queryDag maPlan)
     let maPlanOpt     = MA.optimizeMA maPlan
-    case MA.inferMATypes (queryDag maPlanOpt) of
-        Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
-        Right tys -> putStrLn $ pp $ IM.toList tys
+    typeCheckMA "optimized" (queryDag maPlanOpt)
     let taPlan = MA.flattenMAPlan maPlanOpt
+    typeCheckTA "unoptimized" (queryDag taPlan)
     showTAPlan taPlan
     putStrLn $ pp $ queryShape taPlan
 
@@ -115,14 +120,13 @@ showRelationalOptQ :: VectorLang v => CLOptimizer -> MAPlanGen (v TExpr TExpr) -
 showRelationalOptQ clOpt maGen q = do
     let vectorPlan = vectorPlanQ clOpt q
     let maPlan = maGen vectorPlan
-    case MA.inferMATypes (queryDag maPlan) of
-        Left e    -> putStrLn $ "Type inference failed for unoptimized plan\n" ++ e
-        Right tys -> putStrLn $ pp $ IM.toList tys
+    typeCheckMA "unoptimized" (queryDag maPlan)
     let maPlanOpt     = MA.optimizeMA maPlan
-    case MA.inferMATypes (queryDag maPlanOpt) of
-        Left e    -> putStrLn $ "Type inference failed for optimized plan\n" ++ e
-        Right tys -> putStrLn $ pp $ IM.toList tys
-    let taPlanOpt = TAOpt.optimizeTA TAOpt.defaultPipeline $ MA.flattenMAPlan maPlanOpt
+    typeCheckMA "optimized" (queryDag maPlanOpt)
+    let taPlan = MA.flattenMAPlan maPlanOpt
+    typeCheckTA "unoptimized" (queryDag taPlan)
+    let taPlanOpt = TAOpt.optimizeTA TAOpt.defaultPipeline taPlan
+    typeCheckTA "optimized" (queryDag taPlanOpt)
     showTAPlan taPlanOpt
     putStrLn $ pp $ queryShape taPlanOpt
 
