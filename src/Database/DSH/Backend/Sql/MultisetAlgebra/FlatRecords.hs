@@ -2,6 +2,7 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE ParallelListComp    #-}
 
 module Database.DSH.Backend.Sql.MultisetAlgebra.FlatRecords
     ( flattenMAPlan
@@ -401,6 +402,28 @@ flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (AntiJoin p) = do
     C.proj backProj joinNode
 flattenBinOp _      _     taChild1 taChild2 (Union ()) = do
     C.union taChild1 taChild2
+flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (LeftOuterJoin (joinPred,defaultVal,rightProj)) = do
+    -- Prepare the TA join by simulating pair construction
+    projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
+    projNode2 <- insertRenameProj pairSndLabel inpTy2 taChild2
+    let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
+        annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
+    taPred    <- flattenJoinPred annTy1 annTy2 joinPred
+    joinNode <- C.leftOuterJoin taPred projNode1 projNode2
+
+    -- Columns from the left input
+    let leftCols = map (collapseLabel . (pairFstLabel <>)) $ N.toList $ rowTy inpTy1
+        leftProj = map (\c -> (c, TA.ColE c)) leftCols
+
+    -- Columns from the right input: use coalesce to replace NULL columns with
+    -- the default value.
+    defaultColExprs <- rowExpr <$> inferExprAnnTyConst defaultVal
+    rightColExprs   <- rowExpr <$> inferExprAnnTy annTy2 rightProj
+    let coalProj = [ (collapseLabel $ pairSndLabel <> l, TA.BinAppE TA.Coalesce e de)
+                   | (l, e)  <- rightColExprs
+                   | (_, de) <- defaultColExprs
+                   ]
+    C.proj (leftProj ++ N.toList coalProj) joinNode
 
 --------------------------------------------------------------------------------
 -- Provide information for base tables
