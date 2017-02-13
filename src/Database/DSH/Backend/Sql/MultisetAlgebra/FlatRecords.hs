@@ -18,11 +18,14 @@ import qualified Data.List.NonEmpty                            as N
 import           Data.Semigroup
 import qualified Data.IntMap                                   as IM
 import qualified Data.Foldable                                 as F
+import           Text.Printf
+import qualified Text.PrettyPrint.ANSI.Leijen                  as P
 
 import           Database.DSH.Common.QueryPlan
 import           Database.DSH.Common.Type
 import           Database.DSH.Common.VectorLang
 import           Database.DSH.Common.Nat
+import           Database.DSH.Common.Pretty
 import qualified Database.DSH.Common.Lang                      as L
 
 import           Database.Algebra.Dag
@@ -43,6 +46,10 @@ import           Database.DSH.Backend.Sql.Serialize
 data AnnPType a = AnnTupleT (NonEmpty (AnnPType a))
                 | AnnAtomT a
                 deriving (Show)
+
+instance Pretty a => Pretty (AnnPType a) where
+    pretty (AnnAtomT a)    = P.braces (pretty a)
+    pretty (AnnTupleT tys) = prettyTupTy $ map pretty $ N.toList tys
 
 instance Functor AnnPType where
     fmap f (AnnTupleT ts) = AnnTupleT $ fmap (fmap f) ts
@@ -207,7 +214,7 @@ sumDefault :: ScalarType -> (TA.ATy, TA.AVal)
 sumDefault IntT     = (TA.AInt, C.int 0)
 sumDefault DoubleT  = (TA.ADouble, C.double 0)
 sumDefault DecimalT = (TA.ADec, C.dec 0)
-sumDefault _        = error "FlatRecords.sumDefault: not a numeric type"
+sumDefault ty       = error $ printf "FlatRecords.sumDefault: %s not a numeric type" (pp ty)
 
 aggrFunDefault :: AggrFun TExpr -> Maybe TA.AVal
 aggrFunDefault (AggrSum t _)         = Just $ snd $ sumDefault t
@@ -244,17 +251,17 @@ rowTyPath' labelPath (PScalarT ty) = pure (labelPath <> atomLabel, ty)
 rowTyPath' labelPath PIndexT       = pure (labelPath <> atomLabel, IntT)
 
 -- | Derive the flat row expression from an annotated payload type
-rowExpr :: AnnPType TA.Expr -> NonEmpty (ColLabel, TA.Expr)
+rowExpr :: AnnPType a -> NonEmpty (ColLabel, a)
 rowExpr (AnnTupleT tys) = sconcat $ mapi (\ty i -> rowExprPath (tupElemLabel i) ty) tys
 rowExpr (AnnAtomT f)    = pure (atomLabel, f)
 
-rowExprPath :: ColLabel -> AnnPType TA.Expr -> NonEmpty (ColLabel, TA.Expr)
+rowExprPath :: ColLabel -> AnnPType a -> NonEmpty (ColLabel, a)
 rowExprPath labelPath (AnnTupleT tys) = sconcat $ mapi (\ty i -> rowExprPath (labelPath <> tupElemLabel i) ty) tys
 rowExprPath labelPath (AnnAtomT f)    = pure (labelPath <> atomLabel, f)
 
 flatExpr :: MonadError String m => AnnPType TA.Expr -> m TA.Expr
-flatExpr (AnnTupleT _) = throwError "FlatRecords.flatExpr: not an atomic expression"
-flatExpr (AnnAtomT f)  = pure f
+flatExpr ty@(AnnTupleT _) = throwError $ printf "FlatRecords.flatExpr: not an atomic expression %s" (pp ty)
+flatExpr (AnnAtomT f)     = pure f
 
 --------------------------------------------------------------------------------
 -- Translate Operator Arguments
@@ -277,6 +284,16 @@ pushIfTy :: MonadError String m => TA.Expr -> AnnPType TA.Expr -> AnnPType TA.Ex
 pushIfTy f (AnnTupleT tys1) (AnnTupleT tys2) = AnnTupleT <$> sequenceA (N.zipWith (pushIfTy f) tys1 tys2)
 pushIfTy f (AnnAtomT f1)    (AnnAtomT f2)    = pure $ AnnAtomT $ TA.TernaryAppE TA.If f f1 f2
 pushIfTy _ _                _                = throwError "pushIfTy: type mismatch"
+
+pushEqTyJoin :: MonadError String m => AnnPType TA.Expr -> AnnPType TA.Expr -> m (AnnPType (TA.Expr, TA.Expr, TA.JoinRel))
+pushEqTyJoin (AnnTupleT tys1) (AnnTupleT tys2) = AnnTupleT <$> sequenceA (N.zipWith pushEqTyJoin tys1 tys2)
+pushEqTyJoin (AnnAtomT f1)    (AnnAtomT f2)    = pure $ AnnAtomT (f1, f2, TA.EqJ)
+pushEqTyJoin _                _                = throwError "pushEqTyJoin: type mismatch"
+
+pushNEqTyJoin :: MonadError String m => AnnPType TA.Expr -> AnnPType TA.Expr -> m (AnnPType (TA.Expr, TA.Expr, TA.JoinRel))
+pushNEqTyJoin (AnnTupleT tys1) (AnnTupleT tys2) = AnnTupleT <$> sequenceA (N.zipWith pushNEqTyJoin tys1 tys2)
+pushNEqTyJoin (AnnAtomT f1)    (AnnAtomT f2)    = pure $ AnnAtomT (f1, f2, TA.EqJ)
+pushNEqTyJoin _                _                = throwError "pushNEqTyJoin: type mismatch"
 
 exprAnnTy :: (MonadError String m, MonadReader (Maybe (AnnPType TA.Expr)) m) => TExpr -> m (AnnPType TA.Expr)
 -- FIXME implement equality on records
@@ -386,17 +403,25 @@ flattenJoinPred :: MonadError String m
                 -> L.JoinPredicate TExpr
                 -> m [(TA.Expr, TA.Expr, TA.JoinRel)]
 flattenJoinPred inpTy1 inpTy2 (L.JoinPred conjs) =
-    N.toList <$> sequenceA (fmap (flattenConjunct inpTy1 inpTy2) conjs)
+    N.toList <$> sconcat <$> (sequenceA $ fmap (flattenConjunct inpTy1 inpTy2) conjs)
 
 flattenConjunct :: MonadError String m
                 => AnnPType TA.Expr
                 -> AnnPType TA.Expr
                 -> L.JoinConjunct TExpr
-                -> m (TA.Expr, TA.Expr, TA.JoinRel)
-flattenConjunct inpTy1 inpTy2 (L.JoinConjunct e1 op e2) = do
+                -> m (NonEmpty (TA.Expr, TA.Expr, TA.JoinRel))
+flattenConjunct inpTy1 inpTy2 (L.JoinConjunct e1 L.Eq e2) = do
+    e1'   <- inferExprAnnTy inpTy1 e1
+    e2'   <- inferExprAnnTy inpTy2 e2
+    fmap snd <$> rowExpr <$> pushEqTyJoin e1' e2'
+flattenConjunct inpTy1 inpTy2 (L.JoinConjunct e1 L.NEq e2) = do
+    e1'   <- inferExprAnnTy inpTy1 e1
+    e2'   <- inferExprAnnTy inpTy2 e2
+    fmap snd <$> rowExpr <$> pushNEqTyJoin e1' e2'
+flattenConjunct inpTy1 inpTy2 (L.JoinConjunct e1 op e2)    = do
     e1' <- inferExprAnnTy inpTy1 e1 >>= flatExpr
     e2' <- inferExprAnnTy inpTy2 e2 >>= flatExpr
-    pure (e1', e2', joinRel op)
+    pure $ pure (e1', e2', joinRel op)
 
 flattenBinOp :: PType -> PType -> AlgNode -> AlgNode -> BinOp -> Flatten AlgNode
 flattenBinOp inpTy1 inpTy2 taChild1 taChild2 CartProduct{} = do
