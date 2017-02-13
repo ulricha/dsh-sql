@@ -157,6 +157,40 @@ joinRel L.Lt  = TA.LtJ
 joinRel L.LtE = TA.LeJ
 joinRel L.NEq = TA.NeJ
 
+-- | Map aggregate functions to relational aggregates for the
+-- groupjoin operator. For Count, we need the first key column of the
+-- right input to account for the NULLs produced by the outer join.
+-- aggrFunGroupJoin :: Int -> SL.AggrFun -> AggrType
+-- aggrFunGroupJoin _ (SL.AggrSum _ e)         = Sum $ taExpr e
+-- aggrFunGroupJoin _ (SL.AggrMin e)           = Min $ taExpr e
+-- aggrFunGroupJoin _ (SL.AggrMax e)           = Max $ taExpr e
+-- aggrFunGroupJoin _ (SL.AggrAvg e)           = Avg $ taExpr e
+-- aggrFunGroupJoin _ (SL.AggrAll e)           = All $ taExpr e
+-- aggrFunGroupJoin _ (SL.AggrAny e)           = Any $ taExpr e
+-- aggrFunGroupJoin c SL.AggrCount             = Count $ ColE (kc c)
+-- aggrFunGroupJoin _ (SL.AggrCountDistinct e) = CountDistinct $ taExpr e
+
+aggrFunGJ :: MonadError String m => TA.Attr -> AnnPType TA.Expr -> AggrFun TExpr -> m TA.AggrType
+aggrFunGJ _ inpTy (AggrSum _ e)         = TA.Sum <$> (inferExprAnnTy inpTy e >>= flatExpr)
+aggrFunGJ _ inpTy (AggrMin e)           = TA.Min <$> (inferExprAnnTy inpTy e >>= flatExpr)
+aggrFunGJ _ inpTy (AggrMax e)           = TA.Max <$> (inferExprAnnTy inpTy e >>= flatExpr)
+aggrFunGJ _ inpTy (AggrAvg e)           = TA.Avg <$> (inferExprAnnTy inpTy e >>= flatExpr)
+aggrFunGJ _ inpTy (AggrAll e)           = TA.All <$> (inferExprAnnTy inpTy e >>= flatExpr)
+aggrFunGJ _ inpTy (AggrAny e)           = TA.Any <$> (inferExprAnnTy inpTy e >>= flatExpr)
+aggrFunGJ _ inpTy (AggrCountDistinct e) = TA.CountDistinct <$> (inferExprAnnTy inpTy e >>= flatExpr)
+aggrFunGJ c _     AggrCount             = pure $ TA.Count $ TA.ColE c
+
+requiresOuterJoin :: AggrFun TExpr -> Bool
+requiresOuterJoin a = case a of
+    AggrSum _ _         -> True
+    AggrAny _           -> True
+    AggrAll _           -> True
+    AggrCount           -> True
+    AggrCountDistinct _ -> True
+    AggrMax _           -> False
+    AggrMin _           -> False
+    AggrAvg _           -> False
+
 aggrFun :: MonadError String m => AnnPType TA.Expr -> AggrFun TExpr -> m TA.AggrType
 aggrFun inpTy (AggrSum _ e)         = TA.Sum <$> (inferExprAnnTy inpTy e >>= flatExpr)
 aggrFun inpTy (AggrMin e)           = TA.Min <$> (inferExprAnnTy inpTy e >>= flatExpr)
@@ -166,6 +200,24 @@ aggrFun inpTy (AggrAll e)           = TA.All <$> (inferExprAnnTy inpTy e >>= fla
 aggrFun inpTy (AggrAny e)           = TA.Any <$> (inferExprAnnTy inpTy e >>= flatExpr)
 aggrFun inpTy (AggrCountDistinct e) = TA.CountDistinct <$> (inferExprAnnTy inpTy e >>= flatExpr)
 aggrFun _     AggrCount             = pure TA.CountStar
+
+-- | The default value for sums over empty lists for all possible
+-- numeric input types.
+sumDefault :: ScalarType -> (TA.ATy, TA.AVal)
+sumDefault IntT     = (TA.AInt, C.int 0)
+sumDefault DoubleT  = (TA.ADouble, C.double 0)
+sumDefault DecimalT = (TA.ADec, C.dec 0)
+sumDefault _        = error "FlatRecords.sumDefault: not a numeric type"
+
+aggrFunDefault :: AggrFun TExpr -> Maybe TA.AVal
+aggrFunDefault (AggrSum t _)         = Just $ snd $ sumDefault t
+aggrFunDefault (AggrAny _)           = Just $ C.bool False
+aggrFunDefault (AggrAll _)           = Just $ C.bool True
+aggrFunDefault (AggrMax _)           = Nothing
+aggrFunDefault (AggrMin _)           = Nothing
+aggrFunDefault (AggrAvg _)           = Nothing
+aggrFunDefault AggrCount             = Nothing
+aggrFunDefault (AggrCountDistinct _) = Nothing
 
 pattern (:<=:) :: TA.Expr -> TA.Expr -> TA.Expr
 pattern e1 :<=: e2 <- TA.BinAppE TA.LtE e1 e2
@@ -424,6 +476,35 @@ flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (LeftOuterJoin (joinPred,defaultVal
                    | (_, de) <- defaultColExprs
                    ]
     C.proj (leftProj ++ N.toList coalProj) joinNode
+flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (GroupJoin (p, as)) = do
+    -- Prepare the TA join by simulating pair construction
+    projNode1 <- insertRenameProj pairFstLabel inpTy1 taChild1
+    projNode2 <- insertRenameProj pairSndLabel inpTy2 taChild2
+    let annTy1 = collapseExpr <$> seedTyAnnPrefix pairFstLabel inpTy1
+        annTy2 = collapseExpr <$> seedTyAnnPrefix pairSndLabel inpTy2
+    taPred    <- flattenJoinPred annTy1 annTy2 p
+    joinNode <- C.leftOuterJoin taPred projNode1 projNode2
+
+    -- Group by all left input columns (superkey)
+    let grpRow = N.toList $ fmap (\(l,e) -> (collapseLabel $ pairFstLabel <> l, e)) $ rowExpr annTy1
+
+    -- Evaluate all aggregate functions on combined left and right columns
+    let rightCol = collapseLabel $ pairSndLabel <> (N.head $ rowTy inpTy2)
+    taAggrFuns <- mapM (aggrFunGJ rightCol (AnnTupleT (annTy1 :| [annTy2]))) (N.toList $ L.getNE as)
+    let taAggrProj = case taAggrFuns of
+            taAgg : [] -> pure (atomLabel, taAgg)
+            taAggs     -> zipWith (\a i -> (tupElemLabel i <> atomLabel, a)) taAggs [1..]
+    let taAggrRow = fmap (swap . first (collapseLabel . (pairSndLabel <>))) taAggrProj
+    aggrNode <- C.aggr taAggrRow grpRow joinNode
+
+    -- Provide the default value for aggregates that support it.
+    let defaultVals = zip (map snd taAggrRow) (map aggrFunDefault (N.toList $ L.getNE as))
+    let defaultRow = [ case mVal of
+                            Just val -> (col, (TA.BinAppE TA.Coalesce (TA.ColE col) (TA.ConstE val)))
+                            Nothing  -> (col, TA.ColE col)
+                     | (col, mVal) <- defaultVals
+                     ]
+    C.proj (grpRow ++ defaultRow) aggrNode
 
 --------------------------------------------------------------------------------
 -- Provide information for base tables
