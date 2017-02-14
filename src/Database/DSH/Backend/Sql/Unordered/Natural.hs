@@ -101,7 +101,7 @@ mapJoinEq = singlePred $ JoinConjunct from Eq seg
 
 -- | Join predicate for a filtering map join
 fmapJoinEq :: JoinPredicate TExpr
-fmapJoinEq = singlePred $ JoinConjunct TInput Eq seg
+fmapJoinEq = singlePred $ JoinConjunct seg Eq TInput
 
 -- | Construct a result row for a multiset vector
 dvecElem :: TExpr -> TExpr -> TExpr -> TExpr -> TExpr
