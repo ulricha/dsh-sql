@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Database.DSH.Backend.Sql.Opt
     ( pgPipeline
     , m5Pipeline

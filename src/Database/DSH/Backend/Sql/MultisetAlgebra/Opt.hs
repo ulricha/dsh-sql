@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Database.DSH.Backend.Sql.MultisetAlgebra.Opt
     ( optimizeMA
     , defaultPipeline

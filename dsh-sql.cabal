@@ -25,7 +25,6 @@ Flag debuggraph
 
 Library
   default-language:    Haskell2010
-  default-extensions:  CPP
   Build-depends:
                        DSH                >= 0.13
                      , random             >= 1.1
