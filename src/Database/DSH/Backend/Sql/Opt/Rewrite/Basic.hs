@@ -83,6 +83,9 @@ unreferencedProjectCols q =
         neededCols <- pICols . td <$> properties q
         let neededProjs = filter (flip S.member neededCols . fst) $(v "projs")
 
+        -- Don't produce an empty schema
+        predicate $ not $ S.null neededCols
+
         -- Only modify the project if we could actually get rid of some columns.
         predicate $ length neededProjs < length $(v "projs")
 
