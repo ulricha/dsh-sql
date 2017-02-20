@@ -391,7 +391,7 @@ instance SegmentAlgebra MA where
                  $ join
                  $ S.mapWithIndex (\s sd -> S.mapWithIndex (\p d k -> litSeg (segId s) p d k) sd) sds
         segId  = TConstant . IntV
-        maTy   = PTupleT (PScalarT UnitT :| [PScalarT IntT, PScalarT IntT, plTy])
+        maTy   = PTupleT (PScalarT IntT :| [PScalarT IntT, PScalarT IntT, plTy])
 
     vecTableRef tab schema = do
         let tupTy = PTupleT $ fmap (PScalarT . snd) $ tableCols schema
