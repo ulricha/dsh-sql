@@ -453,7 +453,7 @@ flattenBinOp inpTy1 inpTy2 taChild1 taChild2 (AntiJoin p) = do
     taPred    <- flattenJoinPred annTy1 annTy2 p
     let leftRowTy = N.toList $ rowTy inpTy1
     let backProj = zipWith labelMapProj leftRowTy (map (pairFstLabel <>) leftRowTy)
-    joinNode  <- C.semiJoin taPred projNode1 projNode2
+    joinNode  <- C.antiJoin taPred projNode1 projNode2
     C.proj backProj joinNode
 flattenBinOp _      _     taChild1 taChild2 (Union ()) = do
     C.union taChild1 taChild2
