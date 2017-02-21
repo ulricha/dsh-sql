@@ -378,7 +378,9 @@ instance SegmentAlgebra MA where
         let s = segE TInpFirst
             k = keyE TInpFirst
             o = ordE TInpFirst
-            p = TMkTuple $ (plE TInpFirst) :| [ TTupElem (intIndex i) TInpSecond | i <- [1..length (getNE as)]]
+            p = case getNE as of
+                    _ :| [] -> TMkTuple $ (plE TInpFirst) :| [TInpSecond]
+                    _ :| _  -> TMkTuple $ (plE TInpFirst) :| [ TTupElem (intIndex i) TInpSecond | i <- [1..length (getNE as)]]
         qd <- project (dvecElem s k o p) qj
         pure $ MADVec qd
 
