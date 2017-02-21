@@ -292,7 +292,7 @@ pushEqTyJoin _                _                = throwError "pushEqTyJoin: type 
 
 pushNEqTyJoin :: MonadError String m => AnnPType TA.Expr -> AnnPType TA.Expr -> m (AnnPType (TA.Expr, TA.Expr, TA.JoinRel))
 pushNEqTyJoin (AnnTupleT tys1) (AnnTupleT tys2) = AnnTupleT <$> sequenceA (N.zipWith pushNEqTyJoin tys1 tys2)
-pushNEqTyJoin (AnnAtomT f1)    (AnnAtomT f2)    = pure $ AnnAtomT (f1, f2, TA.EqJ)
+pushNEqTyJoin (AnnAtomT f1)    (AnnAtomT f2)    = pure $ AnnAtomT (f1, f2, TA.NeJ)
 pushNEqTyJoin _                _                = throwError "pushNEqTyJoin: type mismatch"
 
 exprAnnTy :: (MonadError String m, MonadReader (Maybe (AnnPType TA.Expr)) m) => TExpr -> m (AnnPType TA.Expr)
