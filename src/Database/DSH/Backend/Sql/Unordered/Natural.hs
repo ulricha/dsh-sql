@@ -125,9 +125,9 @@ keyMap f t n = MAKVec <$> project (tPair f t) n
 -- | Convert a segment vector into a vector with uniform (i.e. integer) index
 -- and order labels.
 uniformVec :: ScalarVal -> AlgNode -> Build MA (MADVec, MAKVec)
-uniformVec tag n = do
+uniformVec keyTag n = do
     qn <- rownum (tPair seg ord) n
-    qs <- project (tPair TInpFirst (tPair (TConstant tag) TInpSecond)) qn
+    qs <- project (tPair TInpFirst (tPair (TConstant keyTag) TInpSecond)) qn
     m  <- keyMap (keyE TInpFirst) TInpSecond qs
     let s = segE TInpFirst
         k = TInpSecond
@@ -378,7 +378,7 @@ instance SegmentAlgebra MA where
         let s = segE TInpFirst
             k = keyE TInpFirst
             o = ordE TInpFirst
-            p = tPair (plE TInpFirst) TInpSecond
+            p = TMkTuple $ (plE TInpFirst) :| [ TTupElem (intIndex i) TInpSecond | i <- [1..length (getNE as)]]
         qd <- project (dvecElem s k o p) qj
         pure $ MADVec qd
 
