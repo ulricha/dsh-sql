@@ -82,7 +82,7 @@ from :: TExpr
 from = fromE TInput
 
 toE :: TExpr -> TExpr
-toE = TFirst
+toE = TSecond
 
 --------------------------------------------------------------------------------
 -- Join predicates for various index joins
@@ -129,7 +129,7 @@ uniformVec tag n = do
     qn <- rownum (tPair seg ord) n
     qs <- project (tPair TInpFirst (tPair (TConstant tag) TInpSecond)) qn
     m  <- keyMap (keyE TInpFirst) TInpSecond qs
-    let s = plE TInpFirst
+    let s = segE TInpFirst
         k = TInpSecond
         o = TInpSecond
         i = plE TInpFirst
