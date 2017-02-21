@@ -25,16 +25,16 @@ import           Database.DSH.Backend.Sql.Opt.Properties.Nullable
 import           Database.DSH.Backend.Sql.Opt.Properties.Order
 import           Database.DSH.Backend.Sql.Opt.Properties.Types
 
-opProps :: MonadError String m => AlgNode -> NodeMap p -> m p
+opProps :: (Show p, MonadError String m) => AlgNode -> NodeMap p -> m p
 opProps n m =
     case IM.lookup n m of
         Just p  -> pure p
-        Nothing -> throwError $ printf "BottomUp.opProps: no properties for node %d" n
+        Nothing -> throwError $ printf "BottomUp.opProps: no properties for node %d\n%s" n (show m)
 
 inferWorker :: MonadError String m => NodeMap TableAlgebra -> TableAlgebra -> AlgNode -> NodeMap BottomUpProps -> m BottomUpProps
 inferWorker om o n pm = inferOp om o pm `catchError` augmentMsg
   where
-    augmentMsg msg = throwError $ printf "BottomUp.inferWorker: inference failed at node %d:\n%s" n msg
+    augmentMsg msg = throwError $ printf "BottomUp.inferWorker: inference failed at node %d:\n%s\ndag: %s" n msg (show om)
 
 inferOp :: MonadError String m => NodeMap TableAlgebra -> TableAlgebra -> NodeMap BottomUpProps -> m BottomUpProps
 inferOp _ op pm =
@@ -114,5 +114,5 @@ inferBinOp op c1Props c2Props = do
 inferBottomUpProperties :: AlgebraDag TableAlgebra -> NodeMap BottomUpProps
 inferBottomUpProperties dag =
     case inferBottomUpE inferWorker dag of
-        Left msg -> error msg
+        Left msg    -> error msg
         Right props -> props
