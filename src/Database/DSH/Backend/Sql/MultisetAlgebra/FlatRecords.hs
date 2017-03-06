@@ -138,7 +138,7 @@ binOp (L.SBDateOp L.SubDays)   = flip $ TA.BinAppE TA.Minus
 binOp (L.SBDateOp L.DiffDays)  = flip $ TA.BinAppE TA.Minus
 
 unOp :: L.ScalarUnOp -> TA.Expr -> TA.Expr
-unOp (L.SUBoolOp L.Not)             = TA.UnAppE TA.Not
+unOp L.SUBoolNot                    = TA.UnAppE TA.Not
 unOp (L.SUCastOp L.CastDouble)      = TA.UnAppE (TA.Cast C.doubleT)
 unOp (L.SUCastOp L.CastDecimal)     = TA.UnAppE (TA.Cast C.decT)
 unOp (L.SUNumOp L.Sin)              = TA.UnAppE TA.Sin
