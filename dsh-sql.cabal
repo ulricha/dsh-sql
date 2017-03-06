@@ -144,74 +144,73 @@ executable madot
 --                     deepseq                    >= 1.4
 --     GHC-Options: -Wall
 
--- Executable test-basic
---     default-language:    Haskell2010
---     Hs-Source-Dirs : testsuite
---     Main-is:       TestBasic.hs
---     Build-depends:
---                      DSH                        >= 0.13
---                    , HDBC                       >= 2.4.0.1
---                    , HDBC-odbc                  >= 2.4
---                    , HUnit                      >= 1.2
---                    , QuickCheck                 >= 2.4
---                    , base                       >= 4.8 && < 5
---                    , bytestring                 >= 0.10
---                    , bytestring-lexing          >= 0.4
---                    , containers                 >= 0.5
---                    , dsh-sql                    >= 0.1
---                    , tasty                      >= 0.11
---                    , tasty-hunit                >= 0.9
---                    , tasty-quickcheck           >= 0.8
---                    , text                       >= 1.1
---                    , vector                     >= 0.10
---                    , deepseq                    >= 1.4
---     GHC-Options: -Wall -fno-warn-orphans
---     default-extensions: CPP
+Executable test-basic
+    default-language:    Haskell2010
+    Hs-Source-Dirs : testsuite
+    Main-is:       TestBasic.hs
+    Build-depends:
+                     DSH                        >= 0.13
+                   , HDBC                       >= 2.4.0.1
+                   , HDBC-odbc                  >= 2.4
+                   , HUnit                      >= 1.2
+                   , QuickCheck                 >= 2.4
+                   , base                       >= 4.8 && < 5
+                   , bytestring                 >= 0.10
+                   , bytestring-lexing          >= 0.4
+                   , containers                 >= 0.5
+                   , dsh-sql                    >= 0.1
+                   , tasty                      >= 0.11
+                   , tasty-hunit                >= 0.9
+                   , tasty-quickcheck           >= 0.8
+                   , text                       >= 1.1
+                   , vector                     >= 0.10
+                   , deepseq                    >= 1.4
+    GHC-Options: -Wall -fno-warn-orphans
 
--- executable test-tpch
---   default-language:    Haskell2010
---   main-is:             testsuite/TestTPCH.hs
---   build-depends:       base,
---                        containers,
---                        mwc-random,
---                        vector,
---                        cassava,
---                        bytestring,
---                        time,
---                        text,
---                        Decimal,
---                        semigroups,
---                        HUnit,
---                        HDBC,
---                        HDBC-odbc,
---                        tasty,
---                        tasty-hunit,
---                        DSH,
---                        dsh-sql,
---                        dsh-example-queries
---   ghc-options:         -Wall -O2
+executable test-tpch
+  default-language:    Haskell2010
+  main-is:             testsuite/TestTPCH.hs
+  build-depends:       base,
+                       containers,
+                       mwc-random,
+                       vector,
+                       cassava,
+                       bytestring,
+                       time,
+                       text,
+                       Decimal,
+                       semigroups,
+                       HUnit,
+                       HDBC,
+                       HDBC-odbc,
+                       tasty,
+                       tasty-hunit,
+                       DSH,
+                       dsh-sql,
+                       dsh-example-queries
+  ghc-options:         -Wall -O2
 
--- executable bench-tpch
---   default-language:    Haskell2010
---   main-is:             bench/BenchTPCH.hs
---   build-depends:       base,
---                        containers,
---                        mwc-random,
---                        vector,
---                        cassava,
---                        bytestring,
---                        time,
---                        text,
---                        Decimal,
---                        semigroups,
---                        criterion,
---                        HDBC,
---                        HDBC-odbc,
---                        deepseq,
---                        DSH,
---                        dsh-sql,
---                        dsh-example-queries
---   ghc-options:         -Wall -O2
+executable bench-tpch
+  default-language:    Haskell2010
+  main-is:             bench/BenchTPCH.hs
+  build-depends:       base,
+                       containers,
+                       mwc-random,
+                       vector,
+                       cassava,
+                       bytestring,
+                       time,
+                       text,
+                       Decimal,
+                       semigroups,
+                       criterion,
+                       HDBC,
+                       HDBC-odbc,
+                       deepseq,
+                       DSH,
+                       dsh-sql,
+                       dsh-example-queries
+  ghc-options:         -Wall -O2
 
 -- executable bench-micro
 --   default-language:    Haskell2010
