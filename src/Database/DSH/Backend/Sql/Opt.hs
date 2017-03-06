@@ -37,7 +37,8 @@ cleanupRules = [ stackedProject
                , pullProjectWinFun
                , pullProjectSelect
                , pullProjectSerialize
-               , pullProjectRownum
+               -- FIXME rewrite causes some nasty bug.
+               -- , pullProjectRownum
                , pullProjectAggr
                , inlineProjectAggr
                , duplicateSortingCriteriaWin
